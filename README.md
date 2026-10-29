@@ -1,6 +1,6 @@
 # aa-moondistribution
 
-**Version 0.1.13** – see [CHANGELOG](CHANGELOG.md)
+**Version 0.1.14** – see [CHANGELOG](CHANGELOG.md)
 
 Alliance Auth plugin for the periodic **moon distribution** of an alliance (e.g. every 6 months).
 

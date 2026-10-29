@@ -48,7 +48,7 @@
                                         <td class="text-end" data-value="{% if row.moon.best_share is not None %}{{ row.moon.best_share|stringformat:'.1f' }}{% endif %}">{% if row.moon.best_share is not None %}{{ row.moon.best_share|floatformat:"-1" }}%{% else %}<span class="text-muted">–</span>{% endif %}</td>
                                         {% if has_rental %}<td class="text-end text-nowrap" data-value="{{ row.moon.rental_isk|default:'' }}">{{ row.moon.rental_display|default:"–" }}</td>{% endif %}
                                         <td>{% include "moondistribution/_composition.html" with moon=row.moon %} {% if row.moon.notes and row.moon.notes|last != "%" %}<span class="small text-muted">{{ row.moon.notes }}</span>{% endif %}</td>
-                                        {% if has_owner %}<td class="small md-name" data-value="{{ row.moon.owner_display }}">{{ row.moon.owner_display|default:"–" }}</td>{% endif %}
+                                        {% if has_owner %}<td class="small md-trunc" data-value="{{ row.moon.owner_display }}" title="{{ row.moon.owner_display }}">{{ row.moon.owner_display|default:"–" }}</td>{% endif %}
                                     </tr>
                                 {% endfor %}
                             </tbody>

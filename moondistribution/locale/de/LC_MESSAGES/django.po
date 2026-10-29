@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aa-moondistribution 0.1.8\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-30 00:34+0100\n"
+"POT-Creation-Date: 2026-10-30 00:48+0100\n"
 "PO-Revision-Date: 2026-10-29 06:30+0100\n"
 "Last-Translator: LeggaSchnegge [3THEL]\n"
 "Language-Team: German\n"
@@ -350,7 +350,7 @@ msgstr "Anzeigename, z. B. „SIG G-4“."
 msgid "SIG"
 msgstr "SIG"
 
-#: models.py:456 templates/moondistribution/base.html:48
+#: models.py:456 templates/moondistribution/base.html:51
 #: templates/moondistribution/sigs.html:6
 msgid "SIGs"
 msgstr "SIGs"
@@ -412,7 +412,7 @@ msgid "Applications until"
 msgstr "Bewerbung bis"
 
 #: templates/moondistribution/apply.html:10
-#: templates/moondistribution/base.html:42
+#: templates/moondistribution/base.html:45
 msgid "How it works"
 msgstr "So funktioniert's"
 
@@ -526,31 +526,31 @@ msgid "Cancel"
 msgstr "Abbrechen"
 
 #: templates/moondistribution/base.html:5
-#: templates/moondistribution/base.html:31
+#: templates/moondistribution/base.html:34
 msgid "Moon Distribution"
 msgstr "Moon Distribution"
 
-#: templates/moondistribution/base.html:37
+#: templates/moondistribution/base.html:40
 msgid "Rounds"
 msgstr "Runden"
 
-#: templates/moondistribution/base.html:55
+#: templates/moondistribution/base.html:58
 #: templates/moondistribution/round_form.html:6
 msgid "New round"
 msgstr "Neue Runde"
 
-#: templates/moondistribution/base.html:60
+#: templates/moondistribution/base.html:63
 #: templates/moondistribution/index.html:66
 #: templates/moondistribution/moons.html:7
 #: templates/moondistribution/round_detail.html:222
 msgid "Moons"
 msgstr "Monde"
 
-#: templates/moondistribution/base.html:65
+#: templates/moondistribution/base.html:68
 msgid "Corps"
 msgstr "Corps"
 
-#: templates/moondistribution/base.html:70
+#: templates/moondistribution/base.html:73
 #: templates/moondistribution/corps.html:16
 #: templates/moondistribution/settings.html:8
 msgid "Settings"
@@ -921,9 +921,13 @@ msgstr "Quelle"
 msgid "Active"
 msgstr "Aktiv"
 
-#: templates/moondistribution/moons.html:145
+#: templates/moondistribution/moons.html:144
 msgid "Sheet / manual"
 msgstr "Sheet / manuell"
+
+#: templates/moondistribution/moons.html:145
+msgid "Sheet"
+msgstr "Sheet"
 
 #: templates/moondistribution/moons.html:151
 msgid "No moons found."

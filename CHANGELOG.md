@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.14] - 2026-10-30
+
+### Changed
+
+- Moon tables less squeezed: long corp names (owner, last assigned) are cut with "…" and shown in full as tooltip, the round of the last assignment is a small second line, the source is a short label (Sheet / Corptools)
+
 ## [0.1.13] - 2026-10-30
 
 ### Added

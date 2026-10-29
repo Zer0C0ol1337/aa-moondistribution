@@ -135,14 +135,14 @@ R-ARKN I - Moon 1
                                 {% if moon.notes and moon.notes|last != "%" %}<span class="small text-muted">{{ moon.notes }}</span>{% endif %}
                             </td>
                             <td class="text-end text-nowrap" data-value="{{ moon.rental_isk|default:'' }}">{{ moon.rental_display|default:"–" }}</td>
-                            <td class="small md-name" data-value="{{ moon.owner_display }}">{{ moon.owner_display|default:"–" }}</td>
-                            <td class="small" data-value="{% with last=moon.allocations.all|first %}{{ last.corporation.corporation_name|default:'' }}{% endwith %}">
-                                {% with last=moon.allocations.all|first %}
-                                    {% if last %}{{ last.corporation.corporation_name }} <span class="text-muted">({{ last.round.name }})</span>{% else %}–{% endif %}
-                                {% endwith %}
-                            </td>
-                            <td class="small" data-value="{{ moon.last_seen|date:'Y-m-d'|default:'' }}">
-                                {% if moon.structure_id %}{{ moon.structure_name|default:"Corptools" }}{% else %}{% translate "Sheet / manual" %}{% endif %}
+                            <td class="small md-trunc" data-value="{{ moon.owner_display }}" title="{{ moon.owner_display }}">{{ moon.owner_display|default:"–" }}</td>
+                            {% with last=moon.allocations.all|first %}
+                                <td class="small md-trunc" data-value="{{ last.corporation.corporation_name|default:'' }}" title="{% if last %}{{ last.corporation.corporation_name }} ({{ last.round.name }}){% endif %}">
+                                    {% if last %}{{ last.corporation.corporation_name }}<span class="md-sub">{{ last.round.name }}</span>{% else %}–{% endif %}
+                                </td>
+                            {% endwith %}
+                            <td class="small text-nowrap" data-value="{% if moon.structure_id %}corptools{% else %}sheet{% endif %}" title="{% if moon.structure_id %}{{ moon.structure_name|default:'Corptools' }}{% else %}{% translate 'Sheet / manual' %}{% endif %}">
+                                {% if moon.structure_id %}<i class="fas fa-satellite-dish me-1"></i>Corptools{% else %}<i class="fas fa-table me-1"></i>{% translate "Sheet" %}{% endif %}
                             </td>
                             <td data-value="{% if moon.is_active %}1{% else %}0{% endif %}">{% if moon.is_active %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-xmark"></i>{% endif %}</td>
                             <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_edit' moon.pk %}"><i class="fas fa-pen"></i></a></td>
