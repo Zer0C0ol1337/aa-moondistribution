@@ -9,6 +9,7 @@
 <h5 class="mt-3">3. 申請できるのは？</h5>
 <p>アライアンス所属コーポの<strong>CEO</strong> – 1コーポにつき1件の申請です。{% if s.allow_directors %} <strong>ディレクター</strong>も申請できます。ディレクターは Corptools で判定されるため、キャラクターに有効な Corptools 監査が必要です。{% endif %}</p>
          {% if s.probation_months %}<p>コーポは同盟に少なくとも<strong>{{ s.probation_months }}か月</strong>在籍している必要があります（最後の加入日から数えます）。試用期間中のコーポは申請できません。マイニングオフィサーは例外を認めることができます。</p>{% endif %}
+         <p>Auth にログインできない場合（中国のファイアウォールなど）は、マイニングオフィサーにラウンドの<strong>Excel テンプレート</strong>を依頼してください。コーポのティッカーを入力し、希望するムーンに x を付けてファイルを返送すると、オフィサーがインポートします。Auth にプレイヤーがいないコーポは PvP とフリートのみで評価されます。</p>
 <h5 class="mt-3">4. 申請方法</h5>
 <ol><li><em>Moon Distribution → ラウンド</em>を開き、自分のコーポの横にある<em>申請</em>をクリックします。</li><li>コーポが希望するムーンをすべてチェックします（最大<strong>{{ s.max_wishes }}</strong>件）。ムーンはリージョンごとのタブに分かれており、選択はすべてのタブで共通です。</li><li>列の見出しをクリックすると並べ替えできます（例：レア度や高価値鉱石の割合）。Shift+クリックで2段階目の並べ替えを追加できます。</li><li>保存します。チェックしたムーンはすべて同等に扱われ、優先順位はありません。</li></ol>
          <p>色： <span class="md-chip md-r32">R32</span> <span class="md-chip md-r16">R16</span> <span class="md-chip md-r8">R8</span> <span class="md-chip md-r4">R4</span>. ムーンの横のラベルは鉱石とその割合を示します。<em>最高 %</em> はそのムーンのクラスで最も価値の高い鉱石の割合です。</p>

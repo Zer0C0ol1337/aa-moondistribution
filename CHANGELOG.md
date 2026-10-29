@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.12] - 2026-10-29
+
+### Added
+
+- **Excel template for corps without Auth access** (e.g. players behind the Chinese firewall, where the EVE SSO fails): officers download a template of the round with all moons of the pool and their details (region, rarity, best %, composition, current owner), bilingual English/Chinese. The CEO enters the corp ticker and an x next to the wanted moons and sends the file back; the officer imports one or several returned files on the round page. Same rules as a normal application (alliance corp, pool moons only, no R64, max. wishes, probation); every file is reported as imported or with the reason why not. No public page – everything stays behind the login.
+- Corps **without any player in the Auth** whose application was entered by an officer (Excel template or "apply for corp") are rated by **PvP and fleets only** – active members and activity rate are left out instead of counting as 0, the weights are re-scaled. Marked on the round page and in the ranking.
+- Fleets: with aFAT, fleet members who are not registered in the Auth now count for the corp they are in
+- *Corps* page: number of players registered in the Auth per corp and a hint for corps without Auth access
+- Guide: Excel template explained in all 12 languages
+- Migration `0009_excel_template`
+
+### Changed
+
+- New dependency `openpyxl` (Excel files)
+
 ## [0.1.11] - 2026-10-29
 
 ### Added

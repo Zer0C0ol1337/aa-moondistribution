@@ -282,6 +282,13 @@ class Application(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     comment = models.TextField(blank=True, default="")
+    entered_by_officer = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Entered by a Mining Officer (Excel template or 'apply for corp'), not by the corp itself. "
+            "If the corp has no player in the Auth, it is rated by PvP and fleets only."
+        ),
+    )
 
     class Meta:
         default_permissions = ()
@@ -364,6 +371,9 @@ class CorporationScore(models.Model):
     total_score = models.FloatField(default=0)
     rank = models.PositiveSmallIntegerField(default=0)
     pvp_error = models.BooleanField(default=False, help_text=_("zKillboard could not be reached."))
+    no_auth_data = models.BooleanField(
+        default=False, help_text=_("No Auth access: active members and activity rate were not rated."),
+    )
 
     class Meta:
         default_permissions = ()
@@ -417,4 +427,3 @@ class CorporationProbation(models.Model):
 
     def __str__(self):
         return f"{self.corporation} – joined {self.joined_at:%Y-%m-%d}" if self.joined_at else str(self.corporation)
-

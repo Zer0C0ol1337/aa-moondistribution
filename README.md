@@ -1,6 +1,6 @@
 # aa-moondistribution
 
-**Version 0.1.11** – see [CHANGELOG](CHANGELOG.md)
+**Version 0.1.12** – see [CHANGELOG](CHANGELOG.md)
 
 Alliance Auth plugin for the periodic **moon distribution** of an alliance (e.g. every 6 months).
 
@@ -18,6 +18,7 @@ UI languages: English, German. The "How it works" guide for the corps is availab
   - filter, search, bulk edit; pools with thousands of moons are supported
 - **Probation**: corps can only apply after N months in the alliance (setting, default 3, 0 = off), counted from their last join according to the EVE alliance history; officers can make an exception per corp (page *Corps*)
 - **Applications** by the corp CEO or directors (Corptools role data) – tick the wanted moons (no ranking, all count the same), changeable until the deadline
+- **Excel template for corps without Auth access** (e.g. behind the Chinese firewall): officers export the round's moons with all details (English/Chinese), the CEO marks the wanted moons and sends the file back, the officer imports it (several files at once); such corps are rated by PvP and fleets only
 - **"How it works" guide** for the corps in all Alliance Auth languages, always showing the current settings
 - **Scoring** per corp, every criterion scaled 0–100 against the best applicant, weighted average:
   - **PvP** – ships destroyed according to zKillboard (default weight 40)
@@ -146,6 +147,8 @@ Migrations are additive – `migrate` only applies the missing ones.
 - **Directors** are taken from the Corptools role data of active Corptools characters; role changes show up after the next Corptools update.
 - The Corptools refinery import only sees corps that added a **corp token** in Corptools – otherwise use the sheet import.
 - A failed distribution is not retried automatically; the round shows the error and an officer starts it again with *Re-run distribution*. *Close now & distribute* ends the application phase early.
+- **Excel template:** the export contains the round's moon pool and current owners – it is meant for the CEOs of the corps. Imported applications are saved as entered by the importing officer. Uploads are limited to 5 MB per file and only accepted from officers.
+- **Fleets of unregistered players:** with aFAT, fleet members without an Auth account count for their current corp; registered players count for the corp of their main.
 - **Data stored:** who submitted an application (AA user), the comment, which officer set a bonus. Bonus reasons are visible to all members.
 - The pages need JavaScript (as Alliance Auth itself).
 

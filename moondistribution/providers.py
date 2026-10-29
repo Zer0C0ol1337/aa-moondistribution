@@ -135,7 +135,11 @@ def collect_members(corp_ids: list, active_days: int) -> dict:
 
 
 def collect_fleets(corp_ids: list, start: date, end: date) -> dict:
-    """Fleet participations per corp – aFAT if installed, otherwise the AA built-in FAT."""
+    """Fleet participations per corp – aFAT if installed, otherwise the AA built-in FAT.
+
+    Registered players count for the corp of their main; with aFAT, unregistered fleet members
+    count for their current corp.
+    """
     result = {cid: 0 for cid in corp_ids}
 
     if apps.is_installed("afat"):
@@ -168,6 +172,21 @@ def collect_fleets(corp_ids: list, start: date, end: date) -> dict:
 
     for row in rows:
         result[row[key]] = row["n"]
+
+    if apps.is_installed("afat"):
+        # Fleet members that are not registered in the Auth (e.g. players behind the Chinese firewall)
+        # count for the corp they are in right now – aFAT knows them from the ESI fleet
+        unregistered = (
+            Fat.objects.filter(
+                fatlink__created__date__gte=start, fatlink__created__date__lte=end,
+                character__character_ownership__isnull=True,
+                character__corporation_id__in=corp_ids,
+            )
+            .values("character__corporation_id")
+            .annotate(n=Count("id"))
+        )
+        for row in unregistered:
+            result[row["character__corporation_id"]] += row["n"]
     return result
 
 

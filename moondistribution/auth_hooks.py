@@ -37,5 +37,5 @@ def register_menu():
 
 @hooks.register("url_hook")
 def register_urls():
-    """Register the app URLs under /moondistribution/."""
+    """Register the app URLs under /moondistribution/ (all views need a login)."""
     return UrlHook(urls, "moondistribution", r"^moondistribution/")

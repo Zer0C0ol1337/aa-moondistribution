@@ -28,12 +28,21 @@
         {% if last_check %}{% translate "Last update" %}: {{ last_check|date:"Y-m-d H:i" }}.{% endif %}
     </p>
 
+    {# Corps without any player in the Auth (e.g. behind the Chinese firewall) apply via the Excel template #}
+    {% if no_auth %}
+        <div class="alert alert-info small">
+            <strong>{% translate "Corps without Auth access" %}: {{ no_auth|length }}</strong> –
+            {% translate "no player of the corp is registered in the Auth. Such corps can apply via the Excel template: download it on the round page, send it to the CEO, import the returned file. They are then rated by PvP and fleets only." %}
+        </div>
+    {% endif %}
+
     <div class="table-responsive">
         <table class="table table-sm table-hover align-middle md-sortable">
             <thead>
                 <tr>
                     <th data-sort="text">{% translate "Corporation" %}</th>
                     <th class="text-end" data-sort="num">{% translate "Members in EVE" %}</th>
+                    <th class="text-end" data-sort="num" title="{% translate 'Players with their main in the corp registered in the Auth' %}">{% translate "In the Auth" %}</th>
                     <th data-sort="text">{% translate "In the alliance since" %}</th>
                     <th data-sort="text">{% translate "Probation until" %}</th>
                     <th data-sort="num">{% translate "Status" %}</th>
@@ -45,6 +54,7 @@
                     <tr>
                         <td class="text-nowrap">[{{ row.corp.corporation_ticker }}] {{ row.corp.corporation_name }}</td>
                         <td class="text-end" data-value="{{ row.corp.member_count|default:0 }}">{{ row.corp.member_count|default:0|intcomma }}</td>
+                        <td class="text-end" data-value="{{ row.registered }}">{% if row.registered %}{{ row.registered }}{% else %}<span class="badge text-bg-secondary">0</span>{% endif %}</td>
                         <td data-value="{{ row.joined_at|date:'Y-m-d' }}">{% if row.joined_at %}{{ row.joined_at|date:"Y-m-d" }}{% else %}<span class="text-muted">–</span>{% endif %}</td>
                         <td data-value="{{ row.ends_at|date:'Y-m-d' }}">{% if row.ends_at %}{{ row.ends_at|date:"Y-m-d" }}{% else %}<span class="text-muted">–</span>{% endif %}</td>
                         <td data-value="{% if row.blocked %}0{% elif row.unknown %}1{% else %}2{% endif %}">
@@ -75,7 +85,7 @@
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="6" class="text-muted">{% translate "No alliance corps known in AA." %}</td></tr>
+                    <tr><td colspan="7" class="text-muted">{% translate "No alliance corps known in AA." %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

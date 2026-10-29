@@ -733,3 +733,139 @@ class ProbationTest(IntegrationBase):
         self.client.force_login(self.member_b)
         self.assertEqual(self.client.get(reverse("moondistribution:corps")).status_code, 403)
 
+
+class ExcelTemplateTest(IntegrationBase):
+    """Corps that cannot log in (Chinese firewall): officer exports the template, the corp fills it, officer imports."""
+
+    def setUp(self):
+        """A third alliance corp without any player in the Auth."""
+        super().setUp()
+        self.corp_c = EveCorporationInfo.objects.create(
+            corporation_id=1003, corporation_name="Charlie Corp", corporation_ticker="CHRLY",
+            member_count=40, alliance=EveAllianceInfo.objects.get(alliance_id=ALLIANCE_ID), ceo_id=5099,
+        )
+
+    def _export(self, r):
+        """Officer downloads the template of round r and gets an openpyxl workbook back."""
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        self.client.force_login(self.officer)
+        resp = self.client.get(reverse("moondistribution:round_export", args=[r.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("spreadsheetml", resp["Content-Type"])
+        return load_workbook(BytesIO(resp.content))
+
+    def _filled(self, wb, ticker, moons, name="charlie.xlsx"):
+        """The CEO enters the ticker and an x next to the given moons; returns the file to upload."""
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        ws = wb.worksheets[0]
+        ws["B3"] = ticker
+        wanted = {m.pk for m in moons}
+        for row in range(7, ws.max_row + 1):
+            if ws.cell(row=row, column=8).value in wanted:
+                ws.cell(row=row, column=1).value = "x"
+        out = BytesIO()
+        wb.save(out)
+        return SimpleUploadedFile(name, out.getvalue())
+
+    def test_export_contains_pool_with_details(self):
+        """Template lists the pool moons (no R64) with rarity and ID, bilingual header."""
+        wb = self._export(self._round())
+        ws = wb.worksheets[0]
+        names = [ws.cell(row=r, column=3).value for r in range(7, ws.max_row + 1)]
+        self.assertIn(self.moon1.name, names)
+        self.assertNotIn(self.moon_r64.name, names)
+        self.assertIn("想要", ws["A6"].value)
+        self.assertIn("meta", wb.sheetnames)
+
+    def test_import_creates_application(self):
+        """Imported file becomes the corp's application, marked as entered by an officer."""
+        r = self._round()
+        upload = self._filled(self._export(r), "[chrly]", [self.moon1, self.moon2])
+        resp = self.client.post(reverse("moondistribution:round_import", args=[r.pk]), {"files": [upload]}, follow=True)
+        self.assertContains(resp, "Charlie Corp with 2 moons saved")
+        app = Application.objects.get(round=r, corporation=self.corp_c)
+        self.assertTrue(app.entered_by_officer)
+        self.assertEqual(app.submitted_by, self.officer)
+        self.assertEqual(app.wishes.count(), 2)
+
+    def test_import_errors(self):
+        """Unknown ticker, nothing marked, too many moons, wrong round and non-Excel files are reported, not saved."""
+        r = self._round()
+        settings = DistributionSettings.get_solo()
+        settings.max_wishes = 1
+        settings.save()
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        other = Round.objects.create(name="other", status=Round.Status.DRAFT,
+                                     evaluation_start=date.today(), evaluation_end=date.today())
+        files = [
+            self._filled(self._export(r), "NOPE", [self.moon1], "a.xlsx"),
+            self._filled(self._export(r), "CHRLY", [], "b.xlsx"),
+            self._filled(self._export(r), "CHRLY", [self.moon1, self.moon2], "c.xlsx"),
+            self._filled(self._export(other), "CHRLY", [], "d.xlsx"),
+            SimpleUploadedFile("e.xlsx", b"no excel"),
+        ]
+        resp = self.client.post(reverse("moondistribution:round_import", args=[r.pk]), {"files": files}, follow=True)
+        for text in ("is not a corp of the alliance", "no moon marked", "at most 1 allowed",
+                     "template of another round", "not an Excel file"):
+            self.assertContains(resp, text)
+        self.assertFalse(Application.objects.filter(round=r).exists())
+
+    def test_import_respects_probation(self):
+        """A corp in its probation can't be imported either."""
+        CorporationProbation.objects.create(corporation=self.corp_c, joined_at=timezone.now() - timedelta(days=10))
+        r = self._round()
+        upload = self._filled(self._export(r), "CHRLY", [self.moon1])
+        resp = self.client.post(reverse("moondistribution:round_import", args=[r.pk]), {"files": [upload]}, follow=True)
+        self.assertContains(resp, "still in its probation")
+        self.assertFalse(Application.objects.filter(round=r).exists())
+
+    def test_members_cannot_export_or_import(self):
+        """Only officers."""
+        r = self._round()
+        self.client.force_login(self.ceo_b)
+        self.assertEqual(self.client.get(reverse("moondistribution:round_export", args=[r.pk])).status_code, 403)
+        self.assertEqual(self.client.post(reverse("moondistribution:round_import", args=[r.pk])).status_code, 403)
+
+    def test_no_auth_corp_rated_without_member_criteria(self):
+        """Imported corp without players in the Auth: no_auth_data, rated by PvP and fleets only."""
+        r = self._round(ended=True)
+        app = Application.objects.create(round=r, corporation=self.corp_c, submitted_by=self.officer,
+                                         entered_by_officer=True)
+        ApplicationWish.objects.create(application=app, moon=self.moon1, priority=1)
+        # officer enters for Bravo (has players in the Auth) → normal rating
+        app_b = Application.objects.create(round=r, corporation=self.corp_b, submitted_by=self.officer,
+                                           entered_by_officer=True)
+        ApplicationWish.objects.create(application=app_b, moon=self.moon2, priority=1)
+        with mock.patch.object(distribute_round, "delay", side_effect=distribute_round):
+            process_rounds()
+        r.refresh_from_db()
+        self.assertEqual(r.status, Round.Status.DONE, r.last_error)
+        self.assertTrue(r.scores.get(corporation=self.corp_c).no_auth_data)
+        self.assertFalse(r.scores.get(corporation=self.corp_b).no_auth_data)
+
+    def test_officer_apply_for_marks_entry(self):
+        """'Apply for corp' by an officer marks the application; the corp's own CEO saving clears it."""
+        r = self._round()
+        self.client.force_login(self.officer)
+        self.client.post(reverse("moondistribution:apply", args=[r.pk, 1002]), {"moon_ids": str(self.moon1.pk)})
+        self.assertTrue(Application.objects.get(round=r, corporation=self.corp_b).entered_by_officer)
+        self.client.force_login(self.ceo_b)
+        self.client.post(reverse("moondistribution:apply", args=[r.pk, 1002]), {"moon_ids": str(self.moon1.pk)})
+        self.assertFalse(Application.objects.get(round=r, corporation=self.corp_b).entered_by_officer)
+
+    def test_all_pages_need_login(self):
+        """No public views."""
+        r = self._round()
+        for name, args in (("index", []), ("guide", []), ("round_detail", [r.pk]), ("corps", []),
+                           ("round_export", [r.pk])):
+            resp = self.client.get(reverse(f"moondistribution:{name}", args=args))
+            self.assertEqual(resp.status_code, 302, name)
+            self.assertIn("login", resp.url, name)
+

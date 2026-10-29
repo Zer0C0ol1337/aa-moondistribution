@@ -5,8 +5,8 @@ from solo.admin import SingletonModelAdmin
 from django.contrib import admin
 
 from .models import (
-    Allocation, Application, ApplicationWish, CorporationProbation, CorporationScore, DistributionSettings, Moon,
-    Round, RoundBonus,
+    Allocation, Application, ApplicationWish, CorporationProbation, CorporationScore,
+    DistributionSettings, Moon, Round, RoundBonus,
 )
 
 
@@ -99,4 +99,3 @@ class CorporationProbationAdmin(admin.ModelAdmin):
     list_display = ("corporation", "joined_at", "checked_at", "exempt", "exempt_reason", "exempt_by")
     list_filter = ("exempt",)
     readonly_fields = ("joined_at", "checked_at")
-

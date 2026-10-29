@@ -4,8 +4,10 @@ from datetime import timedelta
 
 from django.apps import apps
 from django.contrib import messages
+from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -19,6 +21,7 @@ from allianceauth.eveonline.models import EveCorporationInfo
 from . import __version__
 from .decorators import check_access, officer_required
 from .distribution import application_summary
+from .excel_template import export_round, import_templates
 from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_selection
 from .models import (
     Allocation, Application, ApplicationWish, CorporationProbation, DistributionSettings, Moon, Round, RoundBonus,
@@ -217,6 +220,7 @@ def apply(request, round_id: int, corporation_id: int):
     selected = set(application.wishes.values_list("moon_id", flat=True)) if application else set()
     comment = application.comment if application else ""
 
+    own_corps = list(eligible_corporations_for(request.user, include_officer=False))
     if request.method == "POST":
         posted_ids = ids_from_csv(request.POST.get("moon_ids", ""))
         chosen, errors = parse_selection(posted_ids, moons, settings.max_wishes)
@@ -235,6 +239,8 @@ def apply(request, round_id: int, corporation_id: int):
                 )
                 application.comment = comment
                 application.submitted_by = request.user
+                # entered by an officer for a corp he is not CEO/director of (e.g. corp without Auth access)
+                application.entered_by_officer = corporation not in own_corps
                 application.save()
                 application.wishes.all().delete()
                 ApplicationWish.objects.bulk_create([
@@ -595,11 +601,24 @@ def corps(request):
          **probation_status(c, records.get(c.pk), settings.probation_months, now)}
         for c in corporations
     ]
+    registered = _registered_counts(corporations)
+    for row in rows:
+        row["registered"] = registered.get(row["corp"].corporation_id, 0)
+    no_auth = [row for row in rows if not row["registered"]]
     last_check = max((r.checked_at for r in records.values() if r.checked_at), default=None)
     return render(request, "moondistribution/corps.html", _ctx(
         request, rows=rows, probation_months=settings.probation_months, last_check=last_check,
-        no_alliance=settings.alliance_id is None,
+        no_alliance=settings.alliance_id is None, no_auth=no_auth,
     ))
+
+
+def _registered_counts(corporations) -> dict:
+    """Number of AA users whose main character is in each corp: {corporation_id: n}."""
+    return dict(
+        User.objects.filter(profile__main_character__corporation_id__in=[c.corporation_id for c in corporations])
+        .values_list("profile__main_character__corporation_id")
+        .annotate(n=Count("id"))
+    )
 
 
 @officer_required
@@ -626,4 +645,40 @@ def corps_refresh(request):
     if _queue(request, update_join_dates, request.user.pk):
         messages.info(request, _("Join dates are being updated from ESI – you get a notification when done."))
     return redirect("moondistribution:corps")
+
+
+@officer_required
+def round_export(request, round_id: int):
+    """Download the Excel template of a round – for corps that cannot log in (e.g. behind the Chinese firewall)."""
+    round_obj = get_object_or_404(Round, pk=round_id, status__in=[Round.Status.DRAFT, Round.Status.OPEN])
+    response = HttpResponse(
+        export_round(round_obj),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="moon-distribution-{slugify(round_obj.name) or round_obj.pk}.xlsx"'
+    return response
+
+
+@officer_required
+@require_POST
+def round_import(request, round_id: int):
+    """Import the returned Excel templates (several files at once) as applications of the corps named in them."""
+    round_obj = get_object_or_404(Round, pk=round_id)
+    if not round_obj.is_open:
+        messages.error(request, _("Applications for this round are not open."))
+        return redirect("moondistribution:round_detail", round_id=round_obj.pk)
+    files = request.FILES.getlist("files")
+    if not files:
+        messages.error(request, _("Please choose at least one file."))
+        return redirect("moondistribution:round_detail", round_id=round_obj.pk)
+    for res in import_templates(round_obj, files, request.user):
+        if res["ok"]:
+            messages.success(request, _("%(file)s: application of %(corp)s with %(n)s moons saved.") % {
+                "file": res["file"], "corp": res["corp"], "n": res["count"],
+            } + (f" ({res['message']})" if res["message"] else ""))
+        else:
+            messages.error(request, _("%(file)s: not imported – %(reason)s") % {
+                "file": res["file"], "reason": (res["corp"] + ": " if res["corp"] else "") + res["message"],
+            })
+    return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 

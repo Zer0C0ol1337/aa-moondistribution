@@ -60,6 +60,16 @@ class TestNormalizeScores(SimpleTestCase):
         self.assertAlmostEqual(res[1]["score_activity"], 33.33, places=2)
         self.assertGreater(res[2]["total"], res[1]["total"])
 
+    def test_skip_criteria_for_link_corps(self):
+        """A corp without Auth data is rated on its remaining criteria only (weights re-scaled)."""
+        raw = {1: {"pvp": 100, "members": 50, "fleet": 100, "activity": 80.0},
+               2: {"pvp": 100, "members": 0, "fleet": 100, "activity": 0.0}}  # no Auth data
+        weights = {"pvp": 40, "members": 10, "fleet": 35, "activity": 15}
+        res = normalize_scores(raw, weights, skip={2: ("members", "activity")})
+        self.assertEqual(res[2]["total"], 100.0)   # best in PvP and fleets → 100, not 75
+        self.assertEqual(res[1]["total"], 100.0)
+        self.assertEqual(res[2]["score_members"], 0.0)
+
     def test_activity_rate_not_divided_per_member(self):
         """Per-member mode leaves the activity rate alone (it already is a share)."""
         raw = {1: {"pvp": 0, "members": 10, "fleet": 0, "activity": 50.0},

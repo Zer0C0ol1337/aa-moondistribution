@@ -51,7 +51,8 @@ T["en"] = dict(
         ("3. Who can apply?",
          """<p>The <strong>CEO</strong>{% if s.allow_directors %} or a <strong>director</strong>{% endif %} of an alliance corp – one application per corp.
          {% if s.allow_directors %}Directors are recognised via Corptools, so the character needs an active Corptools audit.{% endif %}</p>
-         {% if s.probation_months %}<p>Your corp must have been in the alliance for at least <strong>{{ s.probation_months }} months</strong> (counted from its last join). Corps that are still in their probation can't apply; the Mining Officers can make an exception.</p>{% endif %}"""),
+         {% if s.probation_months %}<p>Your corp must have been in the alliance for at least <strong>{{ s.probation_months }} months</strong> (counted from its last join). Corps that are still in their probation can't apply; the Mining Officers can make an exception.</p>{% endif %}
+         <p>Can't log in to the Auth (e.g. because of the Chinese firewall)? Ask a Mining Officer for the <strong>Excel template</strong> of the round: enter your corp ticker, put an x next to the moons you want and send the file back – the officer imports it. Corps without any player in the Auth are then rated by PvP and fleets only.</p>"""),
         ("4. How to apply",
          f"""<ol>
          <li>Open <em>Moon Distribution → Rounds</em> and click <em>Apply</em> next to your corp.</li>
@@ -117,7 +118,8 @@ T["de"] = dict(
         ("3. Wer darf sich bewerben?",
          """<p>Der <strong>CEO</strong>{% if s.allow_directors %} oder ein <strong>Direktor</strong>{% endif %} einer Allianz-Corp – eine Bewerbung pro Corp.
          {% if s.allow_directors %}Direktoren werden über Corptools erkannt, der Charakter braucht also einen aktiven Corptools-Audit.{% endif %}</p>
-         {% if s.probation_months %}<p>Eure Corp muss mindestens <strong>{{ s.probation_months }} Monate</strong> in der Allianz sein (gezählt ab dem letzten Beitritt). Corps in der Probezeit können sich nicht bewerben; die Mining Officer können eine Ausnahme machen.</p>{% endif %}"""),
+         {% if s.probation_months %}<p>Eure Corp muss mindestens <strong>{{ s.probation_months }} Monate</strong> in der Allianz sein (gezählt ab dem letzten Beitritt). Corps in der Probezeit können sich nicht bewerben; die Mining Officer können eine Ausnahme machen.</p>{% endif %}
+         <p>Ihr kommt nicht in die Auth (z. B. wegen der chinesischen Firewall)? Fragt einen Mining Officer nach der <strong>Excel-Vorlage</strong> der Runde: Corp-Ticker eintragen, ein x bei euren Wunschmonden setzen und die Datei zurückschicken – der Officer importiert sie. Corps ohne Spieler in der Auth werden dann nur über PvP und Fleets bewertet.</p>"""),
         ("4. So bewerbt ihr euch",
          f"""<ol>
          <li>Öffnet <em>Moon Distribution → Runden</em> und klickt bei eurer Corp auf <em>Bewerben</em>.</li>
@@ -172,7 +174,8 @@ def build(lang, title, footer, h, t):
         (h[0], f"""<p>{t['intro']} {{% if s.exclude_r64 %}}{chip(64)} {t['r64']}{{% endif %}}</p>"""),
         (h[1], f"""<ol><li>{t['tl1']}</li><li>{t['tl2']}</li><li>{t['tl3']}</li><li>{t['tl4']}</li></ol>"""),
         (h[2], f"""<p>{t['who']}{{% if s.allow_directors %}} {t['who_dir']}{{% endif %}}</p>
-         {{% if s.probation_months %}}<p>{t['prob']}</p>{{% endif %}}"""),
+         {{% if s.probation_months %}}<p>{t['prob']}</p>{{% endif %}}
+         <p>{t['link']}</p>"""),
         (h[3], f"""<ol><li>{t['ap1']}</li><li>{t['ap2']}</li><li>{t['ap3']}</li><li>{t['ap4']}</li></ol>
          <p>{t['colors']} {chip(32)} {chip(16)} {chip(8)} {chip(4)}. {t['chips']}</p>"""),
         (h[4], f"""<p>{t['rate']}</p>
@@ -213,6 +216,7 @@ build("es", "Cómo funciona el reparto de lunas", "Esta página muestra siempre 
           who="El <strong>CEO</strong> de una corp de la alianza – una solicitud por corp.",
           who_dir="También pueden solicitar los <strong>directores</strong>; se reconocen a través de Corptools, por lo que el personaje necesita una auditoría de Corptools activa.",
           prob=f"Vuestra corp debe llevar al menos <strong>{V['prob']} meses</strong> en la alianza (contados desde su último ingreso). Las corps en periodo de prueba no pueden solicitar; los Mining Officers pueden hacer una excepción.",
+          link="¿No podéis iniciar sesión en el Auth (p. ej. por el cortafuegos de China)? Pedid a un Mining Officer la <strong>plantilla de Excel</strong> de la ronda: escribid el ticker de vuestra corp, poned una x junto a las lunas que queréis y devolved el archivo – el officer lo importa. Las corps sin ningún jugador en el Auth se evalúan entonces solo por PvP y flotas.",
           ap1="Abrid <em>Moon Distribution → Rondas</em> y haced clic en <em>Solicitar</em> junto a vuestra corp.",
           ap2=f"Marcad todas las lunas que quiere vuestra corp – hasta <strong>{V['wishes']}</strong>. Las lunas están agrupadas en pestañas por región; la selección cuenta en todas las pestañas.",
           ap3="Haced clic en un encabezado de columna para ordenar (p. ej. por rareza o por el porcentaje del mineral valioso); Mayús+clic añade un segundo nivel de orden.",
@@ -252,6 +256,7 @@ build("it", "Come funziona la distribuzione delle lune", "Questa pagina mostra s
           who="Il <strong>CEO</strong> di una corp dell'alleanza – una candidatura per corp.",
           who_dir="Possono candidarsi anche i <strong>direttori</strong>; vengono riconosciuti tramite Corptools, quindi il personaggio deve avere un audit Corptools attivo.",
           prob=f"La vostra corp deve far parte dell'alleanza da almeno <strong>{V['prob']} mesi</strong> (contati dall'ultimo ingresso). Le corp ancora in periodo di prova non possono candidarsi; i Mining Officer possono fare un'eccezione.",
+          link="Non riuscite ad accedere all'Auth (ad es. per il firewall cinese)? Chiedete a un Mining Officer il <strong>modello Excel</strong> del round: inserite il ticker della vostra corp, mettete una x accanto alle lune desiderate e rimandate il file – l'officer lo importa. Le corp senza giocatori nell'Auth vengono poi valutate solo su PvP e flotte.",
           ap1="Aprite <em>Moon Distribution → Round</em> e cliccate su <em>Candidati</em> accanto alla vostra corp.",
           ap2=f"Spuntate tutte le lune che la vostra corp desidera – fino a <strong>{V['wishes']}</strong>. Le lune sono raggruppate in schede per regione; la selezione vale per tutte le schede.",
           ap3="Cliccate sull'intestazione di una colonna per ordinare (ad es. per rarità o per la quota del minerale prezioso); Maiusc+clic aggiunge un secondo livello di ordinamento.",
@@ -291,6 +296,7 @@ build("fr", "Comment fonctionne la distribution des lunes", "Cette page affiche 
           who="Le <strong>CEO</strong> d'une corp de l'alliance – une candidature par corp.",
           who_dir="Les <strong>directeurs</strong> peuvent aussi postuler ; ils sont reconnus via Corptools, le personnage doit donc avoir un audit Corptools actif.",
           prob=f"Votre corp doit faire partie de l'alliance depuis au moins <strong>{V['prob']} mois</strong> (à compter de sa dernière adhésion). Les corps encore en période d'essai ne peuvent pas postuler ; les Mining Officers peuvent faire une exception.",
+          link="Vous ne pouvez pas vous connecter à l'Auth (par ex. à cause du pare-feu chinois) ? Demandez à un Mining Officer le <strong>modèle Excel</strong> de la manche : saisissez le ticker de votre corp, mettez un x à côté des lunes souhaitées et renvoyez le fichier – l'officer l'importe. Les corps sans aucun joueur dans l'Auth sont alors évaluées uniquement sur le PvP et les flottes.",
           ap1="Ouvrez <em>Moon Distribution → Tours</em> et cliquez sur <em>Postuler</em> à côté de votre corp.",
           ap2=f"Cochez toutes les lunes que votre corp souhaite – jusqu'à <strong>{V['wishes']}</strong>. Les lunes sont regroupées par région dans des onglets ; votre sélection vaut pour tous les onglets.",
           ap3="Cliquez sur un en-tête de colonne pour trier (par ex. par rareté ou par la part du minerai précieux) ; Maj+clic ajoute un second niveau de tri.",
@@ -330,6 +336,7 @@ build("nl", "Zo werkt de maanverdeling", "Deze pagina toont altijd de actuele in
           who="De <strong>CEO</strong> van een alliantie-corp – één aanmelding per corp.",
           who_dir="Ook <strong>directors</strong> mogen zich aanmelden; zij worden via Corptools herkend, dus het personage heeft een actieve Corptools-audit nodig.",
           prob=f"Jullie corp moet minstens <strong>{V['prob']} maanden</strong> in de alliantie zitten (gerekend vanaf de laatste toetreding). Corps die nog in hun proeftijd zitten, kunnen zich niet aanmelden; de Mining Officers kunnen een uitzondering maken.",
+          link="Kunnen jullie niet inloggen op de Auth (bijv. door de Chinese firewall)? Vraag een Mining Officer om de <strong>Excel-sjabloon</strong> van de ronde: vul de ticker van jullie corp in, zet een x bij de gewenste manen en stuur het bestand terug – de officer importeert het. Corps zonder spelers in de Auth worden dan alleen beoordeeld op PvP en fleets.",
           ap1="Open <em>Moon Distribution → Rondes</em> en klik naast je corp op <em>Aanmelden</em>.",
           ap2=f"Vink alle manen aan die je corp wil – tot <strong>{V['wishes']}</strong>. De manen staan per regio in tabbladen; je selectie geldt voor alle tabbladen.",
           ap3="Klik op een kolomkop om te sorteren (bijv. op zeldzaamheid of op het aandeel van het waardevolle erts); Shift+klik voegt een tweede sorteerniveau toe.",
@@ -369,6 +376,7 @@ build("pl", "Jak działa podział księżyców", "Ta strona zawsze pokazuje aktu
           who="<strong>CEO</strong> korporacji z sojuszu – jedno zgłoszenie na corp.",
           who_dir="Zgłaszać się mogą też <strong>dyrektorzy</strong>; są rozpoznawani przez Corptools, więc postać potrzebuje aktywnego audytu Corptools.",
           prob=f"Wasza corp musi być w sojuszu co najmniej <strong>{V['prob']} mies.</strong> (licząc od ostatniego dołączenia). Corp w okresie próbnym nie mogą składać zgłoszeń; Mining Officerowie mogą zrobić wyjątek.",
+          link="Nie możecie zalogować się do Auth (np. przez chińską zaporę)? Poproście Mining Officera o <strong>szablon Excel</strong> rundy: wpiszcie ticker waszej corp, postawcie x przy wybranych księżycach i odeślijcie plik – officer go zaimportuje. Corp bez graczy w Auth są wtedy oceniane tylko za PvP i floty.",
           ap1="Otwórzcie <em>Moon Distribution → Rundy</em> i kliknijcie <em>Zgłoś się</em> przy swojej corp.",
           ap2=f"Zaznaczcie wszystkie księżyce, które chce wasza corp – maksymalnie <strong>{V['wishes']}</strong>. Księżyce są pogrupowane w zakładki według regionu; wybór obowiązuje we wszystkich zakładkach.",
           ap3="Kliknięcie nagłówka kolumny sortuje (np. według rzadkości lub udziału cennej rudy); Shift+klik dodaje drugi poziom sortowania.",
@@ -408,6 +416,7 @@ build("ru", "Как работает распределение лун", "На �
           who="<strong>CEO</strong> корпорации альянса – одна заявка на корпорацию.",
           who_dir="Подавать заявку могут и <strong>директора</strong>; они определяются через Corptools, поэтому у персонажа должен быть активный аудит Corptools.",
           prob=f"Ваша корпорация должна состоять в альянсе не менее <strong>{V['prob']} мес.</strong> (считая с последнего вступления). Корпорации на испытательном сроке не могут подавать заявки; Mining Officer'ы могут сделать исключение.",
+          link="Не получается войти в Auth (например, из-за китайского файрвола)? Попросите у Mining Officer'а <strong>шаблон Excel</strong> раунда: впишите тикер корпорации, поставьте x рядом с нужными лунами и отправьте файл обратно – officer его импортирует. Корпорации без игроков в Auth тогда оцениваются только по PvP и флотам.",
           ap1="Откройте <em>Moon Distribution → Раунды</em> и нажмите <em>Подать заявку</em> рядом со своей корпорацией.",
           ap2=f"Отметьте все луны, которые нужны вашей корпорации – до <strong>{V['wishes']}</strong>. Луны сгруппированы по регионам во вкладках; выбор действует во всех вкладках.",
           ap3="Нажмите на заголовок столбца для сортировки (например, по редкости или по доле ценной руды); Shift+клик добавляет второй уровень сортировки.",
@@ -447,6 +456,7 @@ build("uk", "Як працює розподіл місяців", "Ця стор�
           who="<strong>CEO</strong> корпорації альянсу – одна заявка на корпорацію.",
           who_dir="Подавати заявку можуть і <strong>директори</strong>; їх визначають через Corptools, тому персонаж має мати активний аудит Corptools.",
           prob=f"Ваша корпорація має бути в альянсі щонайменше <strong>{V['prob']} міс.</strong> (рахуючи від останнього вступу). Корпорації на випробувальному терміні не можуть подавати заявки; Mining Officer'и можуть зробити виняток.",
+          link="Не вдається увійти в Auth (наприклад, через китайський файрвол)? Попросіть у Mining Officer'а <strong>шаблон Excel</strong> раунду: впишіть тікер корпорації, поставте x біля потрібних місяців і надішліть файл назад – officer його імпортує. Корпорації без гравців в Auth тоді оцінюються лише за PvP і флотами.",
           ap1="Відкрийте <em>Moon Distribution → Раунди</em> і натисніть <em>Подати заявку</em> біля своєї корпорації.",
           ap2=f"Позначте всі місяці, які потрібні вашій корпорації – до <strong>{V['wishes']}</strong>. Місяці згруповані за регіонами у вкладках; вибір діє в усіх вкладках.",
           ap3="Натисніть на заголовок стовпця, щоб відсортувати (наприклад, за рідкістю або часткою цінної руди); Shift+клік додає другий рівень сортування.",
@@ -486,6 +496,7 @@ build("ja", "ムーン分配の仕組み", "このページには常にマイニ
           who="アライアンス所属コーポの<strong>CEO</strong> – 1コーポにつき1件の申請です。",
           who_dir="<strong>ディレクター</strong>も申請できます。ディレクターは Corptools で判定されるため、キャラクターに有効な Corptools 監査が必要です。",
           prob=f"コーポは同盟に少なくとも<strong>{V['prob']}か月</strong>在籍している必要があります（最後の加入日から数えます）。試用期間中のコーポは申請できません。マイニングオフィサーは例外を認めることができます。",
+          link="Auth にログインできない場合（中国のファイアウォールなど）は、マイニングオフィサーにラウンドの<strong>Excel テンプレート</strong>を依頼してください。コーポのティッカーを入力し、希望するムーンに x を付けてファイルを返送すると、オフィサーがインポートします。Auth にプレイヤーがいないコーポは PvP とフリートのみで評価されます。",
           ap1="<em>Moon Distribution → ラウンド</em>を開き、自分のコーポの横にある<em>申請</em>をクリックします。",
           ap2=f"コーポが希望するムーンをすべてチェックします（最大<strong>{V['wishes']}</strong>件）。ムーンはリージョンごとのタブに分かれており、選択はすべてのタブで共通です。",
           ap3="列の見出しをクリックすると並べ替えできます（例：レア度や高価値鉱石の割合）。Shift+クリックで2段階目の並べ替えを追加できます。",
@@ -525,6 +536,7 @@ build("ko", "위성 분배 방식 안내", "이 페이지에는 항상 마이닝
           who="얼라이언스 소속 코퍼레이션의 <strong>CEO</strong> – 코퍼레이션당 신청 1건.",
           who_dir="<strong>디렉터</strong>도 신청할 수 있습니다. 디렉터는 Corptools로 확인하므로 캐릭터에 활성화된 Corptools 감사가 필요합니다.",
           prob=f"코퍼레이션은 얼라이언스에 최소 <strong>{V['prob']}개월</strong> 이상 소속되어 있어야 합니다(마지막 가입일 기준). 수습 기간 중인 코퍼레이션은 신청할 수 없으며, 마이닝 오피서가 예외를 허용할 수 있습니다.",
+          link="Auth에 로그인할 수 없나요(예: 중국 방화벽)? 마이닝 오피서에게 라운드의 <strong>Excel 템플릿</strong>을 요청하세요. 코퍼레이션 티커를 입력하고 원하는 위성에 x를 표시해 파일을 돌려보내면 오피서가 가져옵니다. Auth에 플레이어가 없는 코퍼레이션은 PvP와 함대로만 평가됩니다.",
           ap1="<em>Moon Distribution → 라운드</em>를 열고 내 코퍼레이션 옆의 <em>신청</em>을 클릭합니다.",
           ap2=f"코퍼레이션이 원하는 위성을 모두 체크합니다 – 최대 <strong>{V['wishes']}</strong>개. 위성은 지역별 탭으로 나뉘어 있으며, 선택은 모든 탭에 걸쳐 적용됩니다.",
           ap3="열 제목을 클릭하면 정렬됩니다(예: 희귀도 또는 고가치 광석 비율). Shift+클릭으로 두 번째 정렬 기준을 추가할 수 있습니다.",
@@ -564,6 +576,7 @@ build("zh_hans", "卫星分配说明", "本页面始终显示 Mining Officer 的
           who="联盟军团的 <strong>CEO</strong> – 每个军团一份申请。",
           who_dir="<strong>董事</strong>也可以申请；董事通过 Corptools 识别，因此角色需要有效的 Corptools 审计。",
           prob=f"你的军团必须已加入联盟至少 <strong>{V['prob']} 个月</strong>（从最近一次加入算起）。仍在考察期内的军团不能申请；Mining Officer 可以给予例外。",
+          link="无法登录 Auth（例如由于中国防火墙）？请向 Mining Officer 索取本轮的 <strong>Excel 模板</strong>：填写军团代号，在想要的卫星旁填写 x，然后把文件发回 – officer 会将其导入。在 Auth 中没有任何玩家的军团只按 PvP 和舰队评分。",
           ap1="打开 <em>Moon Distribution → 轮次</em>，点击你军团旁边的<em>申请</em>。",
           ap2=f"勾选你军团想要的所有卫星 – 最多 <strong>{V['wishes']}</strong> 个。卫星按星域分在不同标签页中，选择在所有标签页中通用。",
           ap3="点击列标题即可排序（例如按稀有度或高价值矿石占比）；Shift+点击可添加第二级排序。",

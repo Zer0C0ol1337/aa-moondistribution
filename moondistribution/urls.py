@@ -40,6 +40,9 @@ urlpatterns = [
     # Officer: settings
     path("settings/", views.settings_view, name="settings"),
     # officer: alliance corps, probation and exceptions
+    # officer: Excel template for corps without Auth access
+    path("round/<int:round_id>/export/", views.round_export, name="round_export"),
+    path("round/<int:round_id>/import/", views.round_import, name="round_import"),
     path("corps/", views.corps, name="corps"),
     path("corps/refresh/", views.corps_refresh, name="corps_refresh"),
     path("corps/<int:corporation_id>/exempt/", views.corp_exempt, name="corp_exempt"),

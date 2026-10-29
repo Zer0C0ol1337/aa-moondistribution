@@ -62,6 +62,28 @@
         <div class="card mb-3"><div class="card-body py-2">{% include "moondistribution/_officer_apply.html" with round_obj=round %}</div></div>
     {% endif %}
 
+    {% if is_officer and round.status == "draft" or is_officer and round.is_open %}
+        {# Excel template for corps that cannot log in (e.g. behind the Chinese firewall) #}
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold me-1"><i class="fas fa-file-excel me-1"></i>{% translate "Excel template" %}</span>
+                    <a class="btn btn-sm btn-outline-primary" href="{% url 'moondistribution:round_export' round.pk %}"><i class="fas fa-download me-1"></i>{% translate "Download template" %}</a>
+                    {% if round.is_open %}
+                        <form method="post" action="{% url 'moondistribution:round_import' round.pk %}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+                            {% csrf_token %}
+                            <input type="file" name="files" accept=".xlsx" multiple required class="form-control form-control-sm" style="max-width: 22rem;">
+                            <button class="btn btn-sm btn-primary"><i class="fas fa-upload me-1"></i>{% translate "Import filled templates" %}</button>
+                        </form>
+                    {% endif %}
+                </div>
+                <div class="small text-muted mt-1">
+                    {% translate "For corps that cannot log in: the CEO enters the corp ticker and an x next to the wanted moons and sends the file back. Several files can be imported at once; the corp is taken from the ticker in the file." %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
     {% if round.is_open and own_corps %}
         <div class="card mb-4">
             <div class="card-body d-flex flex-wrap gap-2 align-items-center">
@@ -118,15 +140,15 @@
                     {% for s in scores %}
                         <tr>
                             <td>{{ s.rank }}</td>
-                            <td>{{ s.corporation.corporation_name }}</td>
+                            <td>{{ s.corporation.corporation_name }}{% if s.no_auth_data %} <span class="badge text-bg-info" title="{% translate 'No Auth access: rated by PvP and fleets only, active members and activity rate were not rated' %}"><i class="fas fa-user-slash"></i></span>{% endif %}</td>
                             <td class="text-end">
                                 {{ s.pvp_kills|intcomma }} <span class="text-muted small">({{ s.score_pvp|floatformat:0 }})</span>
                                 {% if s.pvp_error %}<i class="fas fa-triangle-exclamation text-warning" title="{% translate 'zKillboard not reachable' %}"></i>{% endif %}
                             </td>
-                            <td class="text-end">{{ s.members_active }} / {{ s.members_total }} <span class="text-muted small">({{ s.score_members|floatformat:0 }})</span></td>
+                            <td class="text-end">{% if s.no_auth_data %}<span class="text-muted">–</span>{% else %}{{ s.members_active }} / {{ s.members_total }} <span class="text-muted small">({{ s.score_members|floatformat:0 }})</span>{% endif %}</td>
                             <td class="text-end">
-                                {% if s.members_ingame %}<span title="{{ s.chars_active }} / {{ s.members_ingame }}">{{ s.activity_rate|floatformat:0 }}%</span>{% else %}–{% endif %}
-                                <span class="text-muted small">({{ s.score_activity|floatformat:0 }})</span>
+                                {% if s.no_auth_data %}<span class="text-muted">–</span>{% elif s.members_ingame %}<span title="{{ s.chars_active }} / {{ s.members_ingame }}">{{ s.activity_rate|floatformat:0 }}%</span>{% else %}–{% endif %}
+                                {% if not s.no_auth_data %}<span class="text-muted small">({{ s.score_activity|floatformat:0 }})</span>{% endif %}
                             </td>
                             <td class="text-end">{{ s.fleet_participations|intcomma }} <span class="text-muted small">({{ s.score_fleet|floatformat:0 }})</span></td>
                             <td class="text-end">{{ s.base_score|floatformat:1 }}</td>
@@ -238,6 +260,7 @@
                         {% if app.corporation.corporation_id in probation_blocked %}<span class="badge text-bg-warning ms-1" title="{% translate 'Applications of corps in their probation are not considered in the distribution.' %}">{% translate "In probation" %}</span>{% endif %}
                     </span>
                     <span class="small text-muted">
+                        {% if app.entered_by_officer %}<span class="badge text-bg-info me-1" title="{% translate 'Entered by a Mining Officer (Excel template or apply for corp)' %}"><i class="fas fa-user-pen"></i> {% translate "entered by officer" %}</span>{% endif %}
                         {% translate "by" %} {{ app.submitted_by.profile.main_character.character_name|default:app.submitted_by.username }},
                         {{ app.updated_at|date:"Y-m-d H:i" }}
                     </span>

@@ -22,13 +22,16 @@ CRITERIA = ("pvp", "members", "fleet", "activity")
 _NOT_PER_MEMBER = ("members", "activity")
 
 
-def normalize_scores(raw: dict, weights: dict, per_member: bool = False) -> dict:
+def normalize_scores(raw: dict, weights: dict, per_member: bool = False, skip: dict | None = None) -> dict:
     """Turn raw activity values into sub-scores (0–100) and a weighted total.
 
     raw:     {corp_id: {"pvp": x, "members": active, "fleet": x, "activity": rate in %}}
     weights: {"pvp": w, ...} – a weight of 0 removes the criterion.
+    skip:    {corp_id: {"members", "activity"}} – criteria that are not rated for this corp
+             (no Auth data); its total is the weighted average of its remaining criteria.
     Every criterion is scaled against the best applicant (best = 100).
     """
+    skip = skip or {}
     values = {}
     for cid, data in raw.items():
         members = data.get("members") or 0
@@ -40,17 +43,22 @@ def normalize_scores(raw: dict, weights: dict, per_member: bool = False) -> dict
             row[crit] = value
         values[cid] = row
 
-    maxima = {crit: max((v[crit] for v in values.values()), default=0.0) for crit in CRITERIA}
-    weight_sum = sum(w for w in weights.values() if w is not None)
+    maxima = {
+        crit: max((v[crit] for cid, v in values.items() if crit not in skip.get(cid, ())), default=0.0)
+        for crit in CRITERIA
+    }
 
     result = {}
     for cid, row in values.items():
+        skipped = skip.get(cid, set())
         subs = {
-            crit: (row[crit] / maxima[crit] * 100.0) if maxima[crit] > 0 else 0.0
+            crit: (row[crit] / maxima[crit] * 100.0) if maxima[crit] > 0 and crit not in skipped else 0.0
             for crit in CRITERIA
         }
+        rated = [crit for crit in CRITERIA if crit not in skipped]
+        weight_sum = sum(weights.get(crit) or 0 for crit in rated)
         total = (
-            sum(subs[crit] * (weights.get(crit) or 0) for crit in CRITERIA) / weight_sum
+            sum(subs[crit] * (weights.get(crit) or 0) for crit in rated) / weight_sum
             if weight_sum > 0 else 0.0
         )
         result[cid] = {**{f"score_{c}": round(subs[c], 2) for c in CRITERIA}, "total": round(total, 2)}
@@ -182,7 +190,15 @@ def run_distribution(round_obj: Round) -> None:
     }
 
     # 2) score + bonuses
-    scores = normalize_scores(raw, settings.weights, settings.per_member)
+    # Corps without Auth access (no registered player, application entered by an officer, e.g. via the
+    # Excel template) have no Auth data – members and activity rate are not rated for them instead of 0
+    no_auth = {
+        a.corporation.corporation_id for a in applications
+        if a.entered_by_officer and not members[a.corporation.corporation_id]["total"]
+    }
+    scores = normalize_scores(
+        raw, settings.weights, settings.per_member, skip={cid: _NOT_PER_MEMBER for cid in no_auth},
+    )
     auto_bonus = compensation_bonus(
         corp_ids, previous_round_results(round_obj), settings.bonus_no_moon, settings.bonus_no_r32,
     )
@@ -239,6 +255,7 @@ def run_distribution(round_obj: Round) -> None:
                 total_score=scores[cid]["total"],
                 rank=rank,
                 pvp_error=cid in pvp_errors,
+                no_auth_data=cid in no_auth,
             )
             for rank, cid in enumerate(ranking, start=1)
         ])
