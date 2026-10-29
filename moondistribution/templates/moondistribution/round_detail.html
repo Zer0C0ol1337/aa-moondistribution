@@ -75,8 +75,8 @@
     {% if round.status == "done" %}
         <h4 class="mb-3">{% translate "Ranking" %}</h4>
         <p class="small text-muted">
-            {% translate "Weights" %}: Mining {{ snapshot.weights.mining }} · PvP {{ snapshot.weights.pvp }} ·
-            {% translate "Members" %} {{ snapshot.weights.members }} · Fleets {{ snapshot.weights.fleet }}
+            {% translate "Weights" %}: PvP {{ snapshot.weights.pvp }} · Fleets {{ snapshot.weights.fleet }} ·
+            {% translate "Active members" %} {{ snapshot.weights.members }}
             {% if snapshot.per_member %} · {% translate "values per active member" %}{% endif %}
             · {% translate "max. moons per corp" %}: {{ snapshot.max_moons_per_corp }}
             {% if snapshot.rarity_limits.R32 is not None %} · {% translate "max. R32" %}: {{ snapshot.rarity_limits.R32 }}{% endif %}
@@ -90,7 +90,6 @@
                     <tr>
                         <th>#</th>
                         <th>{% translate "Corporation" %}</th>
-                        <th class="text-end">{% translate "Mining (m³)" %}</th>
                         <th class="text-end">{% translate "Kills" %}</th>
                         <th class="text-end">{% translate "Active / members" %}</th>
                         <th class="text-end">{% translate "Fleets" %}</th>
@@ -104,7 +103,6 @@
                         <tr>
                             <td>{{ s.rank }}</td>
                             <td>{{ s.corporation.corporation_name }}</td>
-                            <td class="text-end">{{ s.mining_volume|floatformat:0|intcomma }} <span class="text-muted small">({{ s.score_mining|floatformat:0 }})</span></td>
                             <td class="text-end">
                                 {{ s.pvp_kills|intcomma }} <span class="text-muted small">({{ s.score_pvp|floatformat:0 }})</span>
                                 {% if s.pvp_error %}<i class="fas fa-triangle-exclamation text-warning" title="{% translate 'zKillboard not reachable' %}"></i>{% endif %}
@@ -120,7 +118,7 @@
                             <td class="text-end fw-bold">{{ s.total_score|floatformat:1 }}</td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="9" class="text-muted">{% translate "No applications." %}</td></tr>
+                        <tr><td colspan="8" class="text-muted">{% translate "No applications." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -171,37 +169,39 @@
         {% for g in moon_regions %}
             <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="moons-{{ g.slug }}" role="tabpanel">
                 <div class="table-responsive mb-4">
-                    <table class="table table-sm table-hover align-middle">
+                    <table class="table table-sm table-hover align-middle md-sortable">
                         <thead>
                             <tr>
-                                <th>{% translate "Moon" %}</th>
-                                <th>{% translate "Rarity" %}</th>
-                                <th>{% translate "Current owner" %}</th>
-                                {% if is_officer %}<th class="text-end" title="{% translate 'Number of corps that have this moon on their wishlist' %}">{% translate "Applications" %}</th>{% endif %}
-                                {% if round.status == "done" %}<th>{% translate "Assigned to" %}</th><th class="text-end">{% translate "Wish #" %}</th>{% endif %}
+                                <th data-sort="text">{% translate "Moon" %}</th>
+                                <th data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
+                                <th class="text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
+                                <th data-sort="text">{% translate "Current owner" %}</th>
+                                {% if is_officer %}<th class="text-end" data-sort="num" title="{% translate 'Number of corps that have this moon on their wishlist' %}">{% translate "Applications" %}</th>{% endif %}
+                                {% if round.status == "done" %}<th data-sort="text">{% translate "Assigned to" %}</th><th class="text-end" data-sort="num">{% translate "Wish #" %}</th>{% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for row in g.items %}
                                 <tr>
-                                    <td>
+                                    <td data-value="{{ row.moon.name }}">
                                         {{ row.moon.name }}
                                         {% if row.moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=row.moon %}</div>{% endif %}
                                     </td>
-                                    <td>{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
-                                    <td class="small">{{ row.moon.owner_corporation.corporation_name|default:"–" }}{% if row.moon.notes %} <span class="text-muted">· {{ row.moon.notes }}</span>{% endif %}</td>
+                                    <td data-value="{{ row.moon.rarity_sort|stringformat:'.1f' }}">{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
+                                    <td class="text-end" data-value="{% if row.moon.best_share is not None %}{{ row.moon.best_share|stringformat:'.1f' }}{% endif %}">{% if row.moon.best_share is not None %}{{ row.moon.best_share|floatformat:"-1" }}%{% else %}<span class="text-muted">–</span>{% endif %}</td>
+                                    <td class="small" data-value="{{ row.moon.owner_corporation.corporation_name|default:'' }}">{{ row.moon.owner_corporation.corporation_name|default:"–" }}{% if row.moon.notes %} <span class="text-muted">· {{ row.moon.notes }}</span>{% endif %}</td>
                                     {% if is_officer %}
-                                        <td class="text-end">
+                                        <td class="text-end" data-value="{{ row.wishes }}">
                                             {% if row.wishes %}<span class="badge {% if row.wishes > 1 %}text-bg-warning{% else %}text-bg-secondary{% endif %}">{{ row.wishes }}</span>{% else %}<span class="text-muted">0</span>{% endif %}
                                         </td>
                                     {% endif %}
                                     {% if round.status == "done" %}
-                                        <td class="fw-bold">{{ row.allocation.corporation.corporation_name|default:"–" }}</td>
-                                        <td class="text-end">{{ row.allocation.wish_priority|default:"" }}</td>
+                                        <td class="fw-bold" data-value="{{ row.allocation.corporation.corporation_name|default:'' }}">{{ row.allocation.corporation.corporation_name|default:"–" }}</td>
+                                        <td class="text-end" data-value="{{ row.allocation.wish_priority|default:'' }}">{{ row.allocation.wish_priority|default:"" }}</td>
                                     {% endif %}
                                 </tr>
                             {% empty %}
-                                <tr><td colspan="6" class="text-muted">{% translate "No moons in this round." %}</td></tr>
+                                <tr><td colspan="7" class="text-muted">{% translate "No moons in this round." %}</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>

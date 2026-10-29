@@ -12,7 +12,7 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 
 from moondistribution.models import Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
-from moondistribution.providers import collect_members, collect_mining, eligible_corporations_for
+from moondistribution.providers import collect_fleets, collect_members, eligible_corporations_for
 from moondistribution.tasks import distribute_round, process_rounds
 
 ALLIANCE_ID = 99000001
@@ -35,11 +35,11 @@ def _make_user(name, char_id, corp, perms=("basic_access",)):
 
 
 class IntegrationBase(TestCase):
-    """Shared fixtures: alliance with two corps, CEOs, an officer, mining data and moons."""
+    """Shared fixtures: alliance with two corps, CEOs, an officer, fleet data and moons."""
 
     @classmethod
     def setUpTestData(cls):
-        """Alliance with two corps, a CEO each, some mining and a moon pool."""
+        """Alliance with two corps, a CEO each, some fleet activity and a moon pool."""
         alliance = EveAllianceInfo.objects.create(
             alliance_id=ALLIANCE_ID, alliance_name="Test Alliance", alliance_ticker="TST", executor_corp_id=1001,
         )
@@ -61,21 +61,26 @@ class IntegrationBase(TestCase):
         cls.member_b, _c = _make_user("member_b", 5003, cls.corp_b)
         cls.officer, _c = _make_user("officer", 5004, cls.corp_a, perms=("basic_access", "mining_officer"))
 
-        # Mining: Alpha mined a lot more
-        from corptools.models import CharacterAudit, CharacterMiningLedger
-        from eve_sde.models import ItemType, SolarSystem
+        # Logins (active members) from Corptools
+        from corptools.models import CharacterAudit
 
-        ore = ItemType.objects.create(id=45513, name="Bitumens", volume=10.0)
-        system = SolarSystem.objects.create(id=30000001, name="R-ARKN")
-        audit_a = CharacterAudit.objects.create(character=cls.char_a, last_known_login=timezone.now())
-        audit_b = CharacterAudit.objects.create(character=cls.char_b, last_known_login=timezone.now())
-        today = timezone.now().date()
-        CharacterMiningLedger.objects.create(id="a1", character=audit_a, date=today, type_name=ore, system=system, quantity=1000)
-        CharacterMiningLedger.objects.create(id="b1", character=audit_b, date=today, type_name=ore, system=system, quantity=100)
-        # Outside the window – must not count
-        CharacterMiningLedger.objects.create(
-            id="b2", character=audit_b, date=today - timedelta(days=400), type_name=ore, system=system, quantity=99999,
-        )
+        CharacterAudit.objects.create(character=cls.char_a, last_known_login=timezone.now())
+        CharacterAudit.objects.create(character=cls.char_b, last_known_login=timezone.now())
+
+        # Fleets (AA built-in FAT): Alpha flew 10 fleets, Bravo 2 (+1 outside the window that must not count)
+        from allianceauth.fleetactivitytracking.models import Fat, Fatlink
+
+        def _fats(user, char, count, when, prefix):
+            for i in range(count):
+                link = Fatlink.objects.create(
+                    fleet=f"{prefix}{i}", hash=f"{prefix}{i}", duration=60, creator=user, fatdatetime=when,
+                )
+                Fat.objects.create(character=char, fatlink=link, system="R-ARKN", shiptype="Ferox",
+                                   station="", user=user)
+
+        _fats(cls.ceo_a, cls.char_a, 10, timezone.now(), "a")
+        _fats(cls.ceo_b, cls.char_b, 2, timezone.now(), "b")
+        _fats(cls.ceo_b, cls.char_b, 1, timezone.now() - timedelta(days=400), "old")
 
         cls.moon1 = Moon.objects.create(name="R-ARKN I - Moon 1", rarity="R32")
         cls.moon2 = Moon.objects.create(name="R-ARKN II - Moon 1", rarity="R16")
@@ -105,16 +110,15 @@ class DistributionIntegrationTest(IntegrationBase):
         self.assertEqual(list(eligible_corporations_for(self.officer, include_officer=False)), [])
 
     def test_collectors(self):
-        """Members by main corp, mining volume in m³ inside the window only."""
+        """Members by main corp, fleet participations inside the window only."""
         members = collect_members([1001, 1002], 30)
         self.assertEqual(members[1002]["total"], 2)
         self.assertEqual(members[1002]["active"], 1)
-        mining = collect_mining([1001, 1002], date.today() - timedelta(days=182), date.today())
-        self.assertEqual(mining[1001], 10000.0)
-        self.assertEqual(mining[1002], 1000.0)
+        fleets = collect_fleets([1001, 1002], date.today() - timedelta(days=182), date.today())
+        self.assertEqual(fleets, {1001: 10, 1002: 2})
 
     def test_full_distribution(self):
-        """Both want moon1 first – Alpha mined more and wins it, Bravo gets moon2."""
+        """Both want moon1 first – Alpha flew more fleets and wins it, Bravo gets moon2."""
         r = self._round(ended=True)
         for corp, user in ((self.corp_a, self.ceo_a), (self.corp_b, self.ceo_b)):
             app = Application.objects.create(round=r, corporation=corp, submitted_by=user)
@@ -133,7 +137,7 @@ class DistributionIntegrationTest(IntegrationBase):
         self.client.force_login(self.ceo_b)
         resp = self.client.get(reverse("moondistribution:round_detail", args=[r.pk]))
         self.assertContains(resp, "Alpha Corp")
-        self.assertContains(resp, "10,000")
+        self.assertNotContains(resp, "Mining")
 
     def test_zkill_down_still_distributes(self):
         """zKillboard errors don't stop the round – PvP = 0 and a warning."""
@@ -259,7 +263,7 @@ class FairnessIntegrationTest(IntegrationBase):
             ApplicationWish.objects.create(application=app, moon=moon, priority=prio)
 
     def test_manual_bonus_turns_the_ranking(self):
-        """Bravo mined less, but a manual bonus of +100 puts it first."""
+        """Bravo flew fewer fleets, but a manual bonus of +100 puts it first."""
         r = self._round(ended=True)
         self._apply(r, self.corp_a, self.ceo_a, [self.moon2, self.moon1])
         self._apply(r, self.corp_b, self.ceo_b, [self.moon2, self.moon1])
@@ -478,3 +482,22 @@ class LargePoolTest(IntegrationBase):
         self.assertFalse(Round.objects.filter(name="Sneaky").exists())
         # and the R64 moon is not even offered
         self.assertNotContains(self.client.get(reverse("moondistribution:round_create")), self.moon_r64.name)
+
+    def test_sortable_tables(self):
+        """Round page, apply page and moon list are sortable; rarity sorts by class, then best share."""
+        self.moon1.composition = [{"ore": "Zircon", "percent": 59.9}, {"ore": "Bitumens", "percent": 40.1}]
+        self.moon1.save()
+        now = timezone.now()
+        r = Round.objects.create(
+            name="S1", application_start=now - timedelta(days=1), application_end=now + timedelta(days=6),
+            evaluation_start=date.today() - timedelta(days=182), evaluation_end=date.today(), status=Round.Status.OPEN,
+        )
+        r.moons.set([self.moon1, self.moon2])
+        self.client.force_login(self.officer)
+        for url in (reverse("moondistribution:round_detail", args=[r.pk]),
+                    reverse("moondistribution:apply", args=[r.pk, self.corp_a.corporation_id]),
+                    reverse("moondistribution:moons")):
+            resp = self.client.get(url)
+            self.assertContains(resp, "md-sortable")
+            self.assertContains(resp, 'data-value="32059.9"')  # R32 + 59.9 % best share
+            self.assertContains(resp, "59.9%")

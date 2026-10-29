@@ -17,14 +17,14 @@ from .models import Allocation, Application, CorporationScore, DistributionSetti
 
 logger = logging.getLogger(__name__)
 
-CRITERIA = ("mining", "pvp", "members", "fleet")
+CRITERIA = ("pvp", "members", "fleet")
 
 
 def normalize_scores(raw: dict, weights: dict, per_member: bool = False) -> dict:
     """Turn raw activity values into sub-scores (0–100) and a weighted total.
 
-    raw:     {corp_id: {"mining": x, "pvp": x, "members": active, "fleet": x}}
-    weights: {"mining": w, ...} – a weight of 0 removes the criterion.
+    raw:     {corp_id: {"pvp": x, "members": active, "fleet": x}}
+    weights: {"pvp": w, ...} – a weight of 0 removes the criterion.
     Every criterion is scaled against the best applicant (best = 100).
     """
     values = {}
@@ -155,13 +155,11 @@ def run_distribution(round_obj: Round) -> None:
 
     # 1) collect raw activity (zKill first – slowest, done outside the transaction)
     members = providers.collect_members(corp_ids, settings.active_days)
-    mining = providers.collect_mining(corp_ids, start, end)
     fleets = providers.collect_fleets(corp_ids, start, end)
     pvp, pvp_errors = providers.collect_pvp(corp_ids, start, end) if settings.weight_pvp else ({}, set())
 
     raw = {
         cid: {
-            "mining": mining.get(cid, 0),
             "pvp": pvp.get(cid, 0),
             "members": members[cid]["active"],
             "fleet": fleets.get(cid, 0),
@@ -205,12 +203,10 @@ def run_distribution(round_obj: Round) -> None:
             CorporationScore(
                 round=round_obj,
                 corporation=corp_by_id[cid],
-                mining_volume=raw[cid]["mining"],
                 pvp_kills=raw[cid]["pvp"],
                 members_total=members[cid]["total"],
                 members_active=members[cid]["active"],
                 fleet_participations=raw[cid]["fleet"],
-                score_mining=scores[cid]["score_mining"],
                 score_pvp=scores[cid]["score_pvp"],
                 score_members=scores[cid]["score_members"],
                 score_fleet=scores[cid]["score_fleet"],

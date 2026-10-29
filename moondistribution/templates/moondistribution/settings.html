@@ -29,21 +29,17 @@
                             {% translate "Each criterion is scaled 0–100 against the best applicant, then the weighted average gives the score. Weight 0 = criterion ignored." %}
                         </p>
                         <div class="row g-3">
-                            <div class="col-6 col-md-3">
-                                <label class="form-label" for="{{ form.weight_mining.id_for_label }}">Mining</label>
-                                {{ form.weight_mining }}{{ form.weight_mining.errors }}
-                            </div>
-                            <div class="col-6 col-md-3">
+                            <div class="col-md-4">
                                 <label class="form-label" for="{{ form.weight_pvp.id_for_label }}">PvP (zKill)</label>
                                 {{ form.weight_pvp }}{{ form.weight_pvp.errors }}
                             </div>
-                            <div class="col-6 col-md-3">
-                                <label class="form-label" for="{{ form.weight_members.id_for_label }}">{% translate "Active members" %}</label>
-                                {{ form.weight_members }}{{ form.weight_members.errors }}
-                            </div>
-                            <div class="col-6 col-md-3">
+                            <div class="col-md-4">
                                 <label class="form-label" for="{{ form.weight_fleet.id_for_label }}">{% translate "Fleets" %}</label>
                                 {{ form.weight_fleet }}{{ form.weight_fleet.errors }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="{{ form.weight_members.id_for_label }}">{% translate "Active members" %}</label>
+                                {{ form.weight_members }}{{ form.weight_members.errors }}
                             </div>
                         </div>
                         <div class="form-check mt-3">

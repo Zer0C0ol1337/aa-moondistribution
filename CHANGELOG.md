@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.7] - 2026-10-29
+
+### Added
+
+- **Sortable moon tables** on the round page, the application page and the moon list – click a column header to sort, **Shift+click** to add further sort levels (shown as 1, 2, … in the header)
+- Rarity column sorts by class first and then by the share of the valuable ore (e.g. all R32 with the best % on top, then R16 …)
+- New column **"Best %"**: share of the best ore of the moon's own class (falls back to the rarest ore or the % note of the simple sheet)
+
+## [0.1.6] - 2026-10-29
+
+### Changed
+
+- **Mining removed from the scoring** – corps are now rated by PvP (zKillboard), fleet activity (aFAT / AA FAT) and active members only
+- New default weights: PvP 50, Fleets 40, active members 10 (an existing settings row that still has the old defaults is switched automatically, custom weights stay)
+- Migration `0004_remove_mining` (removes the mining weight and the mining columns of the scores)
+
 ## [0.1.5] - 2026-10-29
 
 ### Fixed

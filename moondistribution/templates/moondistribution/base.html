@@ -54,3 +54,74 @@
         </div>
     </div>
 {% endblock content %}
+
+{% block extra_script %}
+    // Sortable tables (th[data-sort="text"|"num"]). Click = sort by this column, Shift+click = add as next sort level.
+    // A cell's data-value (or the value of a number input in it) is used instead of its text.
+    document.querySelectorAll("table.md-sortable").forEach(function (table) {
+        let levels = [];  // [{col, numeric, dir}]
+        const headers = Array.from(table.querySelectorAll("th[data-sort]"));
+
+        const cellValue = function (row, level) {
+            const cell = row.cells[level.col];
+            if (!cell) { return level.numeric ? -Infinity : ""; }
+            const input = cell.querySelector("input[type=number]");
+            const raw = input ? input.value : (cell.dataset.value !== undefined ? cell.dataset.value : cell.textContent.trim());
+            if (level.numeric) {
+                const n = parseFloat(raw);
+                return isNaN(n) ? null : n;  // empty values always go last
+            }
+            return (raw || "").toLowerCase();
+        };
+
+        const compare = function (a, b) {
+            for (const level of levels) {
+                const x = cellValue(a, level), y = cellValue(b, level);
+                if (x === y) { continue; }
+                if (x === null || x === "") { return 1; }
+                if (y === null || y === "") { return -1; }
+                const r = level.numeric ? x - y : x.localeCompare(y, undefined, {numeric: true});
+                if (r !== 0) { return level.dir === "asc" ? r : -r; }
+            }
+            return 0;
+        };
+
+        const paint = function () {
+            headers.forEach(function (h) {
+                const old = h.querySelector(".md-sort-ind");
+                if (old) { old.remove(); }
+                const col = Array.from(h.parentNode.children).indexOf(h);
+                const idx = levels.findIndex(function (l) { return l.col === col; });
+                if (idx >= 0) {
+                    const arrow = levels[idx].dir === "asc" ? "▲" : "▼";
+                    const nr = levels.length > 1 ? "<sup>" + (idx + 1) + "</sup>" : "";
+                    h.insertAdjacentHTML("beforeend", '<span class="md-sort-ind"> ' + arrow + nr + "</span>");
+                }
+            });
+        };
+
+        headers.forEach(function (th) {
+            th.style.cursor = "pointer";
+            th.title = th.title || "{{ _('Click to sort, Shift+click to add a sort level')|escapejs }}";
+            th.addEventListener("click", function (event) {
+                const col = Array.from(th.parentNode.children).indexOf(th);
+                const numeric = th.dataset.sort === "num";
+                const existing = levels.find(function (l) { return l.col === col; });
+                // numbers start descending (best first), text ascending
+                const firstDir = numeric ? "desc" : "asc";
+                if (event.shiftKey) {
+                    if (existing) { existing.dir = existing.dir === "asc" ? "desc" : "asc"; }
+                    else { levels.push({col: col, numeric: numeric, dir: firstDir}); }
+                } else {
+                    const dir = existing && levels.length === 1 ? (existing.dir === "asc" ? "desc" : "asc") : firstDir;
+                    levels = [{col: col, numeric: numeric, dir: dir}];
+                }
+                const body = table.tBodies[0];
+                const rows = Array.from(body.rows).filter(function (r) { return r.cells.length > 1; });
+                rows.sort(compare);
+                rows.forEach(function (r) { body.appendChild(r); });
+                paint();
+            });
+        });
+    });
+{% endblock extra_script %}

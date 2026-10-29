@@ -76,6 +76,7 @@
 {% endblock moondist_content %}
 
 {% block extra_script %}
+    {{ block.super }}
     // Send the moon selection as one comma-separated field (thousands of checkboxes would exceed Django's field limit)
     document.getElementById("round-form").addEventListener("submit", function () {
         const ids = Array.from(document.querySelectorAll(".md-moon-pick:checked")).map(c => c.value);

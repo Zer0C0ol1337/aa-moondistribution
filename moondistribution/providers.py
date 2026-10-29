@@ -1,7 +1,7 @@
-"""Data collection: mining, PvP, members and fleet activity per corp, plus moon import from Corptools.
+"""Data collection: PvP, members and fleet activity per corp, plus moon import from Corptools.
 
 Every activity is attributed via the *main character* of the AA user. That way
-alt corps (mining alts etc.) count for the corp of the player's main.
+alt corps count for the corp of the player's main.
 """
 
 import logging
@@ -12,8 +12,7 @@ import requests
 
 from django.apps import apps
 from django.contrib.auth.models import User
-from django.db.models import Count, F, FloatField, Sum
-from django.db.models.functions import Coalesce
+from django.db.models import Count
 from django.utils import timezone
 
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
@@ -100,32 +99,6 @@ def collect_members(corp_ids: list, active_days: int) -> dict:
         logger.info("No login data from Corptools – using total members as active members")
         for v in result.values():
             v["active"] = v["total"]
-    return result
-
-
-def collect_mining(corp_ids: list, start: date, end: date) -> dict:
-    """Mined volume in m³ per corp from the Corptools mining ledger."""
-    result = {cid: 0.0 for cid in corp_ids}
-    if not apps.is_installed("corptools"):
-        return result
-
-    from corptools.models import CharacterMiningLedger
-
-    rows = (
-        CharacterMiningLedger.objects.filter(
-            date__gte=start, date__lte=end,
-            **{f"character__character__{_MAIN_CORP}__in": corp_ids},
-        )
-        .values(f"character__character__{_MAIN_CORP}")
-        .annotate(
-            volume=Sum(
-                F("quantity") * Coalesce(F("type_name__volume"), 0.0, output_field=FloatField()),
-                output_field=FloatField(),
-            )
-        )
-    )
-    for row in rows:
-        result[row[f"character__character__{_MAIN_CORP}"]] = float(row["volume"] or 0)
     return result
 
 

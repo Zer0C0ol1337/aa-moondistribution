@@ -11,7 +11,7 @@ from .models import (
 class DistributionSettingsAdmin(admin.ModelAdmin):
     """Singleton settings."""
 
-    list_display = ("__str__", "alliance_id", "weight_mining", "weight_pvp", "weight_members", "weight_fleet")
+    list_display = ("__str__", "alliance_id", "weight_pvp", "weight_fleet", "weight_members")
 
 
 @admin.register(Moon)
@@ -61,7 +61,7 @@ class CorporationScoreAdmin(admin.ModelAdmin):
     """Calculated scores."""
 
     list_display = ("round", "rank", "corporation", "total_score", "base_score", "bonus_auto", "bonus_manual",
-                    "mining_volume", "pvp_kills",
+                    "pvp_kills",
                     "members_active", "fleet_participations")
     list_filter = ("round",)
 

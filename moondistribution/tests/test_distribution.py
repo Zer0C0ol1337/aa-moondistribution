@@ -16,13 +16,13 @@ class _Moon:
 class TestNormalizeScores(SimpleTestCase):
     """normalize_scores()"""
 
-    weights = {"mining": 40, "pvp": 30, "members": 15, "fleet": 15}
+    weights = {"pvp": 50, "members": 10, "fleet": 40}
 
     def test_best_corp_gets_100(self):
         """A corp that is best in every criterion gets a total of 100."""
         raw = {
-            1: {"mining": 1000, "pvp": 50, "members": 20, "fleet": 30},
-            2: {"mining": 500, "pvp": 25, "members": 10, "fleet": 15},
+            1: {"pvp": 50, "members": 20, "fleet": 30},
+            2: {"pvp": 25, "members": 10, "fleet": 15},
         }
         res = normalize_scores(raw, self.weights)
         self.assertEqual(res[1]["total"], 100.0)
@@ -30,24 +30,24 @@ class TestNormalizeScores(SimpleTestCase):
 
     def test_zero_weight_ignores_criterion(self):
         """Weight 0 must not be replaced by a default (null-check bug from the Node app)."""
-        raw = {1: {"mining": 0, "pvp": 100, "members": 0, "fleet": 0},
-               2: {"mining": 100, "pvp": 0, "members": 0, "fleet": 0}}
-        res = normalize_scores(raw, {"mining": 1, "pvp": 0, "members": 0, "fleet": 0})
+        raw = {1: {"pvp": 0, "members": 0, "fleet": 100},
+               2: {"pvp": 100, "members": 0, "fleet": 0}}
+        res = normalize_scores(raw, {"pvp": 1, "members": 0, "fleet": 0})
         self.assertEqual(res[1]["total"], 0.0)
         self.assertEqual(res[2]["total"], 100.0)
 
     def test_all_zero_values(self):
         """No activity at all must not divide by zero."""
-        raw = {1: {"mining": 0, "pvp": 0, "members": 0, "fleet": 0}}
+        raw = {1: {"pvp": 0, "members": 0, "fleet": 0}}
         self.assertEqual(normalize_scores(raw, self.weights)[1]["total"], 0.0)
 
     def test_per_member(self):
         """Per-member mode: small active corp can beat a big one."""
         raw = {
-            1: {"mining": 1000, "pvp": 0, "members": 100, "fleet": 0},  # 10 per member
-            2: {"mining": 500, "pvp": 0, "members": 10, "fleet": 0},    # 50 per member
+            1: {"pvp": 0, "members": 100, "fleet": 1000},  # 10 per member
+            2: {"pvp": 0, "members": 10, "fleet": 500},    # 50 per member
         }
-        res = normalize_scores(raw, {"mining": 1, "pvp": 0, "members": 0, "fleet": 0}, per_member=True)
+        res = normalize_scores(raw, {"pvp": 0, "members": 0, "fleet": 1}, per_member=True)
         self.assertGreater(res[2]["total"], res[1]["total"])
 
 
@@ -267,3 +267,24 @@ class TestSheetFormat(SimpleTestCase):
         from moondistribution.rarity import to_roman
 
         self.assertEqual([to_roman(n) for n in (1, 4, 6, 9, 11, 14, 19)], ["I", "IV", "VI", "IX", "XI", "XIV", "XIX"])
+
+
+class TestBestShare(SimpleTestCase):
+    """Moon.best_share / rarity_sort without database."""
+
+    def test_best_share_of_own_rarity(self):
+        """The share of the best ore of the moon's own class counts, not the biggest ore overall."""
+        from moondistribution.models import Moon
+
+        moon = Moon(rarity="R32", composition=[
+            {"ore": "Zircon", "percent": 17.5}, {"ore": "Bitumens", "percent": 41.5}, {"ore": "Cinnabar", "percent": 20.0},
+        ])
+        self.assertEqual(moon.best_share, 20.0)
+        self.assertEqual(moon.rarity_sort, 32020.0)
+
+    def test_note_fallback(self):
+        """Simple sheet without ores: the '28 %' note is used."""
+        from moondistribution.models import Moon
+
+        self.assertEqual(Moon(rarity="R16", notes="28 %").best_share, 28.0)
+        self.assertIsNone(Moon(rarity="R16").best_share)

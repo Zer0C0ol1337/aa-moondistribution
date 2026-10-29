@@ -18,14 +18,15 @@
             {% for g in row_regions %}
                 <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="apply-{{ g.slug }}" role="tabpanel">
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle">
+                        <table class="table table-sm table-hover align-middle md-sortable">
                             <thead>
                                 <tr>
-                                    <th style="width: 7rem;">{% translate "Priority" %}</th>
-                                    <th>{% translate "Moon" %}</th>
-                                    <th>{% translate "Rarity" %}</th>
-                                    <th>{% translate "Current owner" %}</th>
-                                    <th>{% translate "Notes" %}</th>
+                                    <th style="width: 7rem;" data-sort="num">{% translate "Priority" %}</th>
+                                    <th data-sort="text">{% translate "Moon" %}</th>
+                                    <th data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
+                                    <th class="text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
+                                    <th data-sort="text">{% translate "Current owner" %}</th>
+                                    <th data-sort="text">{% translate "Notes" %}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -35,11 +36,12 @@
                                             <input type="number" min="1" max="{{ max_wishes }}" class="form-control form-control-sm md-prio"
                                                    data-moon="{{ row.moon.pk }}" value="{{ row.priority|default_if_none:'' }}">
                                         </td>
-                                        <td>
+                                        <td data-value="{{ row.moon.name }}">
                                             {{ row.moon.name }}
                                             {% if row.moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=row.moon %}</div>{% endif %}
                                         </td>
-                                        <td>{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
+                                        <td data-value="{{ row.moon.rarity_sort|stringformat:'.1f' }}">{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
+                                        <td class="text-end" data-value="{% if row.moon.best_share is not None %}{{ row.moon.best_share|stringformat:'.1f' }}{% endif %}">{% if row.moon.best_share is not None %}{{ row.moon.best_share|floatformat:"-1" }}%{% else %}<span class="text-muted">–</span>{% endif %}</td>
                                         <td class="small">{{ row.moon.owner_corporation.corporation_name|default:"–" }}</td>
                                         <td class="small text-muted">{{ row.moon.notes }}</td>
                                     </tr>
@@ -65,6 +67,7 @@
 {% endblock moondist_content %}
 
 {% block extra_script %}
+    {{ block.super }}
     // Send only the filled priorities as one field "moon:prio,…" (one input per moon would exceed Django's field limit)
     document.getElementById("apply-form").addEventListener("submit", function () {
         const pairs = Array.from(document.querySelectorAll(".md-prio"))

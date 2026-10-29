@@ -32,16 +32,15 @@ class DistributionSettings(models.Model):
         help_text=_("EVE alliance ID whose corps may apply and whose refineries are imported."),
     )
 
-    # Weights of the four criteria – 0 disables a criterion completely
-    weight_mining = models.PositiveSmallIntegerField(default=40, validators=[MaxValueValidator(100)])
-    weight_pvp = models.PositiveSmallIntegerField(default=30, validators=[MaxValueValidator(100)])
-    weight_members = models.PositiveSmallIntegerField(default=15, validators=[MaxValueValidator(100)])
-    weight_fleet = models.PositiveSmallIntegerField(default=15, validators=[MaxValueValidator(100)])
+    # Weights of the three criteria – 0 disables a criterion completely
+    weight_pvp = models.PositiveSmallIntegerField(default=50, validators=[MaxValueValidator(100)])
+    weight_members = models.PositiveSmallIntegerField(default=10, validators=[MaxValueValidator(100)])
+    weight_fleet = models.PositiveSmallIntegerField(default=40, validators=[MaxValueValidator(100)])
 
     per_member = models.BooleanField(
         default=False,
         help_text=_(
-            "Divide mining, PvP and fleet values by the active members, "
+            "Divide PvP and fleet values by the active members, "
             "so small but very active corps are not outranked by size alone."
         ),
     )
@@ -115,7 +114,6 @@ class DistributionSettings(models.Model):
     def weights(self) -> dict:
         """Weights as dict, keyed like the score fields."""
         return {
-            "mining": self.weight_mining,
             "pvp": self.weight_pvp,
             "members": self.weight_members,
             "fleet": self.weight_fleet,
@@ -173,6 +171,31 @@ class Moon(models.Model):
 
         rows = [{**c, "rarity": ore_rarity(c.get("ore", ""))} for c in (self.composition or [])]
         return sorted(rows, key=lambda r: (-RARITY_ORDER.get(r["rarity"], 0), -(r.get("percent") or 0)))
+
+    @property
+    def best_share(self):
+        """Share (%) of the valuable ore: best ore of the moon's own rarity class, else the rarest ore,
+        else the % from the simple sheet note ('28 %'). None if unknown."""
+        rows = self.composition_display
+        own = [r.get("percent") for r in rows if r["rarity"] == self.rarity and r.get("percent") is not None]
+        if own:
+            return max(own)
+        if rows and rows[0].get("percent") is not None:
+            return rows[0]["percent"]
+        note = (self.notes or "").strip()
+        if note.endswith("%"):
+            try:
+                return float(note.rstrip("% ").replace(",", "."))
+            except ValueError:
+                return None
+        return None
+
+    @property
+    def rarity_sort(self) -> float:
+        """Sort key 'rarity, then best share': R32 with 59.9 % → 32059.9 (used by the sortable tables)."""
+        from .rarity import RARITY_ORDER
+
+        return RARITY_ORDER.get(self.rarity, 0) * 1000 + (self.best_share or 0)
 
 
 class Round(models.Model):
@@ -296,14 +319,12 @@ class CorporationScore(models.Model):
     corporation = models.ForeignKey(EveCorporationInfo, on_delete=models.CASCADE, related_name="+")
 
     # Raw values
-    mining_volume = models.FloatField(default=0, help_text=_("Mined volume in m³"))
     pvp_kills = models.PositiveIntegerField(default=0)
     members_total = models.PositiveIntegerField(default=0)
     members_active = models.PositiveIntegerField(default=0)
     fleet_participations = models.PositiveIntegerField(default=0)
 
     # Normalised sub-scores 0–100
-    score_mining = models.FloatField(default=0)
     score_pvp = models.FloatField(default=0)
     score_members = models.FloatField(default=0)
     score_fleet = models.FloatField(default=0)

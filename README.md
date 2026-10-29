@@ -1,6 +1,6 @@
 # aa-moondistribution
 
-**Version 0.1.5** – see [CHANGELOG](CHANGELOG.md)
+**Version 0.1.7** – see [CHANGELOG](CHANGELOG.md)
 
 Alliance Auth plugin for the periodic **moon distribution** of an alliance (e.g. every 6 months).
 
@@ -14,10 +14,9 @@ Corps apply with a moon wishlist, the plugin checks their activity and assigns t
 - **Region tabs** everywhere moons are listed – region is taken automatically from the EVE map data (Corptools' eve_sde, eveuniverse as fallback)
 - **Applications** by the corp CEO or directors (Corptools role data) – wishlist with priorities, changeable until the deadline
 - **Scoring** per corp, every criterion scaled 0–100 against the best applicant, weighted average:
-  - **Mining** – mined m³ from the Corptools mining ledger
-  - **PvP** – ships destroyed according to zKillboard
-  - **Active members** – AA users whose main is in the corp and who logged in recently
-  - **Fleets** – fleet participations from aFAT (or the AA built-in FAT)
+  - **PvP** – ships destroyed according to zKillboard (default weight 50)
+  - **Active members** – AA users whose main is in the corp and who logged in recently (default weight 10)
+  - **Fleets** – fleet participations from aFAT (or the AA built-in FAT) (default weight 40)
   - optional: values per active member, so small active corps can compete with big ones
 - **Fairness**:
   - R64 moons can be excluded (kept by the alliance) – on by default
@@ -26,15 +25,16 @@ Corps apply with a moon wishlist, the plugin checks their activity and assigns t
   - **manual bonus/malus** per corp and round with a reason that everyone can see
 - **Automatic allocation** (draft style): best corp gets its top wish, then the next corp, … then the next pass, until every corp reached the max. moons per corp or no wish can be served
 - Officers see live how many corps want each moon during the application week
+- Sortable moon tables (Shift+click for multiple levels); rarity sorts by class, then by the best ore share
 - Results page with ranking, raw values and who got which moon; AA notification to every applicant
 - Officer tools: create/open/close rounds, re-run distribution, apply on behalf of a corp, settings page
 
-Activity is always attributed via the **main character** of the AA user, so mining/PvP alts in other corps count for the main's corp.
+Activity is always attributed via the **main character** of the AA user, so alts in other corps count for the main's corp.
 
 ## Requirements
 
 - Alliance Auth ≥ 4
-- [allianceauth-corptools](https://github.com/pvyParts/allianceauth-corp-tools) (mining ledger, structures, roles, logins)
+- [allianceauth-corptools](https://github.com/pvyParts/allianceauth-corp-tools) (structures, roles, logins, EVE map data)
 - optional: [aa-moonmining](https://gitlab.com/ErikKalkoken/aa-moonmining) for automatic moon rarity
 - optional: [aFAT](https://github.com/ppfeufer/allianceauth-afat) or the AA built-in fleet activity tracking
 

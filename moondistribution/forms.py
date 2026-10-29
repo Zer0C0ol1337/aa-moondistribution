@@ -82,7 +82,7 @@ class SettingsForm(forms.ModelForm):
 
     class Meta:
         model = DistributionSettings
-        fields = ["alliance_id", "weight_mining", "weight_pvp", "weight_members", "weight_fleet",
+        fields = ["alliance_id", "weight_pvp", "weight_fleet", "weight_members",
                   "per_member", "application_days", "max_moons_per_corp", "max_wishes", "active_days",
                   "allow_directors", "exclude_r64", "max_r32_per_corp", "max_r16_per_corp",
                   "bonus_no_moon", "bonus_no_r32"]
@@ -97,7 +97,7 @@ class SettingsForm(forms.ModelForm):
     def clean(self):
         """At least one criterion must have a weight > 0."""
         data = super().clean()
-        weights = [data.get(f) for f in ("weight_mining", "weight_pvp", "weight_members", "weight_fleet")]
+        weights = [data.get(f) for f in ("weight_pvp", "weight_members", "weight_fleet")]
         if all(w is not None for w in weights) and sum(weights) == 0:
             raise forms.ValidationError(_("At least one weight must be greater than 0."))
         return data
