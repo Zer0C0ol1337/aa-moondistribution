@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] - 2026-10-29
+
+### Added
+
+- Moon scans / moon list can now also **create** missing moons (name, system and rarity) – for alliances whose corps have no corp token in Corptools, so the refineries are not visible there
+
 ## [0.1.1] - 2026-10-29
 
 ### Added

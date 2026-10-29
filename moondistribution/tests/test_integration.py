@@ -338,3 +338,18 @@ class RarityIntegrationTest(IntegrationBase):
         self.client.force_login(self.officer)
         for params in ({"rarity": "missing"}, {"rarity": "R32"}, {"q": "ARKN"}):
             self.assertEqual(self.client.get(reverse("moondistribution:moons"), params).status_code, 200)
+
+    def test_paste_creates_missing_moons(self):
+        """With 'create' ticked, unknown moons from the paste are added with system and rarity."""
+        self.client.force_login(self.officer)
+        paste = "Old Man Star VII - Moon 2\n\tZircon\t0.3\nJ5A-IX II - Moon 1; R8\n"
+        self.client.post(reverse("moondistribution:moon_rarity_import"),
+                         {"paste": paste, "source": "paste", "create": "on"})
+        a = Moon.objects.get(name="Old Man Star VII - Moon 2")
+        b = Moon.objects.get(name="J5A-IX II - Moon 1")
+        self.assertEqual((a.system_name, a.rarity), ("Old Man Star", "R32"))
+        self.assertEqual((b.system_name, b.rarity), ("J5A-IX", "R8"))
+        # a second paste does not duplicate
+        self.client.post(reverse("moondistribution:moon_rarity_import"),
+                         {"paste": paste, "source": "paste", "create": "on"})
+        self.assertEqual(Moon.objects.filter(name="J5A-IX II - Moon 1").count(), 1)

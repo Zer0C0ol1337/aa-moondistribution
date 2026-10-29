@@ -10,7 +10,7 @@
                 <button class="btn btn-sm btn-primary"><i class="fas fa-rotate me-1"></i>{% translate "Import from Corptools" %}</button>
             </form>
             <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#rarityImport">
-                <i class="fas fa-file-import me-1"></i>{% translate "Set rarity from moon scans" %}
+                <i class="fas fa-file-import me-1"></i>{% translate "Add moons / rarity from scans" %}
             </button>
             <a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_add' %}">{% translate "Add manually" %}</a>
         </div>
@@ -26,7 +26,7 @@
         <div class="card card-body">
             <form method="post" action="{% url 'moondistribution:moon_rarity_import' %}">
                 {% csrf_token %}
-                <label class="form-label fw-bold" for="paste">{% translate "Paste moon scans" %}</label>
+                <label class="form-label fw-bold" for="paste">{% translate "Paste moon scans or a moon list" %}</label>
                 <p class="small text-muted mb-2">
                     {% translate "Paste the copied results of the in-game moon scan (any number of moons at once) – the rarity is taken from the best ore. A simple list with one moon per line also works:" %}
                     <code>R-ARKN I - Moon 1; R32</code>
@@ -37,6 +37,10 @@ R-ARKN I - Moon 1
 	Zircon	0.31	45503	...
 	Bitumens	0.42	45492	..."></textarea>
                 <div class="d-flex flex-wrap align-items-center gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="create" id="create" checked>
+                        <label class="form-check-label small" for="create">{% translate "Create missing moons" %}</label>
+                    </div>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="overwrite" id="overwrite">
                         <label class="form-check-label small" for="overwrite">{% translate "Overwrite rarities that are already set" %}</label>

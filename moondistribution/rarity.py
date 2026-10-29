@@ -76,18 +76,30 @@ def parse_rarity_paste(text: str) -> dict:
     return {name: rarity for name, rarity in result.items() if rarity}
 
 
-def apply_rarities(mapping: dict, overwrite: bool = False) -> dict:
+def system_from_moon_name(name: str) -> str:
+    """'R-ARKN I - Moon 1' → 'R-ARKN', 'Old Man Star VII - Moon 2' → 'Old Man Star'."""
+    head = re.split(r" - moon ", name, flags=re.IGNORECASE)[0].strip()
+    return head.rsplit(" ", 1)[0] if " " in head else head
+
+
+def apply_rarities(mapping: dict, overwrite: bool = False, create_missing: bool = False) -> dict:
     """Set the rarity of known moons by (case-insensitive) name.
 
     overwrite=False only fills moons that have no rarity yet, so manual corrections survive.
+    create_missing=True adds moons that are not in the list yet (name, system and rarity from the paste) –
+    needed when the refineries are not visible in Corptools.
     """
-    stats = {"updated": 0, "unchanged": 0, "unknown": 0}
+    stats = {"created": 0, "updated": 0, "unchanged": 0, "unknown": 0}
     moons = {m.name.lower(): m for m in Moon.objects.all()}
-    changed = []
+    changed, new = [], {}
     for name, rarity in mapping.items():
-        moon = moons.get(name.strip().lower())
+        clean = " ".join(name.split())
+        moon = moons.get(clean.lower())
         if moon is None:
-            stats["unknown"] += 1
+            if create_missing and clean.lower() not in new:
+                new[clean.lower()] = Moon(name=clean, system_name=system_from_moon_name(clean), rarity=rarity)
+            elif not create_missing:
+                stats["unknown"] += 1
             continue
         if moon.rarity == rarity or (moon.rarity and not overwrite):
             stats["unchanged"] += 1
@@ -95,7 +107,9 @@ def apply_rarities(mapping: dict, overwrite: bool = False) -> dict:
         moon.rarity = rarity
         changed.append(moon)
     Moon.objects.bulk_update(changed, ["rarity"], batch_size=500)
+    Moon.objects.bulk_create(new.values(), batch_size=500)
     stats["updated"] = len(changed)
+    stats["created"] = len(new)
     return stats
 
 

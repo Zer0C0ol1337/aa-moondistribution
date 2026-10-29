@@ -369,8 +369,12 @@ def moon_bulk(request):
 @officer_required
 @require_POST
 def moon_rarity_import(request):
-    """Set rarities from pasted moon scans / a 'moon name; R32' list, or from aa-moonmining."""
+    """Set rarities from pasted moon scans / a 'moon name; R32' list, or from aa-moonmining.
+
+    With 'create' ticked, moons that are not in the list yet are created (name, system, rarity).
+    """
     overwrite = request.POST.get("overwrite") == "on"
+    create_missing = request.POST.get("create") == "on"
     if request.POST.get("source") == "moonmining":
         mapping = rarities_from_moonmining()
         if not mapping:
@@ -381,10 +385,10 @@ def moon_rarity_import(request):
         if not mapping:
             messages.error(request, _("No moons with moon ore found in the pasted text."))
             return redirect("moondistribution:moons")
-    stats = apply_rarities(mapping, overwrite=overwrite)
+    stats = apply_rarities(mapping, overwrite=overwrite, create_missing=create_missing)
     messages.success(request, _(
-        "%(found)s moons recognised: %(updated)s updated, %(unchanged)s unchanged, "
-        "%(unknown)s not in the moon list (no alliance refinery)."
+        "%(found)s moons recognised: %(created)s created, %(updated)s updated, %(unchanged)s unchanged, "
+        "%(unknown)s not in the moon list (tick 'Create missing moons' to add them)."
     ) % {"found": len(mapping), **stats})
     return redirect("moondistribution:moons")
 
