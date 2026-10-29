@@ -123,6 +123,10 @@ class DistributionIntegrationTest(IntegrationBase):
         members = collect_members([1001, 1002], 30)
         self.assertEqual(members[1002]["total"], 2)
         self.assertEqual(members[1002]["active"], 1)
+        # Activity rate: 1 of 10 characters (EVE member count) logged in recently
+        self.assertEqual(members[1002]["ingame"], 10)
+        self.assertEqual(members[1002]["chars_active"], 1)
+        self.assertEqual(members[1002]["rate"], 10.0)
         fleets = collect_fleets([1001, 1002], date.today() - timedelta(days=182), date.today())
         self.assertEqual(fleets, {1001: 10, 1002: 2})
 
@@ -142,11 +146,22 @@ class DistributionIntegrationTest(IntegrationBase):
         self.assertEqual(result[self.moon1.pk], self.corp_a.pk)
         self.assertEqual(result[self.moon2.pk], self.corp_b.pk)
         self.assertEqual(r.scores.get(rank=1).corporation, self.corp_a)
+        self.assertEqual(r.scores.get(rank=1).activity_rate, 10.0)
+        self.assertEqual(r.scores.get(rank=1).members_ingame, 10)
         # Results page renders with ranking and allocation
         self.client.force_login(self.ceo_b)
         resp = self.client.get(reverse("moondistribution:round_detail", args=[r.pk]))
         self.assertContains(resp, "Alpha Corp")
         self.assertNotContains(resp, "Mining")
+
+    def test_live_member_numbers_on_open_round(self):
+        """While a round is open, officers see EVE members, Auth members, active players and the rate."""
+        r = self._round()
+        Application.objects.create(round=r, corporation=self.corp_b, submitted_by=self.ceo_b)
+        self.client.force_login(self.officer)
+        resp = self.client.get(reverse("moondistribution:round_detail", args=[r.pk]))
+        self.assertContains(resp, "10 members in EVE")
+        self.assertContains(resp, "(1 / 10)")
 
     def test_zkill_down_still_distributes(self):
         """zKillboard errors don't stop the round – PvP = 0 and a warning."""

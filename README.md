@@ -1,6 +1,6 @@
 # aa-moondistribution
 
-**Version 0.1.9** – see [CHANGELOG](CHANGELOG.md)
+**Version 0.1.10** – see [CHANGELOG](CHANGELOG.md)
 
 Alliance Auth plugin for the periodic **moon distribution** of an alliance (e.g. every 6 months).
 
@@ -19,9 +19,10 @@ UI languages: English, German. The "How it works" guide for the corps is availab
 - **Applications** by the corp CEO or directors (Corptools role data) – tick the wanted moons (no ranking, all count the same), changeable until the deadline
 - **"How it works" guide** for the corps in all Alliance Auth languages, always showing the current settings
 - **Scoring** per corp, every criterion scaled 0–100 against the best applicant, weighted average:
-  - **PvP** – ships destroyed according to zKillboard (default weight 50)
-  - **Fleets** – fleet participations from aFAT or the AA built-in fleet activity tracking (default weight 40)
+  - **PvP** – ships destroyed according to zKillboard (default weight 40)
+  - **Fleets** – fleet participations from aFAT or the AA built-in fleet activity tracking (default weight 35)
   - **Active members** – AA users whose main is in the corp and who logged in recently (default weight 10)
+  - **Activity rate** – share of all characters in the corp (EVE member count) that logged in recently; unregistered characters count as inactive (default weight 15)
   - optional: values per active member, so small active corps can compete with big ones
 - **Fairness**
   - R64 moons are never distributed (setting, on by default)
@@ -30,7 +31,7 @@ UI languages: English, German. The "How it works" guide for the corps is availab
   - **manual bonus/malus** per corp and round with a reason that everyone can see
 - **Automatic allocation** (draft style): in score order every corp gets the best of its ticked moons that is still free (rarity, then share of the valuable ore), then the next pass starts – until every corp reached the max. moons per corp or none of its moons is free
 - **Sortable tables** (Shift+click for multiple levels); rarity sorts by class, then by the share of the valuable ore
-- Officers see live how many corps want each moon during the application week
+- Officers see live how many corps want each moon during the application week, and the member numbers (EVE / Auth / active / activity rate) of every applying corp
 - Results page with ranking, raw values, bonuses and who got which moon; AA notification to every applicant
 
 Activity is always attributed via the **main character** of the AA user, so alts in other corps count for the main's corp.
@@ -138,7 +139,7 @@ Migrations are additive – `migrate` only applies the missing ones.
 
 - **Outgoing traffic:** during a distribution the plugin calls the public zKillboard stats API once per applying corp (only corporation IDs are sent). No ESI calls.
 - zKillboard stats are monthly, so the PvP window is counted in full months. If zKillboard is down, PvP counts as 0 for the affected corps and the round shows a warning – use *Re-run distribution* later.
-- **Active members** use the Corptools login data (`last_known_login`); if there is none at all, every member counts as active.
+- **Active members** and the **activity rate** use the Corptools login data (`last_known_login`); if there is none at all, every registered member counts as active and the activity rate is 0 for everybody. The EVE member count comes from Alliance Auth's corp data (updated daily).
 - **Directors** are taken from the Corptools role data of active Corptools characters; role changes show up after the next Corptools update.
 - The Corptools refinery import only sees corps that added a **corp token** in Corptools – otherwise use the sheet import.
 - A failed distribution is not retried automatically; the round shows the error and an officer starts it again with *Re-run distribution*. *Close now & distribute* ends the application phase early.

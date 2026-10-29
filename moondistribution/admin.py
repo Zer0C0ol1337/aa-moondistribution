@@ -79,7 +79,7 @@ class CorporationScoreAdmin(ReadOnlyAdmin):
 
     list_display = ("round", "rank", "corporation", "total_score", "base_score", "bonus_auto", "bonus_manual",
                     "pvp_kills",
-                    "members_active", "fleet_participations")
+                    "members_ingame", "members_active", "activity_rate", "fleet_participations")
     list_filter = ("round",)
 
 

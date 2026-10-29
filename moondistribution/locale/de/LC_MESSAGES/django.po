@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aa-moondistribution 0.1.8\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-29 05:48+0000\n"
+"POT-Creation-Date: 2026-10-29 07:13+0100\n"
 "PO-Revision-Date: 2026-10-29 06:30+0100\n"
 "Last-Translator: LeggaSchnegge [3THEL]\n"
 "Language-Team: German\n"
@@ -46,7 +46,15 @@ msgstr ""
 "EVE-Allianz-ID, deren Corps sich bewerben dürfen und deren Refineries "
 "importiert werden."
 
-#: models.py:45
+#: models.py:44
+msgid ""
+"Activity rate: share of the corp's characters (EVE member count) that logged"
+" in within the active days."
+msgstr ""
+"Aktivquote: Anteil der Charaktere der Corp (Mitgliederzahl laut EVE), die "
+"sich innerhalb der Aktiv-Tage eingeloggt haben."
+
+#: models.py:52
 msgid ""
 "Divide PvP and fleet values by the active members, so small but very active "
 "corps are not outranked by size alone."
@@ -54,19 +62,19 @@ msgstr ""
 "PvP- und Fleet-Werte durch die aktiven Mitglieder teilen, damit kleine, aber"
 " sehr aktive Corps nicht allein wegen der Größe zurückfallen."
 
-#: models.py:52
+#: models.py:59
 msgid "R64 moons are kept by the alliance and never put into a round."
 msgstr "R64-Monde behält die Allianz – sie kommen nie in eine Runde."
 
-#: models.py:56
+#: models.py:63
 msgid "Max. R32 moons per corp and round. Empty = no limit."
 msgstr "Max. R32-Monde pro Corp und Runde. Leer = kein Limit."
 
-#: models.py:60
+#: models.py:67
 msgid "Max. R16 moons per corp and round. Empty = no limit."
 msgstr "Max. R16-Monde pro Corp und Runde. Leer = kein Limit."
 
-#: models.py:64
+#: models.py:71
 msgid ""
 "Bonus points if the corp applied in the previous round and got no moon at "
 "all. 0 = off."
@@ -74,7 +82,7 @@ msgstr ""
 "Bonuspunkte, wenn sich die Corp in der letzten Runde beworben und gar keinen"
 " Mond bekommen hat. 0 = aus."
 
-#: models.py:68
+#: models.py:75
 msgid ""
 "Bonus points if the corp got moons in the previous round, but no R32. 0 = "
 "off."
@@ -82,15 +90,15 @@ msgstr ""
 "Bonuspunkte, wenn die Corp in der letzten Runde Monde, aber keinen R32 "
 "bekommen hat. 0 = aus."
 
-#: models.py:72
+#: models.py:79
 msgid "Maximum number of moons a single corp can receive per round."
 msgstr "Maximale Anzahl Monde, die eine Corp pro Runde bekommen kann."
 
-#: models.py:76
+#: models.py:83
 msgid "Maximum number of moons a corp can put on its wishlist."
 msgstr "Maximale Anzahl Monde auf der Wunschliste einer Corp."
 
-#: models.py:80
+#: models.py:87
 msgid ""
 "A player counts as active if one of his characters logged in within this "
 "many days."
@@ -98,7 +106,7 @@ msgstr ""
 "Ein Spieler zählt als aktiv, wenn sich einer seiner Charaktere innerhalb "
 "dieser Tage eingeloggt hat."
 
-#: models.py:84
+#: models.py:91
 msgid ""
 "Applications stay open this many days after a round is opened, then it is "
 "distributed once."
@@ -106,7 +114,7 @@ msgstr ""
 "So viele Tage bleiben Bewerbungen nach dem Öffnen einer Runde offen, danach "
 "wird einmalig verteilt."
 
-#: models.py:88
+#: models.py:95
 msgid ""
 "Besides the CEO, also directors (Corptools role data) may apply for their "
 "corp."
@@ -114,41 +122,41 @@ msgstr ""
 "Neben dem CEO dürfen sich auch Direktoren (Rollendaten aus Corptools) für "
 "ihre Corp bewerben."
 
-#: models.py:93 models.py:94
+#: models.py:100 models.py:101
 msgid "settings"
 msgstr "Einstellungen"
 
-#: models.py:123
+#: models.py:131
 msgid "unknown"
 msgstr "unbekannt"
 
-#: models.py:130
+#: models.py:138
 msgid "Moon name, e.g. 'R-ARKN VII - Moon 3'"
 msgstr "Mondname, z. B. 'R-ARKN VII - Moon 3'"
 
-#: models.py:134
+#: models.py:142
 msgid ""
 "Filled automatically from the EVE map data (SDE) – used for the region tabs."
 msgstr ""
 "Wird automatisch aus den EVE-Kartendaten (SDE) gefüllt – für die Region-"
 "Tabs."
 
-#: models.py:138
+#: models.py:146
 msgid "Refinery structure ID (set automatically by the Corptools import)."
 msgstr "Struktur-ID der Refinery (wird vom Corptools-Import gesetzt)."
 
-#: models.py:143
+#: models.py:151
 msgid "Corp that currently owns the moon (alliance corp known in AA)."
 msgstr "Corp, der der Mond aktuell gehört (in AA bekannte Allianz-Corp)."
 
-#: models.py:147
+#: models.py:155
 msgid ""
 "Owner as written in the sheet – kept even if the corp is not known in AA."
 msgstr ""
 "Besitzer wie im Sheet geschrieben – bleibt erhalten, auch wenn die Corp in "
 "AA unbekannt ist."
 
-#: models.py:152
+#: models.py:160
 msgid ""
 "Ore composition, e.g. [{'ore': 'Zircon', 'percent': 24.5}, ...] – filled by "
 "the scan/sheet import."
@@ -156,39 +164,39 @@ msgstr ""
 "Erz-Zusammensetzung, z. B. [{'ore': 'Zircon', 'percent': 24.5}, ...] – wird "
 "vom Scan-/Sheet-Import gefüllt."
 
-#: models.py:156
+#: models.py:164
 msgid "Inactive moons are not added to new rounds."
 msgstr "Inaktive Monde kommen nicht in neue Runden."
 
-#: models.py:158
+#: models.py:166
 msgid "Last seen in Corptools import."
 msgstr "Zuletzt im Corptools-Import gesehen."
 
-#: models.py:212
+#: models.py:220
 msgid "Draft"
 msgstr "Entwurf"
 
-#: models.py:213
+#: models.py:221
 msgid "Applications open"
 msgstr "Bewerbung offen"
 
-#: models.py:214
+#: models.py:222
 msgid "Closed – waiting for evaluation"
 msgstr "Geschlossen – wartet auf Auswertung"
 
-#: models.py:215 templates/moondistribution/round_detail.html:16
+#: models.py:223 templates/moondistribution/round_detail.html:16
 msgid "Distributed"
 msgstr "Verteilt"
 
-#: models.py:217
+#: models.py:225
 msgid "e.g. 'Moon Distribution H1/2027'"
 msgstr "z. B. 'Moon Distribution H1/2027'"
 
-#: models.py:220
+#: models.py:228
 msgid "Set automatically when the round is opened."
 msgstr "Wird beim Öffnen der Runde automatisch gesetzt."
 
-#: models.py:224
+#: models.py:232
 msgid ""
 "Set automatically when the round is opened; the round is distributed once at"
 " this time."
@@ -196,35 +204,48 @@ msgstr ""
 "Wird beim Öffnen der Runde automatisch gesetzt; zu diesem Zeitpunkt wird "
 "einmalig verteilt."
 
-#: models.py:226
+#: models.py:234
 msgid "Start of the activity period that is checked."
 msgstr "Beginn des geprüften Aktivitätszeitraums."
 
-#: models.py:227
+#: models.py:235
 msgid "End of the activity period that is checked."
 msgstr "Ende des geprüften Aktivitätszeitraums."
 
-#: models.py:339
+#: models.py:340
+msgid "Member count according to EVE."
+msgstr "Mitgliederzahl laut EVE."
+
+#: models.py:342
+msgid "Characters in the corp that logged in within the active days."
+msgstr ""
+"Charaktere in der Corp, die sich innerhalb der Aktiv-Tage eingeloggt haben."
+
+#: models.py:344
+msgid "Active characters / EVE member count in %."
+msgstr "Aktive Charaktere / Mitgliederzahl laut EVE in %."
+
+#: models.py:353
 msgid "Weighted activity score before bonuses."
 msgstr "Gewichtete Aktivitätspunkte vor Boni."
 
-#: models.py:340
+#: models.py:354
 msgid "Compensation for a bad result in the previous round."
 msgstr "Ausgleich für ein schlechtes Ergebnis in der letzten Runde."
 
-#: models.py:341
+#: models.py:355
 msgid "Bonus set by the Mining Officer."
 msgstr "Bonus vom Mining Officer."
 
-#: models.py:345
+#: models.py:359
 msgid "zKillboard could not be reached."
 msgstr "zKillboard war nicht erreichbar."
 
-#: models.py:364
+#: models.py:378
 msgid "Which wish of the corp this was."
 msgstr "Der wievielte Wunsch der Corp das war."
 
-#: models.py:365
+#: models.py:379
 msgid "Order in which the moon was assigned."
 msgstr "Reihenfolge, in der der Mond vergeben wurde."
 
@@ -236,7 +257,7 @@ msgstr "Officer: bewerben für"
 msgid "Open"
 msgstr "Öffnen"
 
-#: templates/moondistribution/_officer_apply.html:15 views.py:424
+#: templates/moondistribution/_officer_apply.html:15 views.py:430
 msgid "No alliance corps found – check the Alliance ID in the settings."
 msgstr ""
 "Keine Allianz-Corps gefunden – prüfe die Allianz-ID in den Einstellungen."
@@ -288,44 +309,44 @@ msgstr "Gewünscht"
 
 #: templates/moondistribution/apply.html:31
 #: templates/moondistribution/moons.html:114
-#: templates/moondistribution/round_detail.html:179
+#: templates/moondistribution/round_detail.html:185
 msgid "Moon"
 msgstr "Mond"
 
 #: templates/moondistribution/apply.html:32
 #: templates/moondistribution/moons.html:115
-#: templates/moondistribution/round_detail.html:180
+#: templates/moondistribution/round_detail.html:186
 msgid "Rarity, then best share"
 msgstr "Rarity, dann bester Anteil"
 
 #: templates/moondistribution/apply.html:32
 #: templates/moondistribution/moon_form.html:29
 #: templates/moondistribution/moons.html:115
-#: templates/moondistribution/round_detail.html:180
+#: templates/moondistribution/round_detail.html:186
 msgid "Rarity"
 msgstr "Rarity"
 
 #: templates/moondistribution/apply.html:33
 #: templates/moondistribution/moons.html:116
-#: templates/moondistribution/round_detail.html:181
+#: templates/moondistribution/round_detail.html:187
 msgid "Share of the valuable ore"
 msgstr "Anteil des wertvollen Erzes"
 
 #: templates/moondistribution/apply.html:33
 #: templates/moondistribution/moons.html:116
-#: templates/moondistribution/round_detail.html:181
+#: templates/moondistribution/round_detail.html:187
 #, python-format
 msgid "Best %%"
 msgstr "Bester %%"
 
 #: templates/moondistribution/apply.html:34
 #: templates/moondistribution/moons.html:117
-#: templates/moondistribution/round_detail.html:182
+#: templates/moondistribution/round_detail.html:188
 msgid "Composition"
 msgstr "Inhalt"
 
 #: templates/moondistribution/apply.html:35
-#: templates/moondistribution/round_detail.html:183
+#: templates/moondistribution/round_detail.html:189
 msgid "Current owner"
 msgstr "Aktueller Besitzer"
 
@@ -364,7 +385,7 @@ msgstr "Neue Runde"
 #: templates/moondistribution/base.html:53
 #: templates/moondistribution/index.html:66
 #: templates/moondistribution/moons.html:7
-#: templates/moondistribution/round_detail.html:170
+#: templates/moondistribution/round_detail.html:176
 msgid "Moons"
 msgstr "Monde"
 
@@ -436,8 +457,8 @@ msgstr "Status"
 
 #: templates/moondistribution/index.html:65
 #: templates/moondistribution/round_detail.html:11
-#: templates/moondistribution/round_detail.html:184
-#: templates/moondistribution/round_detail.html:216
+#: templates/moondistribution/round_detail.html:190
+#: templates/moondistribution/round_detail.html:222
 msgid "Applications"
 msgstr "Bewerbungen"
 
@@ -698,83 +719,99 @@ msgid "Active members"
 msgstr "Aktive Mitglieder"
 
 #: templates/moondistribution/round_detail.html:84
+#: templates/moondistribution/round_detail.html:100
+#: templates/moondistribution/round_detail.html:238
+#: templates/moondistribution/settings.html:45
+msgid "Activity rate"
+msgstr "Aktivquote"
+
+#: templates/moondistribution/round_detail.html:85
 msgid "values per active member"
 msgstr "Werte pro aktivem Mitglied"
 
-#: templates/moondistribution/round_detail.html:85
+#: templates/moondistribution/round_detail.html:86
 msgid "max. moons per corp"
 msgstr "max. Monde pro Corp"
 
-#: templates/moondistribution/round_detail.html:86
+#: templates/moondistribution/round_detail.html:87
 msgid "max. R32"
 msgstr "max. R32"
 
-#: templates/moondistribution/round_detail.html:87
+#: templates/moondistribution/round_detail.html:88
 msgid "max. R16"
 msgstr "max. R16"
 
-#: templates/moondistribution/round_detail.html:88
+#: templates/moondistribution/round_detail.html:89
 msgid "compensation"
 msgstr "Ausgleich"
 
-#: templates/moondistribution/round_detail.html:88
+#: templates/moondistribution/round_detail.html:89
 msgid "no moon"
 msgstr "kein Mond"
 
-#: templates/moondistribution/round_detail.html:88
+#: templates/moondistribution/round_detail.html:89
 msgid "no R32 last round"
 msgstr "kein R32 letzte Runde"
 
-#: templates/moondistribution/round_detail.html:89
+#: templates/moondistribution/round_detail.html:90
 msgid "Each criterion is scaled 0–100 against the best applicant."
 msgstr "Jedes Kriterium wird gegen den besten Bewerber auf 0–100 skaliert."
 
-#: templates/moondistribution/round_detail.html:96
+#: templates/moondistribution/round_detail.html:97
 msgid "Corporation"
 msgstr "Corporation"
 
-#: templates/moondistribution/round_detail.html:97
+#: templates/moondistribution/round_detail.html:98
 msgid "Kills"
 msgstr "Kills"
 
-#: templates/moondistribution/round_detail.html:98
+#: templates/moondistribution/round_detail.html:99
+msgid "Active players / players registered in the Auth"
+msgstr "Aktive Spieler / in der Auth registrierte Spieler"
+
+#: templates/moondistribution/round_detail.html:99
 msgid "Active / members"
 msgstr "Aktiv / Mitglieder"
 
-#: templates/moondistribution/round_detail.html:99
+#: templates/moondistribution/round_detail.html:100
+#: templates/moondistribution/round_detail.html:239
+msgid "Active characters / EVE member count"
+msgstr "Aktive Charaktere / Mitgliederzahl laut EVE"
+
+#: templates/moondistribution/round_detail.html:101
 #: templates/moondistribution/settings.html:37
 msgid "Fleets"
 msgstr "Fleets"
 
-#: templates/moondistribution/round_detail.html:100
+#: templates/moondistribution/round_detail.html:102
 msgid "Activity"
 msgstr "Aktivität"
 
-#: templates/moondistribution/round_detail.html:101
+#: templates/moondistribution/round_detail.html:103
 msgid "Bonus"
 msgstr "Bonus"
 
-#: templates/moondistribution/round_detail.html:102
+#: templates/moondistribution/round_detail.html:104
 msgid "Score"
 msgstr "Punkte"
 
-#: templates/moondistribution/round_detail.html:112
+#: templates/moondistribution/round_detail.html:114
 msgid "zKillboard not reachable"
 msgstr "zKillboard nicht erreichbar"
 
-#: templates/moondistribution/round_detail.html:118
+#: templates/moondistribution/round_detail.html:124
 msgid "Compensation for the previous round"
 msgstr "Ausgleich für die letzte Runde"
 
-#: templates/moondistribution/round_detail.html:125
+#: templates/moondistribution/round_detail.html:131
 msgid "No applications."
 msgstr "Keine Bewerbungen."
 
-#: templates/moondistribution/round_detail.html:133
+#: templates/moondistribution/round_detail.html:139
 msgid "Bonus points"
 msgstr "Bonuspunkte"
 
-#: templates/moondistribution/round_detail.html:135
+#: templates/moondistribution/round_detail.html:141
 msgid ""
 "Extra points on top of the activity score, e.g. for corps that got little "
 "last time. Corps that did badly in the previous round also get an automatic "
@@ -784,47 +821,56 @@ msgstr ""
 "haben. Corps, die in der letzten Runde schlecht weggekommen sind, bekommen "
 "zusätzlich automatisch einen Ausgleichsbonus."
 
-#: templates/moondistribution/round_detail.html:154
+#: templates/moondistribution/round_detail.html:160
 msgid "No manual bonuses."
 msgstr "Keine manuellen Boni."
 
-#: templates/moondistribution/round_detail.html:164
+#: templates/moondistribution/round_detail.html:170
 msgid "Reason (visible to everyone)"
 msgstr "Begründung (für alle sichtbar)"
 
-#: templates/moondistribution/round_detail.html:165
+#: templates/moondistribution/round_detail.html:171
 msgid "Save bonus"
 msgstr "Bonus speichern"
 
-#: templates/moondistribution/round_detail.html:184
+#: templates/moondistribution/round_detail.html:190
 msgid "Number of corps that have this moon on their wishlist"
 msgstr "Anzahl Corps, die diesen Mond auf der Wunschliste haben"
 
-#: templates/moondistribution/round_detail.html:185
+#: templates/moondistribution/round_detail.html:191
 msgid "Assigned to"
 msgstr "Vergeben an"
 
-#: templates/moondistribution/round_detail.html:211
+#: templates/moondistribution/round_detail.html:217
 msgid "No moons in this round."
 msgstr "Keine Monde in dieser Runde."
 
-#: templates/moondistribution/round_detail.html:216
+#: templates/moondistribution/round_detail.html:222
 msgid "Your applications"
 msgstr "Eure Bewerbungen"
 
-#: templates/moondistribution/round_detail.html:222
+#: templates/moondistribution/round_detail.html:228
 msgid "by"
 msgstr "von"
 
-#: templates/moondistribution/round_detail.html:233
+#: templates/moondistribution/round_detail.html:237
+#, python-format
+msgid ""
+"%(ingame)s members in EVE · %(total)s in the Auth · %(active)s active "
+"players"
+msgstr ""
+"%(ingame)s Mitglieder in EVE · %(total)s in der Auth · %(active)s aktive "
+"Spieler"
+
+#: templates/moondistribution/round_detail.html:248
 msgid "Change"
 msgstr "Ändern"
 
-#: templates/moondistribution/round_detail.html:235
+#: templates/moondistribution/round_detail.html:250
 msgid "Withdraw this application?"
 msgstr "Diese Bewerbung zurückziehen?"
 
-#: templates/moondistribution/round_detail.html:236
+#: templates/moondistribution/round_detail.html:251
 msgid "Withdraw"
 msgstr "Zurückziehen"
 
@@ -906,63 +952,76 @@ msgstr ""
 "gewichtete Durchschnitt ergibt die Punkte. Gewicht 0 = Kriterium wird "
 "ignoriert."
 
-#: templates/moondistribution/settings.html:47
+#: templates/moondistribution/settings.html:49
+msgid ""
+"Active members = number of players (AA users with their main in the corp) "
+"who logged in recently – favours big corps. Activity rate = share of all "
+"characters in the corp (EVE member count) that logged in recently – favours "
+"corps where most members are really active, regardless of size."
+msgstr ""
+"Aktive Mitglieder = Anzahl der Spieler (AA-User mit Main in der Corp), die "
+"sich zuletzt eingeloggt haben – bevorzugt große Corps. Aktivquote = Anteil "
+"aller Charaktere der Corp (Mitgliederzahl laut EVE), die sich zuletzt "
+"eingeloggt haben – bevorzugt Corps, in denen fast alle wirklich aktiv sind, "
+"egal wie groß."
+
+#: templates/moondistribution/settings.html:54
 msgid "Per active member (helps small corps)"
 msgstr "Pro aktivem Mitglied (hilft kleinen Corps)"
 
-#: templates/moondistribution/settings.html:54
+#: templates/moondistribution/settings.html:61
 msgid "Rules"
 msgstr "Regeln"
 
-#: templates/moondistribution/settings.html:57
+#: templates/moondistribution/settings.html:64
 msgid "Application phase (days)"
 msgstr "Bewerbungsphase (Tage)"
 
-#: templates/moondistribution/settings.html:59
+#: templates/moondistribution/settings.html:66
 msgid "Starts when you open a round, then it is distributed once."
 msgstr "Beginnt beim Öffnen einer Runde, danach wird einmalig verteilt."
 
-#: templates/moondistribution/settings.html:62
+#: templates/moondistribution/settings.html:69
 msgid "Max. moons per corp"
 msgstr "Max. Monde pro Corp"
 
-#: templates/moondistribution/settings.html:66
+#: templates/moondistribution/settings.html:73
 msgid "Max. wishes per application"
 msgstr "Max. Wünsche pro Bewerbung"
 
-#: templates/moondistribution/settings.html:70
+#: templates/moondistribution/settings.html:77
 msgid "Active = login within days"
 msgstr "Aktiv = Login innerhalb von Tagen"
 
-#: templates/moondistribution/settings.html:76
+#: templates/moondistribution/settings.html:83
 msgid "Directors may apply too"
 msgstr "Direktoren dürfen sich auch bewerben"
 
-#: templates/moondistribution/settings.html:84
+#: templates/moondistribution/settings.html:91
 msgid "Fairness"
 msgstr "Fairness"
 
-#: templates/moondistribution/settings.html:89
+#: templates/moondistribution/settings.html:96
 msgid "Exclude R64 moons"
 msgstr "R64-Monde ausschließen"
 
-#: templates/moondistribution/settings.html:94
+#: templates/moondistribution/settings.html:101
 msgid "Max. R32 per corp"
 msgstr "Max. R32 pro Corp"
 
-#: templates/moondistribution/settings.html:99
+#: templates/moondistribution/settings.html:106
 msgid "Max. R16 per corp"
 msgstr "Max. R16 pro Corp"
 
-#: templates/moondistribution/settings.html:104
+#: templates/moondistribution/settings.html:111
 msgid "Bonus: no moon last round"
 msgstr "Bonus: letzte Runde kein Mond"
 
-#: templates/moondistribution/settings.html:109
+#: templates/moondistribution/settings.html:116
 msgid "Bonus: no R32 last round"
 msgstr "Bonus: letzte Runde kein R32"
 
-#: templates/moondistribution/settings.html:114
+#: templates/moondistribution/settings.html:121
 msgid ""
 "Bonus points are added to the score (0–100). Manual bonuses per corp are set"
 " on the round page. For small corps also consider “Per active member” in the"
@@ -972,7 +1031,7 @@ msgstr ""
 "setzt du auf der Rundenseite. Für kleine Corps hilft auch „Pro aktivem "
 "Mitglied“ bei den Gewichten."
 
-#: templates/moondistribution/settings.html:119
+#: templates/moondistribution/settings.html:126
 msgid "Save settings"
 msgstr "Einstellungen speichern"
 
@@ -984,40 +1043,40 @@ msgstr ""
 "Die Task-Warteschlange ist gerade nicht erreichbar – bitte in ein paar "
 "Minuten noch einmal versuchen."
 
-#: views.py:179
+#: views.py:185
 msgid "Applications for this round are not open."
 msgstr "Für diese Runde läuft gerade keine Bewerbung."
 
-#: views.py:214
+#: views.py:220
 #, python-format
 msgid "Application for %(corp)s saved."
 msgstr "Bewerbung für %(corp)s gespeichert."
 
-#: views.py:235
+#: views.py:241
 msgid "The round is no longer open."
 msgstr "Die Runde ist nicht mehr offen."
 
-#: views.py:238
+#: views.py:244
 msgid "Application withdrawn."
 msgstr "Bewerbung zurückgezogen."
 
-#: views.py:291
+#: views.py:297
 msgid "Round created as draft. Open it when everything is set."
 msgstr "Runde als Entwurf angelegt. Öffne sie, wenn alles passt."
 
-#: views.py:308
+#: views.py:314
 msgid "A distributed round can't be edited anymore."
 msgstr "Eine verteilte Runde kann nicht mehr bearbeitet werden."
 
-#: views.py:315
+#: views.py:321
 msgid "Round saved."
 msgstr "Runde gespeichert."
 
-#: views.py:328
+#: views.py:334
 msgid "Add at least one moon to the round first."
 msgstr "Füge der Runde zuerst mindestens einen Mond hinzu."
 
-#: views.py:336
+#: views.py:342
 #, python-format
 msgid ""
 "Round is open for applications until %(end)s EVE time – then it is "
@@ -1026,12 +1085,12 @@ msgstr ""
 "Die Runde ist bis %(end)s EVE-Zeit für Bewerbungen offen – danach wird "
 "automatisch verteilt."
 
-#: views.py:352
+#: views.py:358
 msgid "Applications closed – distribution is running, reload in a moment."
 msgstr ""
 "Bewerbung geschlossen – die Verteilung läuft, lade die Seite gleich neu."
 
-#: views.py:354
+#: views.py:360
 msgid ""
 "The round is closed; start the distribution with 'Re-run distribution' "
 "later."
@@ -1039,102 +1098,70 @@ msgstr ""
 "Die Runde ist geschlossen; starte die Verteilung später mit „Verteilung neu "
 "starten“."
 
-#: views.py:365
+#: views.py:371
 msgid "Distribution restarted – reload in a moment."
 msgstr "Verteilung neu gestartet – lade die Seite gleich neu."
 
-#: views.py:376
+#: views.py:382
 msgid "Draft deleted."
 msgstr "Entwurf gelöscht."
 
-#: views.py:386 views.py:409
+#: views.py:392 views.py:415
 msgid "The round is already distributed – bonuses can't be changed anymore."
 msgstr ""
 "Die Runde ist schon verteilt – Boni können nicht mehr geändert werden."
 
-#: views.py:395
+#: views.py:401
 msgid "Bonus saved."
 msgstr "Bonus gespeichert."
 
-#: views.py:412
+#: views.py:418
 msgid "Bonus removed."
 msgstr "Bonus entfernt."
 
-#: views.py:426
+#: views.py:432
 msgid "Please choose a corp of the alliance."
 msgstr "Bitte wähle eine Corp der Allianz aus."
 
-#: views.py:476
+#: views.py:482
 msgid "No moons selected."
 msgstr "Keine Monde ausgewählt."
 
-#: views.py:479
+#: views.py:485
 #, python-format
 msgid "Rarity set for %(n)s moons."
 msgstr "Rarity für %(n)s Monde gesetzt."
 
-#: views.py:482
+#: views.py:488
 #, python-format
 msgid "%(n)s moons updated."
 msgstr "%(n)s Monde aktualisiert."
 
-#: views.py:484
+#: views.py:490
 msgid "Unknown action."
 msgstr "Unbekannte Aktion."
 
-#: views.py:502
+#: views.py:508
 msgid "No moons recognised in the pasted text."
 msgstr "Im eingefügten Text wurden keine Monde erkannt."
 
-#: views.py:506
+#: views.py:512
 msgid "Import started – you get a notification with the result in a moment."
 msgstr ""
 "Import gestartet – du bekommst gleich eine Benachrichtigung mit dem "
 "Ergebnis."
 
-#: views.py:522
+#: views.py:528
 msgid "Moon saved."
 msgstr "Mond gespeichert."
 
-#: views.py:532
+#: views.py:538
 msgid ""
 "Import from Corptools started – you get a notification with the result."
 msgstr ""
 "Import aus Corptools gestartet – du bekommst eine Benachrichtigung mit dem "
 "Ergebnis."
 
-#: views.py:543
+#: views.py:549
 msgid "Settings saved."
 msgstr "Einstellungen gespeichert."
-
-#, python-format
-#~ msgid "Priority for %(moon)s is not a number."
-#~ msgstr "Die Priorität für %(moon)s ist keine Zahl."
-
-#, python-format
-#~ msgid "Priority for %(moon)s must be 1 or higher."
-#~ msgstr "Die Priorität für %(moon)s muss 1 oder höher sein."
-
-#~ msgid "Every priority may only be used once."
-#~ msgstr "Jede Priorität darf nur einmal vergeben werden."
-
-#, python-format
-#~ msgid ""
-#~ "Enter a priority for every moon you want (1 = most wanted). Leave the field "
-#~ "empty for moons you don't want. You can choose up to %(max_wishes)s moons "
-#~ "and change your wishlist until applications close."
-#~ msgstr ""
-#~ "Trage bei jedem gewünschten Mond eine Priorität ein (1 = am liebsten). "
-#~ "Monde, die ihr nicht wollt, bleiben leer. Ihr könnt bis zu %(max_wishes)s "
-#~ "Monde wählen und die Wunschliste bis zum Bewerbungsschluss ändern."
-
-#~ msgid "Priority"
-#~ msgstr "Priorität"
-
-#~ msgid ""
-#~ "Priorities count across all regions – every number may only be used once."
-#~ msgstr ""
-#~ "Prioritäten gelten über alle Regionen – jede Zahl darf nur einmal vorkommen."
-
-#~ msgid "Wish #"
-#~ msgstr "Wunsch Nr."

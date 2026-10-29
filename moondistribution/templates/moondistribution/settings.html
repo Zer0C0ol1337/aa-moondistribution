@@ -29,17 +29,24 @@
                             {% translate "Each criterion is scaled 0–100 against the best applicant, then the weighted average gives the score. Weight 0 = criterion ignored." %}
                         </p>
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label" for="{{ form.weight_pvp.id_for_label }}">PvP (zKill)</label>
                                 {{ form.weight_pvp }}{{ form.weight_pvp.errors }}
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label" for="{{ form.weight_fleet.id_for_label }}">{% translate "Fleets" %}</label>
                                 {{ form.weight_fleet }}{{ form.weight_fleet.errors }}
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label" for="{{ form.weight_members.id_for_label }}">{% translate "Active members" %}</label>
                                 {{ form.weight_members }}{{ form.weight_members.errors }}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="{{ form.weight_activity.id_for_label }}">{% translate "Activity rate" %}</label>
+                                {{ form.weight_activity }}{{ form.weight_activity.errors }}
+                            </div>
+                            <div class="col-12 form-text mt-1">
+                                {% translate "Active members = number of players (AA users with their main in the corp) who logged in recently – favours big corps. Activity rate = share of all characters in the corp (EVE member count) that logged in recently – favours corps where most members are really active, regardless of size." %}
                             </div>
                         </div>
                         <div class="form-check mt-3">

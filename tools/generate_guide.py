@@ -16,6 +16,7 @@ V = {
     "wp": "{{ s.weight_pvp }}",
     "wf": "{{ s.weight_fleet }}",
     "wm": "{{ s.weight_members }}",
+    "wa": "{{ s.weight_activity }}",
     "act": "{{ s.active_days }}",
     "bm": "{{ s.bonus_no_moon }}",
     "br": "{{ s.bonus_no_r32 }}",
@@ -67,6 +68,7 @@ T["en"] = dict(
          {{% if s.weight_pvp %}}<tr><td>PvP</td><td>Ships destroyed by your corp (zKillboard)</td><td class="text-end">{V['wp']}</td></tr>{{% endif %}}
          {{% if s.weight_fleet %}}<tr><td>Fleets</td><td>Fleet participations (FAT links)</td><td class="text-end">{V['wf']}</td></tr>{{% endif %}}
          {{% if s.weight_members %}}<tr><td>Active members</td><td>Players whose main is in your corp and who logged in within the last {V['act']} days</td><td class="text-end">{V['wm']}</td></tr>{{% endif %}}
+         {{% if s.weight_activity %}}<tr><td>Activity rate</td><td>Share of all characters in your corp (EVE member count) that logged in within the last {V['act']} days – characters that are not registered in the Auth count as inactive</td><td class="text-end">{V['wa']}</td></tr>{{% endif %}}
          </tbody></table>
          {{% if s.per_member %}}<p>PvP and fleets are counted <strong>per active member</strong>, so small but very active corps can keep up with big ones.</p>{{% endif %}}
          <p>Everything counts for the corp of the player's <strong>main character</strong> – alts in other corps count for the main's corp.</p>"""),
@@ -131,6 +133,7 @@ T["de"] = dict(
          {{% if s.weight_pvp %}}<tr><td>PvP</td><td>Von eurer Corp zerstörte Schiffe (zKillboard)</td><td class="text-end">{V['wp']}</td></tr>{{% endif %}}
          {{% if s.weight_fleet %}}<tr><td>Fleets</td><td>Fleet-Teilnahmen (FAT-Links)</td><td class="text-end">{V['wf']}</td></tr>{{% endif %}}
          {{% if s.weight_members %}}<tr><td>Aktive Mitglieder</td><td>Spieler, deren Main in eurer Corp ist und die sich in den letzten {V['act']} Tagen eingeloggt haben</td><td class="text-end">{V['wm']}</td></tr>{{% endif %}}
+         {{% if s.weight_activity %}}<tr><td>Aktivquote</td><td>Anteil aller Charaktere in eurer Corp (Mitgliederzahl laut EVE), die sich in den letzten {V['act']} Tagen eingeloggt haben – Charaktere, die nicht in der Auth registriert sind, zählen als inaktiv</td><td class="text-end">{V['wa']}</td></tr>{{% endif %}}
          </tbody></table>
          {{% if s.per_member %}}<p>PvP und Fleets zählen <strong>pro aktivem Mitglied</strong>, damit kleine, aber sehr aktive Corps mit großen mithalten können.</p>{{% endif %}}
          <p>Alles zählt für die Corp des <strong>Main-Charakters</strong> – Alts in anderen Corps zählen für die Corp des Mains.</p>"""),
@@ -175,6 +178,7 @@ def build(lang, title, footer, h, t):
          {{% if s.weight_pvp %}}<tr><td>PvP</td><td>{t['src_pvp']}</td><td class="text-end">{V['wp']}</td></tr>{{% endif %}}
          {{% if s.weight_fleet %}}<tr><td>{t['n_fleet']}</td><td>{t['src_fleet']}</td><td class="text-end">{V['wf']}</td></tr>{{% endif %}}
          {{% if s.weight_members %}}<tr><td>{t['n_mem']}</td><td>{t['src_mem']}</td><td class="text-end">{V['wm']}</td></tr>{{% endif %}}
+         {{% if s.weight_activity %}}<tr><td>{t['n_rate']}</td><td>{t['src_rate']}</td><td class="text-end">{V['wa']}</td></tr>{{% endif %}}
          </tbody></table>
          {{% if s.per_member %}}<p>{t['per_member']}</p>{{% endif %}}
          <p>{t['main']}</p>"""),
@@ -214,6 +218,7 @@ build("es", "Cómo funciona el reparto de lunas", "Esta página muestra siempre 
           c_crit="Criterio", c_src="Fuente", c_w="Peso",
           src_pvp="Naves destruidas por vuestra corp (zKillboard)", n_fleet="Flotas", src_fleet="Participación en flotas (enlaces FAT)",
           n_mem="Miembros activos", src_mem=f"Jugadores cuyo personaje principal está en vuestra corp y que han entrado en los últimos {V['act']} días",
+          n_rate="Tasa de actividad", src_rate=f"Porcentaje de todos los personajes de vuestra corp (número de miembros según EVE) que han entrado en los últimos {V['act']} días – los personajes no registrados en el Auth cuentan como inactivos",
           per_member="PvP y flotas se cuentan <strong>por miembro activo</strong>, para que las corps pequeñas pero muy activas puedan competir con las grandes.",
           main="Todo cuenta para la corp del <strong>personaje principal</strong>: los alts en otras corps cuentan para la corp del principal.",
           b_moon="si vuestra corp solicitó en la ronda anterior y no recibió ninguna luna.",
@@ -251,6 +256,7 @@ build("it", "Come funziona la distribuzione delle lune", "Questa pagina mostra s
           c_crit="Criterio", c_src="Fonte", c_w="Peso",
           src_pvp="Navi distrutte dalla vostra corp (zKillboard)", n_fleet="Flotte", src_fleet="Partecipazioni alle flotte (link FAT)",
           n_mem="Membri attivi", src_mem=f"Giocatori il cui personaggio principale è nella vostra corp e che hanno effettuato l'accesso negli ultimi {V['act']} giorni",
+          n_rate="Tasso di attività", src_rate=f"Percentuale di tutti i personaggi della vostra corp (numero di membri secondo EVE) che hanno effettuato l'accesso negli ultimi {V['act']} giorni – i personaggi non registrati nell'Auth contano come inattivi",
           per_member="PvP e flotte vengono contati <strong>per membro attivo</strong>, così le corp piccole ma molto attive possono competere con quelle grandi.",
           main="Tutto conta per la corp del <strong>personaggio principale</strong>: gli alt in altre corp contano per la corp del principale.",
           b_moon="se la vostra corp si è candidata nel round precedente e non ha ricevuto nessuna luna.",
@@ -288,6 +294,7 @@ build("fr", "Comment fonctionne la distribution des lunes", "Cette page affiche 
           c_crit="Critère", c_src="Source", c_w="Poids",
           src_pvp="Vaisseaux détruits par votre corp (zKillboard)", n_fleet="Flottes", src_fleet="Participations aux flottes (liens FAT)",
           n_mem="Membres actifs", src_mem=f"Joueurs dont le personnage principal est dans votre corp et qui se sont connectés au cours des {V['act']} derniers jours",
+          n_rate="Taux d'activité", src_rate=f"Part de tous les personnages de votre corp (nombre de membres selon EVE) qui se sont connectés au cours des {V['act']} derniers jours – les personnages non enregistrés dans l'Auth comptent comme inactifs",
           per_member="Le PvP et les flottes sont comptés <strong>par membre actif</strong>, pour que les petites corps très actives puissent rivaliser avec les grandes.",
           main="Tout compte pour la corp du <strong>personnage principal</strong> : les alts dans d'autres corps comptent pour la corp du principal.",
           b_moon="si votre corp a postulé au tour précédent et n'a obtenu aucune lune.",
@@ -325,6 +332,7 @@ build("nl", "Zo werkt de maanverdeling", "Deze pagina toont altijd de actuele in
           c_crit="Criterium", c_src="Bron", c_w="Gewicht",
           src_pvp="Schepen vernietigd door jullie corp (zKillboard)", n_fleet="Fleets", src_fleet="Deelnames aan fleets (FAT-links)",
           n_mem="Actieve leden", src_mem=f"Spelers van wie de main in jullie corp zit en die in de laatste {V['act']} dagen zijn ingelogd",
+          n_rate="Activiteitsgraad", src_rate=f"Aandeel van alle characters in jullie corp (ledenaantal volgens EVE) dat in de laatste {V['act']} dagen is ingelogd – characters die niet in de Auth geregistreerd zijn, tellen als inactief",
           per_member="PvP en fleets tellen <strong>per actief lid</strong>, zodat kleine maar zeer actieve corps kunnen meekomen met grote.",
           main="Alles telt voor de corp van het <strong>main-personage</strong> – alts in andere corps tellen voor de corp van de main.",
           b_moon="als jullie corp zich in de vorige ronde heeft aangemeld en geen maan heeft gekregen.",
@@ -362,6 +370,7 @@ build("pl", "Jak działa podział księżyców", "Ta strona zawsze pokazuje aktu
           c_crit="Kryterium", c_src="Źródło", c_w="Waga",
           src_pvp="Statki zniszczone przez waszą corp (zKillboard)", n_fleet="Floty", src_fleet="Udział we flotach (linki FAT)",
           n_mem="Aktywni członkowie", src_mem=f"Gracze, których główna postać jest w waszej corp i którzy logowali się w ciągu ostatnich {V['act']} dni",
+          n_rate="Wskaźnik aktywności", src_rate=f"Odsetek wszystkich postaci w waszej corp (liczba członków według EVE), które logowały się w ciągu ostatnich {V['act']} dni – postacie niezarejestrowane w Auth liczą się jako nieaktywne",
           per_member="PvP i floty liczone są <strong>na aktywnego członka</strong>, aby małe, ale bardzo aktywne korporacje mogły dorównać dużym.",
           main="Wszystko liczy się dla corp <strong>głównej postaci</strong> – alty w innych korporacjach liczą się dla corp maina.",
           b_moon="jeśli wasza corp zgłosiła się w poprzedniej rundzie i nie dostała żadnego księżyca.",
@@ -399,6 +408,7 @@ build("ru", "Как работает распределение лун", "На �
           c_crit="Критерий", c_src="Источник", c_w="Вес",
           src_pvp="Корабли, уничтоженные вашей корпорацией (zKillboard)", n_fleet="Флоты", src_fleet="Участие во флотах (ссылки FAT)",
           n_mem="Активные участники", src_mem=f"Игроки, чей основной персонаж состоит в вашей корпорации и кто заходил в игру за последние {V['act']} дн.",
+          n_rate="Доля активных", src_rate=f"Доля всех персонажей вашей корпорации (число участников по данным EVE), заходивших в игру за последние {V['act']} дн. – персонажи, не зарегистрированные в Auth, считаются неактивными",
           per_member="PvP и флоты считаются <strong>на одного активного участника</strong>, чтобы небольшие, но очень активные корпорации могли конкурировать с крупными.",
           main="Всё засчитывается корпорации <strong>основного персонажа</strong> – альты в других корпорациях засчитываются корпорации мейна.",
           b_moon="если ваша корпорация подавала заявку в прошлом раунде и не получила ни одной луны.",
@@ -436,6 +446,7 @@ build("uk", "Як працює розподіл місяців", "Ця стор�
           c_crit="Критерій", c_src="Джерело", c_w="Вага",
           src_pvp="Кораблі, знищені вашою корпорацією (zKillboard)", n_fleet="Флоти", src_fleet="Участь у флотах (посилання FAT)",
           n_mem="Активні учасники", src_mem=f"Гравці, чий основний персонаж у вашій корпорації і хто заходив у гру за останні {V['act']} дн.",
+          n_rate="Частка активних", src_rate=f"Частка всіх персонажів вашої корпорації (кількість учасників за даними EVE), які заходили в гру за останні {V['act']} дн. – персонажі, не зареєстровані в Auth, вважаються неактивними",
           per_member="PvP і флоти рахуються <strong>на одного активного учасника</strong>, щоб невеликі, але дуже активні корпорації могли конкурувати з великими.",
           main="Усе зараховується корпорації <strong>основного персонажа</strong> – альти в інших корпораціях зараховуються корпорації мейна.",
           b_moon="якщо ваша корпорація подавала заявку в минулому раунді й не отримала жодного місяця.",
@@ -473,6 +484,7 @@ build("ja", "ムーン分配の仕組み", "このページには常にマイニ
           c_crit="基準", c_src="データ元", c_w="重み",
           src_pvp="コーポが撃破した艦船（zKillboard）", n_fleet="フリート", src_fleet="フリート参加（FATリンク）",
           n_mem="アクティブメンバー", src_mem=f"メインキャラクターがコーポに所属し、直近{V['act']}日以内にログインしたプレイヤー",
+          n_rate="アクティブ率", src_rate=f"コーポの全キャラクター（EVE上のメンバー数）のうち、直近{V['act']}日以内にログインした割合 – Authに登録されていないキャラクターは非アクティブとして扱われます",
           per_member="PvP とフリートは<strong>アクティブメンバー1人あたり</strong>で計算されるため、小規模でも活発なコーポが大規模コーポと競えます。",
           main="すべて<strong>メインキャラクター</strong>のコーポに加算されます。他コーポにいるオルトもメインのコーポに加算されます。",
           b_moon="前回のラウンドで申請したのにムーンを1つも得られなかった場合。",
@@ -510,6 +522,7 @@ build("ko", "위성 분배 방식 안내", "이 페이지에는 항상 마이닝
           c_crit="기준", c_src="데이터 출처", c_w="가중치",
           src_pvp="코퍼레이션이 파괴한 함선(zKillboard)", n_fleet="함대", src_fleet="함대 참여(FAT 링크)",
           n_mem="활동 멤버", src_mem=f"메인 캐릭터가 코퍼레이션에 있고 최근 {V['act']}일 이내에 접속한 플레이어",
+          n_rate="활동 비율", src_rate=f"코퍼레이션의 전체 캐릭터(EVE 기준 멤버 수) 중 최근 {V['act']}일 이내에 접속한 비율 – Auth에 등록되지 않은 캐릭터는 비활동으로 계산됩니다",
           per_member="PvP와 함대는 <strong>활동 멤버 1인당</strong>으로 계산되어, 작지만 매우 활발한 코퍼레이션도 큰 코퍼레이션과 경쟁할 수 있습니다.",
           main="모든 활동은 <strong>메인 캐릭터</strong>의 코퍼레이션에 합산됩니다. 다른 코퍼레이션의 부캐도 메인의 코퍼레이션에 합산됩니다.",
           b_moon="지난 라운드에 신청했지만 위성을 하나도 받지 못한 경우.",
@@ -547,6 +560,7 @@ build("zh_hans", "卫星分配说明", "本页面始终显示 Mining Officer 的
           c_crit="指标", c_src="数据来源", c_w="权重",
           src_pvp="你军团击毁的舰船（zKillboard）", n_fleet="舰队", src_fleet="舰队参与（FAT 链接）",
           n_mem="活跃成员", src_mem=f"主角色在你军团中、且在最近 {V['act']} 天内登录过的玩家",
+          n_rate="活跃率", src_rate=f"你军团所有角色（EVE 成员数）中最近 {V['act']} 天内登录过的比例 – 未在 Auth 中注册的角色视为不活跃",
           per_member="PvP 和舰队按<strong>每名活跃成员</strong>计算，让规模小但非常活跃的军团也能与大军团竞争。",
           main="所有数据都计入<strong>主角色</strong>所在的军团——在其他军团的小号也计入主号的军团。",
           b_moon="如果你的军团上一轮申请了但没有得到任何卫星。",

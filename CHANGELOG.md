@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.10] - 2026-10-29
+
+### Added
+
+- **Activity rate** as a new scoring criterion: share of all characters in the corp (EVE member count) that logged in within the active days (Corptools login data) – corps where almost everybody is really active score well regardless of their size; characters not registered in the Auth count as inactive. Own weight in the settings (default 15), not divided in per-member mode.
+- Member numbers per applying corp on the round page, live during the application week: members in EVE, players in the Auth, active players, activity rate
+- Ranking shows the activity rate (active characters / EVE members) next to active / registered players
+- "How it works" guide explains the activity rate in all 12 languages
+
+### Changed
+
+- New default weights: PvP 40, Fleets 35, active members 10, activity rate 15 – migration `0007_activity_rate` switches a settings row that still has the old defaults (50/40/10); custom weights stay and get the activity rate weight 15 (set it to 0 to ignore it)
+
 ## [0.1.9] - 2026-10-29
 
 ### Added

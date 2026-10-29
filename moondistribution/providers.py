@@ -1,4 +1,4 @@
-"""Data collection: PvP, members and fleet activity per corp, plus moon import from Corptools.
+"""Data collection: PvP, members, activity rate and fleet activity per corp, plus moon import from Corptools.
 
 Every activity is attributed via the *main character* of the AA user. That way
 alt corps count for the corp of the player's main.
@@ -69,8 +69,23 @@ def eligible_corporations_for(user: User, include_officer: bool = True):
 # ---------------------------------------------------------------------------
 
 def collect_members(corp_ids: list, active_days: int) -> dict:
-    """Total and active players (AA users) per corp, counted by their main character."""
-    result = {cid: {"total": 0, "active": 0} for cid in corp_ids}
+    """Member numbers per corp.
+
+    - ingame:       members of the corp according to EVE (EveCorporationInfo.member_count, characters)
+    - total:        AA users whose main character is in the corp
+    - active:       of those, users with a character login within active_days (Corptools)
+    - chars_active: characters currently in the corp that logged in within active_days (Corptools)
+    - rate:         chars_active / ingame in percent (0–100) – how much of the corp is really active
+    """
+    result = {
+        cid: {"ingame": 0, "total": 0, "active": 0, "chars_active": 0, "rate": 0.0}
+        for cid in corp_ids
+    }
+
+    for cid, count in EveCorporationInfo.objects.filter(corporation_id__in=corp_ids).values_list(
+        "corporation_id", "member_count",
+    ):
+        result[cid]["ingame"] = count or 0
 
     totals = (
         User.objects.filter(profile__main_character__corporation_id__in=corp_ids)
@@ -80,26 +95,42 @@ def collect_members(corp_ids: list, active_days: int) -> dict:
     for row in totals:
         result[row["profile__main_character__corporation_id"]]["total"] = row["n"]
 
+    has_login_data = False
     if apps.is_installed("corptools"):
         from corptools.models import CharacterAudit
 
         since = timezone.now() - timedelta(days=active_days)
+        recent = CharacterAudit.objects.filter(last_known_login__gte=since)
+        # active players, attributed to the corp of their main
         active = (
-            CharacterAudit.objects.filter(
-                last_known_login__gte=since,
-                **{f"character__{_MAIN_CORP}__in": corp_ids},
-            )
+            recent.filter(**{f"character__{_MAIN_CORP}__in": corp_ids})
             .values(f"character__{_MAIN_CORP}")
             .annotate(n=Count("character__character_ownership__user", distinct=True))
         )
         for row in active:
             result[row[f"character__{_MAIN_CORP}"]]["active"] = row["n"]
+            has_login_data = True
+        # active characters that are in the corp right now (for the activity rate)
+        chars = (
+            recent.filter(character__corporation_id__in=corp_ids)
+            .values("character__corporation_id")
+            .annotate(n=Count("id"))
+        )
+        for row in chars:
+            result[row["character__corporation_id"]]["chars_active"] = row["n"]
+            has_login_data = True
 
-    # Fallback: without any login data (missing scope) treat all members as active
-    if not any(v["active"] for v in result.values()):
+    if not has_login_data:
+        # Without any login data (missing scope) all registered members count as active, the rate stays 0 for all
         logger.info("No login data from Corptools – using total members as active members")
         for v in result.values():
             v["active"] = v["total"]
+        return result
+
+    for v in result.values():
+        # member_count can lag behind (AA updates it daily) – never more than 100 %
+        base = v["ingame"] or v["chars_active"]
+        v["rate"] = round(min(100.0, v["chars_active"] / base * 100.0), 1) if base else 0.0
     return result
 
 

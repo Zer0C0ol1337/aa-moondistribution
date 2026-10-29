@@ -19,6 +19,7 @@
          {% if s.weight_pvp %}<tr><td>PvP</td><td>Кораблі, знищені вашою корпорацією (zKillboard)</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
          {% if s.weight_fleet %}<tr><td>Флоти</td><td>Участь у флотах (посилання FAT)</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
          {% if s.weight_members %}<tr><td>Активні учасники</td><td>Гравці, чий основний персонаж у вашій корпорації і хто заходив у гру за останні {{ s.active_days }} дн.</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         {% if s.weight_activity %}<tr><td>Частка активних</td><td>Частка всіх персонажів вашої корпорації (кількість учасників за даними EVE), які заходили в гру за останні {{ s.active_days }} дн. – персонажі, не зареєстровані в Auth, вважаються неактивними</td><td class="text-end">{{ s.weight_activity }}</td></tr>{% endif %}
          </tbody></table>
          {% if s.per_member %}<p>PvP і флоти рахуються <strong>на одного активного учасника</strong>, щоб невеликі, але дуже активні корпорації могли конкурувати з великими.</p>{% endif %}
          <p>Усе зараховується корпорації <strong>основного персонажа</strong> – альти в інших корпораціях зараховуються корпорації мейна.</p>

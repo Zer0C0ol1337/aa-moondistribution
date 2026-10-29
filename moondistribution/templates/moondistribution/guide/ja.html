@@ -19,6 +19,7 @@
          {% if s.weight_pvp %}<tr><td>PvP</td><td>コーポが撃破した艦船（zKillboard）</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
          {% if s.weight_fleet %}<tr><td>フリート</td><td>フリート参加（FATリンク）</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
          {% if s.weight_members %}<tr><td>アクティブメンバー</td><td>メインキャラクターがコーポに所属し、直近{{ s.active_days }}日以内にログインしたプレイヤー</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         {% if s.weight_activity %}<tr><td>アクティブ率</td><td>コーポの全キャラクター（EVE上のメンバー数）のうち、直近{{ s.active_days }}日以内にログインした割合 – Authに登録されていないキャラクターは非アクティブとして扱われます</td><td class="text-end">{{ s.weight_activity }}</td></tr>{% endif %}
          </tbody></table>
          {% if s.per_member %}<p>PvP とフリートは<strong>アクティブメンバー1人あたり</strong>で計算されるため、小規模でも活発なコーポが大規模コーポと競えます。</p>{% endif %}
          <p>すべて<strong>メインキャラクター</strong>のコーポに加算されます。他コーポにいるオルトもメインのコーポに加算されます。</p>

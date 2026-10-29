@@ -49,6 +49,24 @@ class TestNormalizeScores(SimpleTestCase):
         res = normalize_scores(raw, {"pvp": 0, "members": 0, "fleet": 1}, per_member=True)
         self.assertGreater(res[2]["total"], res[1]["total"])
 
+    def test_activity_rate(self):
+        """Activity rate: a small corp with 90 % active characters beats a big one with 30 %."""
+        raw = {
+            1: {"pvp": 0, "members": 60, "fleet": 0, "activity": 30.0},  # big, mostly inactive
+            2: {"pvp": 0, "members": 9, "fleet": 0, "activity": 90.0},   # small, almost all active
+        }
+        res = normalize_scores(raw, {"pvp": 0, "members": 0, "fleet": 0, "activity": 1})
+        self.assertEqual(res[2]["score_activity"], 100.0)
+        self.assertAlmostEqual(res[1]["score_activity"], 33.33, places=2)
+        self.assertGreater(res[2]["total"], res[1]["total"])
+
+    def test_activity_rate_not_divided_per_member(self):
+        """Per-member mode leaves the activity rate alone (it already is a share)."""
+        raw = {1: {"pvp": 0, "members": 10, "fleet": 0, "activity": 50.0},
+               2: {"pvp": 0, "members": 2, "fleet": 0, "activity": 50.0}}
+        res = normalize_scores(raw, {"pvp": 0, "members": 0, "fleet": 0, "activity": 1}, per_member=True)
+        self.assertEqual(res[1]["score_activity"], res[2]["score_activity"])
+
 
 class TestRanking(SimpleTestCase):
     """rank_corporations()"""

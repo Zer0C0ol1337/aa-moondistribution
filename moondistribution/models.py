@@ -34,10 +34,17 @@ class DistributionSettings(SingletonModel):
         help_text=_("EVE alliance ID whose corps may apply and whose refineries are imported."),
     )
 
-    # Weights of the three criteria – 0 disables a criterion completely
-    weight_pvp = models.PositiveSmallIntegerField(default=50, validators=[MaxValueValidator(100)])
+    # Weights of the criteria – 0 disables a criterion completely
+    weight_pvp = models.PositiveSmallIntegerField(default=40, validators=[MaxValueValidator(100)])
     weight_members = models.PositiveSmallIntegerField(default=10, validators=[MaxValueValidator(100)])
-    weight_fleet = models.PositiveSmallIntegerField(default=40, validators=[MaxValueValidator(100)])
+    weight_fleet = models.PositiveSmallIntegerField(default=35, validators=[MaxValueValidator(100)])
+    weight_activity = models.PositiveSmallIntegerField(
+        default=15, validators=[MaxValueValidator(100)],
+        help_text=_(
+            "Activity rate: share of the corp's characters (EVE member count) "
+            "that logged in within the active days."
+        ),
+    )
 
     per_member = models.BooleanField(
         default=False,
@@ -113,6 +120,7 @@ class DistributionSettings(SingletonModel):
             "pvp": self.weight_pvp,
             "members": self.weight_members,
             "fleet": self.weight_fleet,
+            "activity": self.weight_activity,
         }
 
 
@@ -329,12 +337,18 @@ class CorporationScore(models.Model):
     pvp_kills = models.PositiveIntegerField(default=0)
     members_total = models.PositiveIntegerField(default=0)
     members_active = models.PositiveIntegerField(default=0)
+    members_ingame = models.PositiveIntegerField(default=0, help_text=_("Member count according to EVE."))
+    chars_active = models.PositiveIntegerField(
+        default=0, help_text=_("Characters in the corp that logged in within the active days."),
+    )
+    activity_rate = models.FloatField(default=0, help_text=_("Active characters / EVE member count in %."))
     fleet_participations = models.PositiveIntegerField(default=0)
 
     # Normalised sub-scores 0–100
     score_pvp = models.FloatField(default=0)
     score_members = models.FloatField(default=0)
     score_fleet = models.FloatField(default=0)
+    score_activity = models.FloatField(default=0)
 
     base_score = models.FloatField(default=0, help_text=_("Weighted activity score before bonuses."))
     bonus_auto = models.FloatField(default=0, help_text=_("Compensation for a bad result in the previous round."))

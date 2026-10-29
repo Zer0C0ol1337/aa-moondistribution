@@ -17,13 +17,15 @@ from .models import Allocation, Application, CorporationScore, DistributionSetti
 
 logger = get_extension_logger(__name__)
 
-CRITERIA = ("pvp", "members", "fleet")
+CRITERIA = ("pvp", "members", "fleet", "activity")
+# criteria that are never divided by the members in per-member mode
+_NOT_PER_MEMBER = ("members", "activity")
 
 
 def normalize_scores(raw: dict, weights: dict, per_member: bool = False) -> dict:
     """Turn raw activity values into sub-scores (0–100) and a weighted total.
 
-    raw:     {corp_id: {"pvp": x, "members": active, "fleet": x}}
+    raw:     {corp_id: {"pvp": x, "members": active, "fleet": x, "activity": rate in %}}
     weights: {"pvp": w, ...} – a weight of 0 removes the criterion.
     Every criterion is scaled against the best applicant (best = 100).
     """
@@ -33,7 +35,7 @@ def normalize_scores(raw: dict, weights: dict, per_member: bool = False) -> dict
         row = {}
         for crit in CRITERIA:
             value = float(data.get(crit) or 0)
-            if per_member and crit != "members":
+            if per_member and crit not in _NOT_PER_MEMBER:
                 value = value / members if members > 0 else 0.0
             row[crit] = value
         values[cid] = row
@@ -168,6 +170,7 @@ def run_distribution(round_obj: Round) -> None:
             "pvp": pvp.get(cid, 0),
             "members": members[cid]["active"],
             "fleet": fleets.get(cid, 0),
+            "activity": members[cid]["rate"],
         }
         for cid in corp_ids
     }
@@ -215,10 +218,14 @@ def run_distribution(round_obj: Round) -> None:
                 pvp_kills=raw[cid]["pvp"],
                 members_total=members[cid]["total"],
                 members_active=members[cid]["active"],
+                members_ingame=members[cid]["ingame"],
+                chars_active=members[cid]["chars_active"],
+                activity_rate=members[cid]["rate"],
                 fleet_participations=raw[cid]["fleet"],
                 score_pvp=scores[cid]["score_pvp"],
                 score_members=scores[cid]["score_members"],
                 score_fleet=scores[cid]["score_fleet"],
+                score_activity=scores[cid]["score_activity"],
                 base_score=scores[cid]["base"],
                 bonus_auto=scores[cid]["auto"],
                 bonus_manual=scores[cid]["manual"],

@@ -19,6 +19,7 @@
          {% if s.weight_pvp %}<tr><td>PvP</td><td>Schepen vernietigd door jullie corp (zKillboard)</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
          {% if s.weight_fleet %}<tr><td>Fleets</td><td>Deelnames aan fleets (FAT-links)</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
          {% if s.weight_members %}<tr><td>Actieve leden</td><td>Spelers van wie de main in jullie corp zit en die in de laatste {{ s.active_days }} dagen zijn ingelogd</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         {% if s.weight_activity %}<tr><td>Activiteitsgraad</td><td>Aandeel van alle characters in jullie corp (ledenaantal volgens EVE) dat in de laatste {{ s.active_days }} dagen is ingelogd – characters die niet in de Auth geregistreerd zijn, tellen als inactief</td><td class="text-end">{{ s.weight_activity }}</td></tr>{% endif %}
          </tbody></table>
          {% if s.per_member %}<p>PvP en fleets tellen <strong>per actief lid</strong>, zodat kleine maar zeer actieve corps kunnen meekomen met grote.</p>{% endif %}
          <p>Alles telt voor de corp van het <strong>main-personage</strong> – alts in andere corps tellen voor de corp van de main.</p>

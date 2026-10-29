@@ -81,6 +81,7 @@
         <p class="small text-muted">
             {% translate "Weights" %}: PvP {{ snapshot.weights.pvp }} · Fleets {{ snapshot.weights.fleet }} ·
             {% translate "Active members" %} {{ snapshot.weights.members }}
+            {% if snapshot.weights.activity is not None %} · {% translate "Activity rate" %} {{ snapshot.weights.activity }}{% endif %}
             {% if snapshot.per_member %} · {% translate "values per active member" %}{% endif %}
             · {% translate "max. moons per corp" %}: {{ snapshot.max_moons_per_corp }}
             {% if snapshot.rarity_limits.R32 is not None %} · {% translate "max. R32" %}: {{ snapshot.rarity_limits.R32 }}{% endif %}
@@ -95,7 +96,8 @@
                         <th>#</th>
                         <th>{% translate "Corporation" %}</th>
                         <th class="text-end">{% translate "Kills" %}</th>
-                        <th class="text-end">{% translate "Active / members" %}</th>
+                        <th class="text-end" title="{% translate 'Active players / players registered in the Auth' %}">{% translate "Active / members" %}</th>
+                        <th class="text-end" title="{% translate 'Active characters / EVE member count' %}">{% translate "Activity rate" %}</th>
                         <th class="text-end">{% translate "Fleets" %}</th>
                         <th class="text-end">{% translate "Activity" %}</th>
                         <th class="text-end">{% translate "Bonus" %}</th>
@@ -112,6 +114,10 @@
                                 {% if s.pvp_error %}<i class="fas fa-triangle-exclamation text-warning" title="{% translate 'zKillboard not reachable' %}"></i>{% endif %}
                             </td>
                             <td class="text-end">{{ s.members_active }} / {{ s.members_total }} <span class="text-muted small">({{ s.score_members|floatformat:0 }})</span></td>
+                            <td class="text-end">
+                                {% if s.members_ingame %}<span title="{{ s.chars_active }} / {{ s.members_ingame }}">{{ s.activity_rate|floatformat:0 }}%</span>{% else %}–{% endif %}
+                                <span class="text-muted small">({{ s.score_activity|floatformat:0 }})</span>
+                            </td>
                             <td class="text-end">{{ s.fleet_participations|intcomma }} <span class="text-muted small">({{ s.score_fleet|floatformat:0 }})</span></td>
                             <td class="text-end">{{ s.base_score|floatformat:1 }}</td>
                             <td class="text-end small">
@@ -122,7 +128,7 @@
                             <td class="text-end fw-bold">{{ s.total_score|floatformat:1 }}</td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="8" class="text-muted">{% translate "No applications." %}</td></tr>
+                        <tr><td colspan="9" class="text-muted">{% translate "No applications." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -224,6 +230,15 @@
                     </span>
                 </div>
                 <div class="card-body py-2">
+                    {% if app.member_stats %}
+                        {# live numbers – the distribution uses the values at the end of the application phase #}
+                        <div class="small text-muted mb-1">
+                            <i class="fas fa-users me-1"></i>
+                            {% blocktranslate with ingame=app.member_stats.ingame total=app.member_stats.total active=app.member_stats.active %}{{ ingame }} members in EVE · {{ total }} in the Auth · {{ active }} active players{% endblocktranslate %}
+                            · {% translate "Activity rate" %} <strong>{{ app.member_stats.rate|floatformat:0 }}%</strong>
+                            <span title="{% translate 'Active characters / EVE member count' %}">({{ app.member_stats.chars_active }} / {{ app.member_stats.ingame }})</span>
+                        </div>
+                    {% endif %}
                     <div class="mb-1 small">
                         {% for w in app.wishes.all %}<span class="me-2 text-nowrap">{% include "moondistribution/_rarity_badge.html" with rarity=w.moon.rarity %} {{ w.moon.name }}</span>{% endfor %}
                     </div>

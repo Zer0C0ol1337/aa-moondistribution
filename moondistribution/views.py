@@ -21,7 +21,7 @@ from .decorators import check_access, officer_required
 from .distribution import application_summary
 from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_selection
 from .models import Allocation, Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
-from .providers import alliance_corporations, eligible_corporations_for
+from .providers import alliance_corporations, collect_members, eligible_corporations_for
 from .rarity import parse_paste
 from .tasks import distribute_round, import_moon_data, sync_moons
 from .utils import reset_open_rounds_count
@@ -151,6 +151,12 @@ def round_detail(request, round_id: int):
         applications = application_summary(round_obj)
     else:
         applications = [a for a in application_summary(round_obj) if a.corporation in eligible]
+    # Live member numbers per applying corp (until the round is distributed – then the ranking shows them)
+    if applications and round_obj.status != Round.Status.DONE:
+        stats = collect_members([a.corporation.corporation_id for a in applications],
+                                DistributionSettings.get_solo().active_days)
+        for app in applications:
+            app.member_stats = stats.get(app.corporation.corporation_id)
 
     return render(request, "moondistribution/round_detail.html", _ctx(
         request,

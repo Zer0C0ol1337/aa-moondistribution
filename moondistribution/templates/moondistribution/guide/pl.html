@@ -19,6 +19,7 @@
          {% if s.weight_pvp %}<tr><td>PvP</td><td>Statki zniszczone przez waszą corp (zKillboard)</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
          {% if s.weight_fleet %}<tr><td>Floty</td><td>Udział we flotach (linki FAT)</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
          {% if s.weight_members %}<tr><td>Aktywni członkowie</td><td>Gracze, których główna postać jest w waszej corp i którzy logowali się w ciągu ostatnich {{ s.active_days }} dni</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         {% if s.weight_activity %}<tr><td>Wskaźnik aktywności</td><td>Odsetek wszystkich postaci w waszej corp (liczba członków według EVE), które logowały się w ciągu ostatnich {{ s.active_days }} dni – postacie niezarejestrowane w Auth liczą się jako nieaktywne</td><td class="text-end">{{ s.weight_activity }}</td></tr>{% endif %}
          </tbody></table>
          {% if s.per_member %}<p>PvP i floty liczone są <strong>na aktywnego członka</strong>, aby małe, ale bardzo aktywne korporacje mogły dorównać dużym.</p>{% endif %}
          <p>Wszystko liczy się dla corp <strong>głównej postaci</strong> – alty w innych korporacjach liczą się dla corp maina.</p>

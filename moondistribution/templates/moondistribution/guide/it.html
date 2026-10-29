@@ -19,6 +19,7 @@
          {% if s.weight_pvp %}<tr><td>PvP</td><td>Navi distrutte dalla vostra corp (zKillboard)</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
          {% if s.weight_fleet %}<tr><td>Flotte</td><td>Partecipazioni alle flotte (link FAT)</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
          {% if s.weight_members %}<tr><td>Membri attivi</td><td>Giocatori il cui personaggio principale è nella vostra corp e che hanno effettuato l'accesso negli ultimi {{ s.active_days }} giorni</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         {% if s.weight_activity %}<tr><td>Tasso di attività</td><td>Percentuale di tutti i personaggi della vostra corp (numero di membri secondo EVE) che hanno effettuato l'accesso negli ultimi {{ s.active_days }} giorni – i personaggi non registrati nell'Auth contano come inattivi</td><td class="text-end">{{ s.weight_activity }}</td></tr>{% endif %}
          </tbody></table>
          {% if s.per_member %}<p>PvP e flotte vengono contati <strong>per membro attivo</strong>, così le corp piccole ma molto attive possono competere con quelle grandi.</p>{% endif %}
          <p>Tutto conta per la corp del <strong>personaggio principale</strong>: gli alt in altre corp contano per la corp del principale.</p>
