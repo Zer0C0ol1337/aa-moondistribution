@@ -5,49 +5,118 @@
 {% block moondist_content %}
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <h3 class="mb-0">{% translate "Moons" %}</h3>
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2">
             <form method="post" action="{% url 'moondistribution:moon_sync' %}">{% csrf_token %}
                 <button class="btn btn-sm btn-primary"><i class="fas fa-rotate me-1"></i>{% translate "Import from Corptools" %}</button>
             </form>
+            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#rarityImport">
+                <i class="fas fa-file-import me-1"></i>{% translate "Set rarity from moon scans" %}
+            </button>
             <a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_add' %}">{% translate "Add manually" %}</a>
         </div>
     </div>
-    <p class="small text-muted">
-        {% translate "The import takes all Athanors and Tataras of the alliance corps from Corptools (runs daily). Set the rarity by hand – it helps the corps choose." %}
+
+    <p class="small text-muted mb-2">
+        {% translate "The import takes all Athanors and Tataras of the alliance corps from Corptools (runs daily)." %}
+        {% if moonmining_installed %}{% translate "Missing rarities are filled automatically from aa-moonmining." %}{% endif %}
     </p>
 
-    <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>{% translate "Moon" %}</th>
-                    <th>{% translate "Rarity" %}</th>
-                    <th>{% translate "Refinery / owner" %}</th>
-                    <th>{% translate "Last assigned" %}</th>
-                    <th>{% translate "Last seen" %}</th>
-                    <th>{% translate "Active" %}</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for moon in moons %}
-                    <tr class="{% if not moon.is_active %}text-muted{% endif %}">
-                        <td>{{ moon.name }}{% if moon.notes %}<div class="small text-muted">{{ moon.notes }}</div>{% endif %}</td>
-                        <td>{% if moon.rarity %}<span class="badge text-bg-info">{{ moon.rarity }}</span>{% endif %}</td>
-                        <td class="small">{{ moon.structure_name|default:"–" }}<br>{{ moon.owner_corporation.corporation_name|default:"" }}</td>
-                        <td class="small">
-                            {% with last=moon.allocations.all|first %}
-                                {% if last %}{{ last.corporation.corporation_name }}<br><span class="text-muted">{{ last.round.name }}</span>{% else %}–{% endif %}
-                            {% endwith %}
-                        </td>
-                        <td class="small">{{ moon.last_seen|date:"d.m.Y"|default:"manual" }}</td>
-                        <td>{% if moon.is_active %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-xmark"></i>{% endif %}</td>
-                        <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_edit' moon.pk %}">{% translate "Edit" %}</a></td>
-                    </tr>
-                {% empty %}
-                    <tr><td colspan="7" class="text-muted">{% translate "No moons yet – run the import or add them manually." %}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {# --- Rarity import --- #}
+    <div class="collapse mb-3 {% if counts.missing %}show{% endif %}" id="rarityImport">
+        <div class="card card-body">
+            <form method="post" action="{% url 'moondistribution:moon_rarity_import' %}">
+                {% csrf_token %}
+                <label class="form-label fw-bold" for="paste">{% translate "Paste moon scans" %}</label>
+                <p class="small text-muted mb-2">
+                    {% translate "Paste the copied results of the in-game moon scan (any number of moons at once) – the rarity is taken from the best ore. A simple list with one moon per line also works:" %}
+                    <code>R-ARKN I - Moon 1; R32</code>
+                </p>
+                <textarea id="paste" name="paste" class="form-control font-monospace small mb-2" rows="8"
+                          placeholder="Moon	Moon Product	Quantity	Ore TypeID	SolarSystemID	PlanetID	MoonID
+R-ARKN I - Moon 1
+	Zircon	0.31	45503	...
+	Bitumens	0.42	45492	..."></textarea>
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="overwrite" id="overwrite">
+                        <label class="form-check-label small" for="overwrite">{% translate "Overwrite rarities that are already set" %}</label>
+                    </div>
+                    <button class="btn btn-sm btn-primary" name="source" value="paste">{% translate "Apply scans" %}</button>
+                    {% if moonmining_installed %}
+                        <button class="btn btn-sm btn-outline-primary" name="source" value="moonmining">{% translate "Take all from aa-moonmining" %}</button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
     </div>
+
+    {# --- Filter --- #}
+    <form method="get" class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <div class="btn-group btn-group-sm" role="group">
+            <a class="btn btn-outline-secondary {% if not rarity_filter %}active{% endif %}" href="?q={{ search|urlencode }}">{% translate "All" %}</a>
+            <a class="btn btn-outline-warning {% if rarity_filter == 'missing' %}active{% endif %}" href="?rarity=missing&q={{ search|urlencode }}">
+                {% translate "No rarity" %} <span class="badge text-bg-warning">{{ counts.missing|default:0 }}</span>
+            </a>
+            {% for value, label in rarity_choices %}
+                <a class="btn btn-outline-secondary {% if rarity_filter == value %}active{% endif %}" href="?rarity={{ value }}&q={{ search|urlencode }}">
+                    {{ label }}
+                </a>
+            {% endfor %}
+        </div>
+        <input type="hidden" name="rarity" value="{{ rarity_filter }}">
+        <input type="search" name="q" value="{{ search }}" class="form-control form-control-sm" style="max-width: 16rem;" placeholder="{% translate 'Search moon / system' %}">
+    </form>
+
+    {# --- List with bulk edit --- #}
+    <form method="post" action="{% url 'moondistribution:moon_bulk' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+            <span class="small text-muted">{% translate "Selected moons" %}:</span>
+            <select name="action" class="form-select form-select-sm" style="max-width: 14rem;">
+                {% for value, label in rarity_choices %}<option value="{{ value }}">{% translate "Set rarity" %} {{ label }}</option>{% endfor %}
+                <option value="">{% translate "Remove rarity" %}</option>
+                <option value="activate">{% translate "Activate" %}</option>
+                <option value="deactivate">{% translate "Deactivate" %}</option>
+            </select>
+            <button class="btn btn-sm btn-outline-primary">{% translate "Apply" %}</button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 2rem;"><input type="checkbox" class="form-check-input" onclick="document.querySelectorAll('input[name=moon_ids]').forEach(c => c.checked = this.checked)"></th>
+                        <th>{% translate "Moon" %}</th>
+                        <th>{% translate "Rarity" %}</th>
+                        <th>{% translate "Refinery / owner" %}</th>
+                        <th>{% translate "Last assigned" %}</th>
+                        <th>{% translate "Last seen" %}</th>
+                        <th>{% translate "Active" %}</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for moon in moons %}
+                        <tr class="{% if not moon.is_active %}text-muted{% endif %}">
+                            <td><input type="checkbox" class="form-check-input" name="moon_ids" value="{{ moon.pk }}"></td>
+                            <td>{{ moon.name }}{% if moon.notes %}<div class="small text-muted">{{ moon.notes }}</div>{% endif %}</td>
+                            <td>{% if moon.rarity %}<span class="badge text-bg-info">{{ moon.rarity }}</span>{% else %}<span class="badge text-bg-warning">?</span>{% endif %}</td>
+                            <td class="small">{{ moon.structure_name|default:"–" }}<br>{{ moon.owner_corporation.corporation_name|default:"" }}</td>
+                            <td class="small">
+                                {% with last=moon.allocations.all|first %}
+                                    {% if last %}{{ last.corporation.corporation_name }}<br><span class="text-muted">{{ last.round.name }}</span>{% else %}–{% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="small">{{ moon.last_seen|date:"d.m.Y"|default:"manual" }}</td>
+                            <td>{% if moon.is_active %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-xmark"></i>{% endif %}</td>
+                            <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_edit' moon.pk %}">{% translate "Edit" %}</a></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="8" class="text-muted">{% translate "No moons found." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
 {% endblock moondist_content %}

@@ -17,14 +17,10 @@
                 <label class="form-label" for="{{ form.description.id_for_label }}">{% translate "Description (shown to the corps)" %}</label>
                 {{ form.description }}{{ form.description.errors }}
             </div>
-            <div class="col-md-6">
-                <label class="form-label" for="{{ form.application_start.id_for_label }}">{% translate "Applications open (EVE time)" %}</label>
-                {{ form.application_start }}{{ form.application_start.errors }}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label" for="{{ form.application_end.id_for_label }}">{% translate "Applications close (EVE time)" %}</label>
-                {{ form.application_end }}{{ form.application_end.errors }}
-                <div class="form-text">{% translate "The round is evaluated and distributed automatically after this time." %}</div>
+            <div class="col-12">
+                <div class="alert alert-info small mb-0">
+                    {% blocktranslate %}The application phase starts when you open the round and lasts {{ application_days }} days. Afterwards the round is evaluated and distributed automatically – exactly once.{% endblocktranslate %}
+                </div>
             </div>
             <div class="col-md-6">
                 <label class="form-label" for="{{ form.evaluation_start.id_for_label }}">{% translate "Activity period from" %}</label>

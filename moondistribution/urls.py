@@ -15,6 +15,9 @@ urlpatterns = [
     path("round/<int:round_id>/apply/<int:corporation_id>/", views.apply, name="apply"),
     # Withdraw an application
     path("round/<int:round_id>/withdraw/<int:corporation_id>/", views.withdraw, name="withdraw"),
+    # Officer: manual bonus points per corp
+    path("round/<int:round_id>/bonus/", views.bonus_save, name="bonus_save"),
+    path("round/<int:round_id>/bonus/<int:bonus_id>/delete/", views.bonus_delete, name="bonus_delete"),
     # Officer: apply on behalf of any alliance corp
     path("round/<int:round_id>/apply-for/", views.officer_apply, name="officer_apply"),
     # Officer: round management
@@ -29,6 +32,9 @@ urlpatterns = [
     path("moons/new/", views.moon_edit, name="moon_add"),
     path("moons/<int:moon_id>/edit/", views.moon_edit, name="moon_edit"),
     path("moons/sync/", views.moon_sync, name="moon_sync"),
+    # Officer: bulk edit and rarity import (moon scans / aa-moonmining)
+    path("moons/bulk/", views.moon_bulk, name="moon_bulk"),
+    path("moons/rarity-import/", views.moon_rarity_import, name="moon_rarity_import"),
     # Officer: settings
     path("settings/", views.settings_view, name="settings"),
 ]

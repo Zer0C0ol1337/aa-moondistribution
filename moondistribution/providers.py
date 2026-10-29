@@ -244,5 +244,11 @@ def sync_moons_from_corptools() -> dict:
             },
         )
         stats["created" if created else "updated"] += 1
+
+    # Fill missing rarities from aa-moonmining (never overwrites a rarity that is already set)
+    from .rarity import apply_rarities, rarities_from_moonmining
+
+    mm = rarities_from_moonmining()
+    stats["rarity_from_moonmining"] = apply_rarities(mm)["updated"] if mm else 0
     logger.info("Moon sync finished: %s", stats)
     return stats

@@ -2,7 +2,7 @@
 
 from django.test import SimpleTestCase
 
-from moondistribution.distribution import allocate_moons, normalize_scores, rank_corporations
+from moondistribution.distribution import allocate_moons, compensation_bonus, normalize_scores, rank_corporations
 from moondistribution.forms import parse_wishlist
 
 
@@ -90,6 +90,44 @@ class TestAllocation(SimpleTestCase):
         self.assertEqual(picks[0]["priority"], 1)
 
 
+class TestRarityLimits(SimpleTestCase):
+    """allocate_moons() with rarity limits."""
+
+    def test_r32_limit_lets_next_corp_have_it(self):
+        """Top corp wants two R32 but may only get one – the second R32 goes to the next corp."""
+        rarity = {1: "R32", 2: "R32", 3: "R8"}
+        wishes = {"A": [(1, 1), (2, 2), (3, 3)], "B": [(1, 1), (2, 2)]}
+        picks = allocate_moons(["A", "B"], wishes, max_per_corp=3, moon_rarity=rarity, rarity_limits={"R32": 1})
+        result = {p["moon"]: p["corp"] for p in picks}
+        self.assertEqual(result[1], "A")
+        self.assertEqual(result[2], "B")
+        self.assertEqual(result[3], "A")  # A fills up with a lower moon
+
+    def test_no_limit_when_not_configured(self):
+        """Without a limit a corp can take several R32."""
+        rarity = {1: "R32", 2: "R32"}
+        picks = allocate_moons(["A"], {"A": [(1, 1), (2, 2)]}, max_per_corp=3, moon_rarity=rarity, rarity_limits={})
+        self.assertEqual(len(picks), 2)
+
+
+class TestCompensationBonus(SimpleTestCase):
+    """compensation_bonus()"""
+
+    def test_graded_bonus(self):
+        """No moon → big bonus, moons but no R32 → small bonus, R32 or not applied → none."""
+        previous = {1: [], 2: ["R8", "R4"], 3: ["R32"]}
+        res = compensation_bonus([1, 2, 3, 4], previous, bonus_no_moon=15, bonus_no_r32=8)
+        self.assertEqual(res, {1: 15, 2: 8, 3: 0, 4: 0})
+
+    def test_no_previous_round(self):
+        """First round ever: nobody gets a bonus."""
+        self.assertEqual(compensation_bonus([1], None, 15, 8), {1: 0})
+
+    def test_zero_disables(self):
+        """Bonus 0 must stay 0 (no default fallback)."""
+        self.assertEqual(compensation_bonus([1], {1: []}, 0, 0), {1: 0})
+
+
 class TestParseWishlist(SimpleTestCase):
     """parse_wishlist()"""
 
@@ -115,3 +153,37 @@ class TestParseWishlist(SimpleTestCase):
         """At least one moon is required."""
         _w, errors = parse_wishlist({}, self.moons, 10)
         self.assertTrue(errors)
+
+
+class TestRarityPaste(SimpleTestCase):
+    """parse_rarity_paste() / ore_rarity()"""
+
+    def test_eve_scan_copy(self):
+        """EVE moon scan copy: rarity = best ore of the moon, header ignored."""
+        from moondistribution.rarity import parse_rarity_paste
+
+        text = (
+            "Moon\tMoon Product\tQuantity\tOre TypeID\tSolarSystemID\tPlanetID\tMoonID\n"
+            "R-ARKN I - Moon 1\n"
+            "\tBitumens\t0.42\t45492\t30000001\t40000001\t40000002\n"
+            "\tZircon\t0.31\t45503\t30000001\t40000001\t40000002\n"
+            "R-ARKN II - Moon 3\n"
+            "\tSylvite\t0.5\t45491\t30000001\t40000003\t40000004\n"
+            "R-ARKN III - Moon 2\n"
+        )
+        self.assertEqual(parse_rarity_paste(text), {"R-ARKN I - Moon 1": "R32", "R-ARKN II - Moon 3": "R4"})
+
+    def test_simple_list(self):
+        """'moon; R16', tab and comma separated lines."""
+        from moondistribution.rarity import parse_rarity_paste
+
+        text = "A - Moon 1; R16\nB - Moon 2\tR 8\nC - Moon 3, r64\n"
+        self.assertEqual(parse_rarity_paste(text), {"A - Moon 1": "R16", "B - Moon 2": "R8", "C - Moon 3": "R64"})
+
+    def test_ore_variants(self):
+        """Ore variants count like the base ore."""
+        from moondistribution.rarity import ore_rarity
+
+        self.assertEqual(ore_rarity("Glistening Zircon"), "R32")
+        self.assertEqual(ore_rarity("Brimful Bitumens"), "R4")
+        self.assertEqual(ore_rarity("Veldspar"), "")

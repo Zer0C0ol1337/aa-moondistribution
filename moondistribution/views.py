@@ -3,12 +3,14 @@
 import logging
 from datetime import timedelta
 
+from django.apps import apps
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
@@ -17,19 +19,21 @@ from allianceauth.eveonline.models import EveCorporationInfo
 from . import __version__
 from .decorators import check_access, officer_required
 from .distribution import application_summary
-from .forms import MoonForm, RoundForm, SettingsForm, parse_wishlist
-from .models import Allocation, Application, ApplicationWish, DistributionSettings, Moon, Round
+from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_wishlist
+from .models import Allocation, Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
 from .providers import alliance_corporations, eligible_corporations_for, sync_moons_from_corptools
+from .rarity import apply_rarities, parse_rarity_paste, rarities_from_moonmining
 from .tasks import distribute_round
 
 logger = logging.getLogger(__name__)
 
 
 def _ctx(request, **extra) -> dict:
-    """Common template context (version, officer flag)."""
+    """Common template context (version, officer flag, length of the application phase)."""
     return {
         "app_version": __version__,
         "is_officer": request.user.has_perm("moondistribution.mining_officer"),
+        "application_days": DistributionSettings.get_solo().application_days,
         **extra,
     }
 
@@ -101,6 +105,8 @@ def round_detail(request, round_id: int):
         applications=applications,
         eligible=eligible,
         snapshot=round_obj.settings_snapshot or {},
+        bonuses=list(round_obj.bonuses.select_related("corporation", "created_by__profile__main_character")),
+        bonus_form=RoundBonusForm(corporations=alliance_corporations()) if is_officer else None,
     ))
 
 
@@ -114,7 +120,10 @@ def apply(request, round_id: int, corporation_id: int):
         return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 
     settings = DistributionSettings.get_solo()
-    moons = list(round_obj.moons.select_related("owner_corporation"))
+    moons_qs = round_obj.moons.select_related("owner_corporation")
+    if settings.exclude_r64:
+        moons_qs = moons_qs.exclude(rarity=Moon.Rarity.R64)
+    moons = list(moons_qs)
     application = Application.objects.filter(round=round_obj, corporation=corporation).first()
     current = {w.moon_id: w.priority for w in application.wishes.all()} if application else {}
     comment = application.comment if application else ""
@@ -171,7 +180,8 @@ def withdraw(request, round_id: int, corporation_id: int):
 
 @officer_required
 def round_create(request):
-    """Create a new round (status draft). Evaluation window defaults to the 6 months before the end."""
+    """Create a new round (draft). The application week starts only when the round is opened."""
+    settings = DistributionSettings.get_solo()
     if request.method == "POST":
         form = RoundForm(request.POST)
         if form.is_valid():
@@ -182,13 +192,10 @@ def round_create(request):
             messages.success(request, _("Round created as draft. Open it when everything is set."))
             return redirect("moondistribution:round_detail", round_id=round_obj.pk)
     else:
-        now = timezone.now().replace(minute=0, second=0, microsecond=0)
-        end = now + timedelta(days=14)
-        ev_start, ev_end = Round.default_evaluation_window(end)
-        form = RoundForm(initial={
-            "application_start": now, "application_end": end,
-            "evaluation_start": ev_start, "evaluation_end": ev_end,
-        })
+        # Activity window default: the 6 months before the (expected) end of the application phase
+        expected_end = timezone.now() + timedelta(days=settings.application_days)
+        ev_start, ev_end = Round.default_evaluation_window(expected_end)
+        form = RoundForm(initial={"evaluation_start": ev_start, "evaluation_end": ev_end})
     return render(request, "moondistribution/round_form.html", _ctx(request, form=form, round=None))
 
 
@@ -212,14 +219,19 @@ def round_edit(request, round_id: int):
 @officer_required
 @require_POST
 def round_open(request, round_id: int):
-    """Publish a draft: corps can apply between application start and end."""
+    """Open a draft: applications run for the configured days (default 1 week), then it is distributed once."""
     round_obj = get_object_or_404(Round, pk=round_id, status=Round.Status.DRAFT)
     if not round_obj.moons.exists():
         messages.error(request, _("Add at least one moon to the round first."))
     else:
+        now = timezone.now()
+        round_obj.application_start = now
+        round_obj.application_end = now + timedelta(days=DistributionSettings.get_solo().application_days)
         round_obj.status = Round.Status.OPEN
-        round_obj.save(update_fields=["status"])
-        messages.success(request, _("Round is open for applications."))
+        round_obj.save(update_fields=["application_start", "application_end", "status"])
+        messages.success(request, _("Round is open for applications until %(end)s EVE time – then it is distributed automatically.") % {
+            "end": round_obj.application_end.strftime("%d.%m.%Y %H:%M"),
+        })
     return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 
 
@@ -258,6 +270,42 @@ def round_delete(request, round_id: int):
 
 
 @officer_required
+@require_POST
+def bonus_save(request, round_id: int):
+    """Add or replace the manual bonus of a corp (only before the round is distributed)."""
+    round_obj = get_object_or_404(Round, pk=round_id)
+    if round_obj.status == Round.Status.DONE:
+        messages.error(request, _("The round is already distributed – bonuses can't be changed anymore."))
+        return redirect("moondistribution:round_detail", round_id=round_obj.pk)
+    existing = RoundBonus.objects.filter(round=round_obj, corporation_id=request.POST.get("corporation")).first()
+    form = RoundBonusForm(request.POST, instance=existing, corporations=alliance_corporations())
+    if form.is_valid():
+        bonus = form.save(commit=False)
+        bonus.round = round_obj
+        bonus.created_by = request.user
+        bonus.save()
+        messages.success(request, _("Bonus saved."))
+    else:
+        for errors in form.errors.values():
+            for err in errors:
+                messages.error(request, err)
+    return redirect("moondistribution:round_detail", round_id=round_obj.pk)
+
+
+@officer_required
+@require_POST
+def bonus_delete(request, round_id: int, bonus_id: int):
+    """Remove a manual bonus (only before the round is distributed)."""
+    bonus = get_object_or_404(RoundBonus, pk=bonus_id, round_id=round_id)
+    if bonus.round.status == Round.Status.DONE:
+        messages.error(request, _("The round is already distributed – bonuses can't be changed anymore."))
+    else:
+        bonus.delete()
+        messages.info(request, _("Bonus removed."))
+    return redirect("moondistribution:round_detail", round_id=round_id)
+
+
+@officer_required
 def officer_apply(request, round_id: int):
     """Officer shortcut: pick any alliance corp to apply for it."""
     corp_id = request.GET.get("corporation_id")
@@ -272,14 +320,73 @@ def officer_apply(request, round_id: int):
 
 @officer_required
 def moons(request):
-    """List of all moons with import status."""
+    """List of all moons with filter (rarity / missing rarity / search), bulk edit and rarity import."""
+    rarity_filter = request.GET.get("rarity", "")
+    search = (request.GET.get("q") or "").strip()
     moon_list = Moon.objects.select_related("owner_corporation").prefetch_related(
         Prefetch(
             "allocations",
-            queryset=Allocation.objects.select_related("corporation", "round").order_by("-round__application_end"),
+            queryset=Allocation.objects.select_related("corporation", "round").order_by("-round__created_at"),
         )
     )
-    return render(request, "moondistribution/moons.html", _ctx(request, moons=moon_list))
+    if rarity_filter == "missing":
+        moon_list = moon_list.filter(rarity="")
+    elif rarity_filter:
+        moon_list = moon_list.filter(rarity=rarity_filter)
+    if search:
+        moon_list = moon_list.filter(Q(name__icontains=search) | Q(system_name__icontains=search))
+    counts = {r or "missing": n for r, n in Moon.objects.values_list("rarity").annotate(n=Count("id"))}
+    return render(request, "moondistribution/moons.html", _ctx(
+        request, moons=moon_list, rarity_filter=rarity_filter, search=search, counts=counts,
+        rarity_choices=[c for c in Moon.Rarity.choices if c[0]],
+        moonmining_installed=apps.is_installed("moonmining"),
+    ))
+
+
+@officer_required
+@require_POST
+def moon_bulk(request):
+    """Set rarity / active flag for all ticked moons at once."""
+    ids = [int(i) for i in request.POST.getlist("moon_ids") if i.isdigit()]
+    action = request.POST.get("action", "")
+    qs = Moon.objects.filter(pk__in=ids)
+    if not ids:
+        messages.error(request, _("No moons selected."))
+    elif action in {c[0] for c in Moon.Rarity.choices}:
+        n = qs.update(rarity=action)
+        messages.success(request, _("Rarity set for %(n)s moons.") % {"n": n})
+    elif action in ("activate", "deactivate"):
+        n = qs.update(is_active=action == "activate")
+        messages.success(request, _("%(n)s moons updated.") % {"n": n})
+    else:
+        messages.error(request, _("Unknown action."))
+    next_url = request.POST.get("next", "")
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return redirect(next_url)
+    return redirect("moondistribution:moons")
+
+
+@officer_required
+@require_POST
+def moon_rarity_import(request):
+    """Set rarities from pasted moon scans / a 'moon name; R32' list, or from aa-moonmining."""
+    overwrite = request.POST.get("overwrite") == "on"
+    if request.POST.get("source") == "moonmining":
+        mapping = rarities_from_moonmining()
+        if not mapping:
+            messages.error(request, _("aa-moonmining is not installed or has no scanned moons."))
+            return redirect("moondistribution:moons")
+    else:
+        mapping = parse_rarity_paste(request.POST.get("paste", ""))
+        if not mapping:
+            messages.error(request, _("No moons with moon ore found in the pasted text."))
+            return redirect("moondistribution:moons")
+    stats = apply_rarities(mapping, overwrite=overwrite)
+    messages.success(request, _(
+        "%(found)s moons recognised: %(updated)s updated, %(unchanged)s unchanged, "
+        "%(unknown)s not in the moon list (no alliance refinery)."
+    ) % {"found": len(mapping), **stats})
+    return redirect("moondistribution:moons")
 
 
 @officer_required
@@ -300,7 +407,10 @@ def moon_sync(request):
     """Import refineries from Corptools right now (instead of waiting for the daily task)."""
     try:
         stats = sync_moons_from_corptools()
-        messages.success(request, _("Import done: %(created)s new, %(updated)s updated, %(skipped)s skipped.") % stats)
+        messages.success(request, _(
+            "Import done: %(created)s new, %(updated)s updated, %(skipped)s skipped, "
+            "%(rarity_from_moonmining)s rarities taken from aa-moonmining."
+        ) % stats)
     except ValueError as exc:
         messages.error(request, str(exc))
     return redirect("moondistribution:moons")

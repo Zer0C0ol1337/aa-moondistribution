@@ -7,7 +7,11 @@
         <div>
             <h3 class="mb-1">{{ round.name }} {% include "moondistribution/_status_badge.html" with r=round %}</h3>
             <div class="text-muted small">
-                {% translate "Applications" %}: {{ round.application_start|date:"d.m.Y H:i" }} – {{ round.application_end|date:"d.m.Y H:i" }} EVE ·
+                {% if round.application_end %}
+                    {% translate "Applications" %}: {{ round.application_start|date:"d.m.Y H:i" }} – {{ round.application_end|date:"d.m.Y H:i" }} EVE ·
+                {% else %}
+                    {% blocktranslate %}Applications open for {{ application_days }} days once the round is opened{% endblocktranslate %} ·
+                {% endif %}
                 {% translate "Activity checked" %}: {{ round.evaluation_start|date:"d.m.Y" }} – {{ round.evaluation_end|date:"d.m.Y" }}
                 {% if round.distributed_at %} · {% translate "Distributed" %}: {{ round.distributed_at|date:"d.m.Y H:i" }}{% endif %}
             </div>
@@ -20,7 +24,7 @@
                 {% endif %}
                 {% if round.status == "draft" %}
                     <form method="post" action="{% url 'moondistribution:round_open' round.pk %}">{% csrf_token %}
-                        <button class="btn btn-sm btn-success">{% translate "Open for applications" %}</button>
+                        <button class="btn btn-sm btn-success">{% blocktranslate %}Open for applications ({{ application_days }} days){% endblocktranslate %}</button>
                     </form>
                     <form method="post" action="{% url 'moondistribution:round_delete' round.pk %}"
                           onsubmit="return confirm('{% translate "Delete this draft?" %}');">{% csrf_token %}
@@ -47,7 +51,11 @@
         <div class="alert alert-warning small">{{ round.last_error }}</div>
     {% endif %}
     {% if round.status == "closed" %}
-        <div class="alert alert-info">{% translate "Applications are closed – the distribution runs automatically." %}</div>
+        {% if round.last_error %}
+            <div class="alert alert-danger">{% translate "The distribution failed. An officer can start it again with “Re-run distribution”." %}</div>
+        {% else %}
+            <div class="alert alert-info">{% translate "Applications are closed – the distribution is running." %}</div>
+        {% endif %}
     {% endif %}
 
     {% if round.is_open and eligible %}
@@ -70,7 +78,10 @@
             {% translate "Weights" %}: Mining {{ snapshot.weights.mining }} · PvP {{ snapshot.weights.pvp }} ·
             {% translate "Members" %} {{ snapshot.weights.members }} · Fleets {{ snapshot.weights.fleet }}
             {% if snapshot.per_member %} · {% translate "values per active member" %}{% endif %}
-            · {% translate "max. moons per corp" %}: {{ snapshot.max_moons_per_corp }}.
+            · {% translate "max. moons per corp" %}: {{ snapshot.max_moons_per_corp }}
+            {% if snapshot.rarity_limits.R32 is not None %} · {% translate "max. R32" %}: {{ snapshot.rarity_limits.R32 }}{% endif %}
+            {% if snapshot.rarity_limits.R16 is not None %} · {% translate "max. R16" %}: {{ snapshot.rarity_limits.R16 }}{% endif %}
+            {% if snapshot.bonus_no_moon or snapshot.bonus_no_r32 %} · {% translate "compensation" %}: +{{ snapshot.bonus_no_moon }} {% translate "no moon" %} / +{{ snapshot.bonus_no_r32 }} {% translate "no R32 last round" %}{% endif %}.
             {% translate "Each criterion is scaled 0–100 against the best applicant." %}
         </p>
         <div class="table-responsive mb-4">
@@ -83,6 +94,8 @@
                         <th class="text-end">{% translate "Kills" %}</th>
                         <th class="text-end">{% translate "Active / members" %}</th>
                         <th class="text-end">{% translate "Fleets" %}</th>
+                        <th class="text-end">{% translate "Activity" %}</th>
+                        <th class="text-end">{% translate "Bonus" %}</th>
                         <th class="text-end">{% translate "Score" %}</th>
                     </tr>
                 </thead>
@@ -98,14 +111,58 @@
                             </td>
                             <td class="text-end">{{ s.members_active }} / {{ s.members_total }} <span class="text-muted small">({{ s.score_members|floatformat:0 }})</span></td>
                             <td class="text-end">{{ s.fleet_participations|intcomma }} <span class="text-muted small">({{ s.score_fleet|floatformat:0 }})</span></td>
+                            <td class="text-end">{{ s.base_score|floatformat:1 }}</td>
+                            <td class="text-end small">
+                                {% if s.bonus_auto %}<span class="badge text-bg-info" title="{% translate 'Compensation for the previous round' %}">+{{ s.bonus_auto|floatformat:0 }}</span>{% endif %}
+                                {% if s.bonus_manual %}<span class="badge {% if s.bonus_manual > 0 %}text-bg-success{% else %}text-bg-danger{% endif %}" title="{{ s.bonus_note }}">{% if s.bonus_manual > 0 %}+{% endif %}{{ s.bonus_manual|floatformat:0 }}</span>{% endif %}
+                                {% if not s.bonus_auto and not s.bonus_manual %}–{% endif %}
+                            </td>
                             <td class="text-end fw-bold">{{ s.total_score|floatformat:1 }}</td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="7" class="text-muted">{% translate "No applications." %}</td></tr>
+                        <tr><td colspan="9" class="text-muted">{% translate "No applications." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+    {% endif %}
+
+    {% if bonuses or is_officer and round.status != "done" %}
+        <h4 class="mb-3">{% translate "Bonus points" %}</h4>
+        <p class="small text-muted">
+            {% translate "Extra points on top of the activity score, e.g. for corps that got little last time. Corps that did badly in the previous round also get an automatic compensation bonus." %}
+        </p>
+        <div class="table-responsive mb-2">
+            <table class="table table-sm align-middle">
+                <tbody>
+                    {% for b in bonuses %}
+                        <tr>
+                            <td>{{ b.corporation.corporation_name }}</td>
+                            <td class="text-end"><span class="badge {% if b.points > 0 %}text-bg-success{% else %}text-bg-danger{% endif %}">{% if b.points > 0 %}+{% endif %}{{ b.points }}</span></td>
+                            <td class="small">{{ b.reason }}</td>
+                            {% if is_officer and round.status != "done" %}
+                                <td class="text-end">
+                                    <form method="post" action="{% url 'moondistribution:bonus_delete' round.pk b.pk %}">{% csrf_token %}
+                                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                    </form>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% empty %}
+                        <tr><td class="text-muted small">{% translate "No manual bonuses." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if is_officer and round.status != "done" %}
+            <form method="post" action="{% url 'moondistribution:bonus_save' round.pk %}" class="row g-2 mb-4">
+                {% csrf_token %}
+                <div class="col-md-4">{{ bonus_form.corporation }}</div>
+                <div class="col-md-2">{{ bonus_form.points }}</div>
+                <div class="col-md-4"><input type="text" name="reason" maxlength="255" class="form-control form-control-sm" placeholder="{% translate 'Reason (visible to everyone)' %}" required></div>
+                <div class="col-md-2"><button class="btn btn-sm btn-primary w-100">{% translate "Save bonus" %}</button></div>
+            </form>
+        {% endif %}
     {% endif %}
 
     <h4 class="mb-3">{% translate "Moons" %} <span class="text-muted small">({{ moons|length }})</span></h4>

@@ -2,7 +2,9 @@
 
 from django.contrib import admin
 
-from .models import Allocation, Application, ApplicationWish, CorporationScore, DistributionSettings, Moon, Round
+from .models import (
+    Allocation, Application, ApplicationWish, CorporationScore, DistributionSettings, Moon, Round, RoundBonus,
+)
 
 
 @admin.register(DistributionSettings)
@@ -46,11 +48,20 @@ class RoundAdmin(admin.ModelAdmin):
     filter_horizontal = ("moons",)
 
 
+@admin.register(RoundBonus)
+class RoundBonusAdmin(admin.ModelAdmin):
+    """Manual bonus points."""
+
+    list_display = ("round", "corporation", "points", "reason", "created_by")
+    list_filter = ("round",)
+
+
 @admin.register(CorporationScore)
 class CorporationScoreAdmin(admin.ModelAdmin):
     """Calculated scores."""
 
-    list_display = ("round", "rank", "corporation", "total_score", "mining_volume", "pvp_kills",
+    list_display = ("round", "rank", "corporation", "total_score", "base_score", "bonus_auto", "bonus_manual",
+                    "mining_volume", "pvp_kills",
                     "members_active", "fleet_participations")
     list_filter = ("round",)
 

@@ -3,17 +3,15 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from .models import DistributionSettings, Moon, Round
+from .models import DistributionSettings, Moon, Round, RoundBonus
 
 
-class DateTimeInput(forms.DateTimeInput):
-    """HTML5 datetime-local picker."""
-
-    input_type = "datetime-local"
-
-    def __init__(self, **kwargs):
-        kwargs.setdefault("format", "%Y-%m-%dT%H:%M")
-        super().__init__(**kwargs)
+def distributable_moons():
+    """Active moons that may go into a round (R64 excluded if the setting says so)."""
+    qs = Moon.objects.filter(is_active=True)
+    if DistributionSettings.get_solo().exclude_r64:
+        qs = qs.exclude(rarity=Moon.Rarity.R64)
+    return qs
 
 
 class DateInput(forms.DateInput):
@@ -38,36 +36,27 @@ class RoundForm(forms.ModelForm):
 
     class Meta:
         model = Round
-        fields = ["name", "description", "application_start", "application_end",
-                  "evaluation_start", "evaluation_end", "moons"]
+        fields = ["name", "description", "evaluation_start", "evaluation_end", "moons"]
         widgets = {
-            "application_start": DateTimeInput(),
-            "application_end": DateTimeInput(),
             "evaluation_start": DateInput(),
             "evaluation_end": DateInput(),
             "description": forms.Textarea(attrs={"rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):
-        """Pre-select all active moons for a new round; keep already chosen inactive moons selectable."""
+        """Pre-select all distributable moons for a new round (no R64 if excluded)."""
         super().__init__(*args, **kwargs)
-        if self.instance.pk:
-            self.fields["moons"].queryset = (
-                Moon.objects.filter(is_active=True) | self.instance.moons.all()
-            ).distinct()
-        else:
-            self.initial.setdefault("moons", list(Moon.objects.filter(is_active=True).values_list("pk", flat=True)))
+        self.fields["moons"].queryset = distributable_moons()
+        if not self.instance.pk:
+            self.initial.setdefault("moons", list(distributable_moons().values_list("pk", flat=True)))
         for name, field in self.fields.items():
             if name != "moons":
                 field.widget.attrs.setdefault("class", "form-control")
 
     def clean(self):
-        """Check that the dates make sense."""
+        """Check that the activity window makes sense."""
         data = super().clean()
-        start, end = data.get("application_start"), data.get("application_end")
         ev_start, ev_end = data.get("evaluation_start"), data.get("evaluation_end")
-        if start and end and end <= start:
-            self.add_error("application_end", _("Must be after the application start."))
         if ev_start and ev_end and ev_end <= ev_start:
             self.add_error("evaluation_end", _("Must be after the evaluation start."))
         return data
@@ -94,7 +83,9 @@ class SettingsForm(forms.ModelForm):
     class Meta:
         model = DistributionSettings
         fields = ["alliance_id", "weight_mining", "weight_pvp", "weight_members", "weight_fleet",
-                  "per_member", "max_moons_per_corp", "max_wishes", "active_days", "allow_directors"]
+                  "per_member", "application_days", "max_moons_per_corp", "max_wishes", "active_days",
+                  "allow_directors", "exclude_r64", "max_r32_per_corp", "max_r16_per_corp",
+                  "bonus_no_moon", "bonus_no_r32"]
 
     def __init__(self, *args, **kwargs):
         """Bootstrap classes for all inputs."""
@@ -110,6 +101,23 @@ class SettingsForm(forms.ModelForm):
         if all(w is not None for w in weights) and sum(weights) == 0:
             raise forms.ValidationError(_("At least one weight must be greater than 0."))
         return data
+
+
+class RoundBonusForm(forms.ModelForm):
+    """Manual bonus/malus points for one corp in a round."""
+
+    class Meta:
+        model = RoundBonus
+        fields = ["corporation", "points", "reason"]
+
+    def __init__(self, *args, corporations=None, **kwargs):
+        """Limit the corp choice to the given queryset (alliance corps)."""
+        super().__init__(*args, **kwargs)
+        if corporations is not None:
+            self.fields["corporation"].queryset = corporations
+        self.fields["corporation"].widget.attrs["class"] = "form-select form-select-sm"
+        self.fields["points"].widget.attrs.update({"class": "form-control form-control-sm", "min": -100, "max": 100})
+        self.fields["reason"].widget.attrs.update({"class": "form-control form-control-sm"})
 
 
 def parse_wishlist(post_data, moons, max_wishes: int):

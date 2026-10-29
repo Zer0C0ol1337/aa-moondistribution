@@ -11,7 +11,7 @@ from django.utils import timezone
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 
-from moondistribution.models import Application, ApplicationWish, DistributionSettings, Moon, Round
+from moondistribution.models import Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
 from moondistribution.providers import collect_members, collect_mining, eligible_corporations_for
 from moondistribution.tasks import distribute_round, process_rounds
 
@@ -34,8 +34,8 @@ def _make_user(name, char_id, corp, perms=("basic_access",)):
     return User.objects.get(pk=user.pk), char
 
 
-class DistributionIntegrationTest(TestCase):
-    """End-to-end: two corps apply, activity decides who gets the contested moon."""
+class IntegrationBase(TestCase):
+    """Shared fixtures: alliance with two corps, CEOs, an officer, mining data and moons."""
 
     @classmethod
     def setUpTestData(cls):
@@ -77,8 +77,9 @@ class DistributionIntegrationTest(TestCase):
             id="b2", character=audit_b, date=today - timedelta(days=400), type_name=ore, system=system, quantity=99999,
         )
 
-        cls.moon1 = Moon.objects.create(name="R-ARKN I - Moon 1", rarity="R64")
-        cls.moon2 = Moon.objects.create(name="R-ARKN II - Moon 1", rarity="R32")
+        cls.moon1 = Moon.objects.create(name="R-ARKN I - Moon 1", rarity="R32")
+        cls.moon2 = Moon.objects.create(name="R-ARKN II - Moon 1", rarity="R16")
+        cls.moon_r64 = Moon.objects.create(name="R-ARKN III - Moon 1", rarity="R64")
 
     def _round(self, status=Round.Status.OPEN, ended=False):
         """Round with both moons; open now or already ended."""
@@ -90,6 +91,11 @@ class DistributionIntegrationTest(TestCase):
         )
         r.moons.set([self.moon1, self.moon2])
         return r
+
+
+
+class DistributionIntegrationTest(IntegrationBase):
+    """End-to-end: two corps apply, activity decides who gets the contested moon."""
 
     def test_eligibility(self):
         """CEOs see their own corp, members nothing, officers all alliance corps."""
@@ -182,8 +188,6 @@ class DistributionIntegrationTest(TestCase):
         now = timezone.now()
         resp = self.client.post(reverse("moondistribution:round_create"), {
             "name": "H2", "description": "",
-            "application_start": now.strftime("%Y-%m-%dT%H:%M"),
-            "application_end": (now + timedelta(days=10)).strftime("%Y-%m-%dT%H:%M"),
             "evaluation_start": "2026-05-01", "evaluation_end": "2026-10-31",
             "moons": [self.moon1.pk],
         })
@@ -191,3 +195,146 @@ class DistributionIntegrationTest(TestCase):
         r = Round.objects.get(name="H2")
         self.assertEqual(r.status, Round.Status.DRAFT)
         self.assertEqual(list(r.moons.all()), [self.moon1])
+        self.assertIsNone(r.application_end)
+
+        # Opening starts the application week
+        self.client.post(reverse("moondistribution:round_open", args=[r.pk]))
+        r.refresh_from_db()
+        self.assertEqual(r.status, Round.Status.OPEN)
+        self.assertAlmostEqual((r.application_end - now).total_seconds(), 7 * 86400, delta=120)
+        self.assertTrue(r.is_open)
+
+    def test_distribution_runs_only_once(self):
+        """After the week the round is distributed exactly once; later beat runs do nothing."""
+        r = self._round(ended=True)
+        app = Application.objects.create(round=r, corporation=self.corp_a, submitted_by=self.ceo_a)
+        ApplicationWish.objects.create(application=app, moon=self.moon1, priority=1)
+        with mock.patch.object(distribute_round, "delay", side_effect=distribute_round) as delay, \
+                mock.patch("moondistribution.distribution.notify") as notify:
+            process_rounds()
+            process_rounds()
+            process_rounds()
+        self.assertEqual(delay.call_count, 1)
+        self.assertEqual(notify.call_count, 1)
+        r.refresh_from_db()
+        self.assertEqual(r.status, Round.Status.DONE)
+
+    def test_open_round_not_distributed_before_end(self):
+        """A round whose week is not over yet is left alone."""
+        r = self._round()
+        with mock.patch.object(distribute_round, "delay") as delay:
+            process_rounds()
+        delay.assert_not_called()
+        r.refresh_from_db()
+        self.assertEqual(r.status, Round.Status.OPEN)
+
+    def test_failed_distribution_is_not_retried(self):
+        """A failed run keeps the error and is not picked up again by the beat task."""
+        r = self._round(ended=True)
+        with mock.patch.object(distribute_round, "delay", side_effect=distribute_round) as delay, \
+                mock.patch("moondistribution.tasks.run_distribution", side_effect=RuntimeError("boom")):
+            process_rounds()
+            process_rounds()
+        self.assertEqual(delay.call_count, 1)
+        r.refresh_from_db()
+        self.assertEqual(r.status, Round.Status.CLOSED)
+        self.assertIn("boom", r.last_error)
+
+
+class FairnessIntegrationTest(IntegrationBase):
+    """Bonuses and R64 exclusion end-to-end (reuses the fixtures above)."""
+
+    def _distribute(self, r):
+        """Run the automatic distribution for a round synchronously."""
+        with mock.patch.object(distribute_round, "delay", side_effect=distribute_round), \
+                mock.patch("moondistribution.distribution.notify"):
+            process_rounds()
+        r.refresh_from_db()
+        return r
+
+    def _apply(self, r, corp, user, moons):
+        """Application with the given moons in priority order."""
+        app = Application.objects.create(round=r, corporation=corp, submitted_by=user)
+        for prio, moon in enumerate(moons, start=1):
+            ApplicationWish.objects.create(application=app, moon=moon, priority=prio)
+
+    def test_manual_bonus_turns_the_ranking(self):
+        """Bravo mined less, but a manual bonus of +100 puts it first."""
+        r = self._round(ended=True)
+        self._apply(r, self.corp_a, self.ceo_a, [self.moon2, self.moon1])
+        self._apply(r, self.corp_b, self.ceo_b, [self.moon2, self.moon1])
+        RoundBonus.objects.create(round=r, corporation=self.corp_b, points=100, reason="little last time")
+        r = self._distribute(r)
+        top = r.scores.get(rank=1)
+        self.assertEqual(top.corporation, self.corp_b)
+        self.assertEqual(top.bonus_manual, 100)
+        self.assertEqual(r.allocations.get(moon=self.moon2).corporation, self.corp_b)
+
+    def test_compensation_from_previous_round(self):
+        """Corp that got nothing last round receives the automatic bonus this round."""
+        first = self._round(ended=True)
+        self._apply(first, self.corp_a, self.ceo_a, [self.moon2])
+        self._apply(first, self.corp_b, self.ceo_b, [self.moon2])
+        self._distribute(first)  # Alpha wins, Bravo gets nothing
+
+        second = self._round(ended=True)
+        self._apply(second, self.corp_b, self.ceo_b, [self.moon2])
+        second = self._distribute(second)
+        self.assertEqual(second.scores.get(corporation=self.corp_b).bonus_auto, 15)
+
+    def test_r64_excluded(self):
+        """R64 moons are never allocated and can't be wished when excluded."""
+        r = self._round(ended=True)
+        r.moons.add(self.moon_r64)
+        self._apply(r, self.corp_a, self.ceo_a, [self.moon_r64, self.moon2])
+        r = self._distribute(r)
+        self.assertEqual(list(r.allocations.values_list("moon_id", flat=True)), [self.moon2.pk])
+        # and the round form does not offer R64 at all
+        from moondistribution.forms import RoundForm
+        self.assertNotIn(self.moon_r64, RoundForm().fields["moons"].queryset)
+
+    def test_bonus_view(self):
+        """Officer can add a bonus via the round page."""
+        r = self._round()
+        self.client.force_login(self.officer)
+        resp = self.client.post(reverse("moondistribution:bonus_save", args=[r.pk]), {
+            "corporation": self.corp_b.pk, "points": 20, "reason": "small corp",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(RoundBonus.objects.get(round=r).points, 20)
+
+
+class RarityIntegrationTest(IntegrationBase):
+    """Rarity import and bulk edit on the moons page."""
+
+    def test_paste_import_fills_only_missing(self):
+        """Scan paste fills empty rarities; existing ones stay unless overwrite is ticked."""
+        empty = Moon.objects.create(name="X-1 I - Moon 1")
+        self.client.force_login(self.officer)
+        paste = f"{empty.name}\n\tZircon\t0.3\n{self.moon2.name}\n\tBitumens\t0.5\nUnknown - Moon 9\n\tZircon\t0.1\n"
+        self.client.post(reverse("moondistribution:moon_rarity_import"), {"paste": paste, "source": "paste"})
+        empty.refresh_from_db()
+        self.moon2.refresh_from_db()
+        self.assertEqual(empty.rarity, "R32")
+        self.assertEqual(self.moon2.rarity, "R16")  # not overwritten
+        self.client.post(reverse("moondistribution:moon_rarity_import"),
+                         {"paste": paste, "source": "paste", "overwrite": "on"})
+        self.moon2.refresh_from_db()
+        self.assertEqual(self.moon2.rarity, "R4")
+
+    def test_bulk_set_rarity(self):
+        """Ticked moons get the chosen rarity in one go."""
+        a = Moon.objects.create(name="Y I - Moon 1")
+        b = Moon.objects.create(name="Y I - Moon 2")
+        self.client.force_login(self.officer)
+        resp = self.client.post(reverse("moondistribution:moon_bulk"), {
+            "moon_ids": [a.pk, b.pk], "action": "R8", "next": "https://evil.example.com/",
+        })
+        self.assertEqual(resp.url, reverse("moondistribution:moons"))  # no open redirect
+        self.assertEqual(set(Moon.objects.filter(rarity="R8").values_list("pk", flat=True)), {a.pk, b.pk})
+
+    def test_moons_page_filters(self):
+        """Filter 'no rarity' and search render."""
+        self.client.force_login(self.officer)
+        for params in ({"rarity": "missing"}, {"rarity": "R32"}, {"q": "ARKN"}):
+            self.assertEqual(self.client.get(reverse("moondistribution:moons"), params).status_code, 200)

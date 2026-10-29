@@ -13,7 +13,7 @@ from django.utils import timezone
 from allianceauth.notifications import notify
 
 from . import providers
-from .models import Allocation, Application, CorporationScore, DistributionSettings, Round
+from .models import Allocation, Application, CorporationScore, DistributionSettings, Moon, Round
 
 logger = logging.getLogger(__name__)
 
@@ -61,30 +61,84 @@ def rank_corporations(scores: dict, submitted_order: list) -> list:
     return sorted(scores, key=lambda cid: (-scores[cid]["total"], position.get(cid, len(position))))
 
 
-def allocate_moons(ranking: list, wishes: dict, max_per_corp: int) -> list:
+def compensation_bonus(corp_ids: list, previous: dict | None, bonus_no_moon: int, bonus_no_r32: int) -> dict:
+    """Automatic bonus for corps that did badly in the previous round.
+
+    previous: {corp_id: [rarity of each moon received]} for every corp that APPLIED last round,
+              or None if there is no previous round.
+    - applied, got no moon at all      → bonus_no_moon
+    - applied, got moons but no R32    → bonus_no_r32
+    - got an R32 / did not apply       → 0
+    """
+    result = {cid: 0 for cid in corp_ids}
+    if not previous:
+        return result
+    for cid in corp_ids:
+        if cid not in previous:
+            continue
+        received = previous[cid]
+        if not received:
+            result[cid] = bonus_no_moon
+        elif "R32" not in received:
+            result[cid] = bonus_no_r32
+    return result
+
+
+def allocate_moons(ranking: list, wishes: dict, max_per_corp: int,
+                   moon_rarity: dict | None = None, rarity_limits: dict | None = None) -> list:
     """Draft-style allocation.
 
     In every pass each corp (in ranking order) receives its highest-priority wish
     that is still free, until all corps hit max_per_corp or no wish can be served.
+    rarity_limits ({"R32": 1, ...}) cap how many moons of a rarity one corp can get;
+    a wish over the limit is skipped and the corp takes its next free wish instead.
 
     wishes: {corp_id: [(priority, moon_id), ...]}
     returns [{"pick": n, "corp": id, "moon": id, "priority": p}, ...]
     """
-    taken, counts, picks = set(), {cid: 0 for cid in ranking}, []
+    moon_rarity = moon_rarity or {}
+    rarity_limits = rarity_limits or {}
+    taken, picks = set(), []
+    counts = {cid: 0 for cid in ranking}
+    rarity_counts = {cid: {} for cid in ranking}
     while True:
         progress = False
         for cid in ranking:
             if counts[cid] >= max_per_corp:
                 continue
             for priority, moon_id in sorted(wishes.get(cid, [])):
-                if moon_id not in taken:
-                    taken.add(moon_id)
-                    counts[cid] += 1
-                    picks.append({"pick": len(picks) + 1, "corp": cid, "moon": moon_id, "priority": priority})
-                    progress = True
-                    break
+                if moon_id in taken:
+                    continue
+                rarity = moon_rarity.get(moon_id, "")
+                limit = rarity_limits.get(rarity)
+                if limit is not None and rarity_counts[cid].get(rarity, 0) >= limit:
+                    continue
+                taken.add(moon_id)
+                counts[cid] += 1
+                rarity_counts[cid][rarity] = rarity_counts[cid].get(rarity, 0) + 1
+                picks.append({"pick": len(picks) + 1, "corp": cid, "moon": moon_id, "priority": priority})
+                progress = True
+                break
         if not progress:
             return picks
+
+
+def previous_round_results(round_obj: Round) -> dict | None:
+    """Result of the last distributed round before this one: {corp_id: [rarities received]} per applicant."""
+    previous = (
+        Round.objects.filter(status=Round.Status.DONE, created_at__lt=round_obj.created_at)
+        .exclude(pk=round_obj.pk)
+        .order_by("-created_at")
+        .first()
+    )
+    if previous is None:
+        return None
+    result = {
+        cid: [] for cid in previous.applications.values_list("corporation__corporation_id", flat=True)
+    }
+    for cid, rarity in previous.allocations.values_list("corporation__corporation_id", "moon__rarity"):
+        result.setdefault(cid, []).append(rarity)
+    return result
 
 
 def run_distribution(round_obj: Round) -> None:
@@ -115,17 +169,34 @@ def run_distribution(round_obj: Round) -> None:
         for cid in corp_ids
     }
 
-    # 2) score + rank + allocate
+    # 2) score + bonuses
     scores = normalize_scores(raw, settings.weights, settings.per_member)
+    auto_bonus = compensation_bonus(
+        corp_ids, previous_round_results(round_obj), settings.bonus_no_moon, settings.bonus_no_r32,
+    )
+    manual = {b.corporation.corporation_id: b for b in round_obj.bonuses.select_related("corporation")}
+    for cid in corp_ids:
+        base = scores[cid]["total"]
+        manual_points = manual[cid].points if cid in manual else 0
+        scores[cid]["base"] = base
+        scores[cid]["auto"] = auto_bonus[cid]
+        scores[cid]["manual"] = manual_points
+        scores[cid]["note"] = manual[cid].reason if cid in manual else ""
+        scores[cid]["total"] = round(max(0.0, base + auto_bonus[cid] + manual_points), 2)
+
+    # 3) rank + allocate
     ranking = rank_corporations(scores, corp_ids)  # applications are ordered by submitted_at
-    pool = set(round_obj.moons.values_list("id", flat=True))
+    pool_qs = round_obj.moons.all()
+    if settings.exclude_r64:
+        pool_qs = pool_qs.exclude(rarity=Moon.Rarity.R64)
+    moon_rarity = dict(pool_qs.values_list("id", "rarity"))
     wishes = {
-        a.corporation.corporation_id: [(w.priority, w.moon_id) for w in a.wishes.all() if w.moon_id in pool]
+        a.corporation.corporation_id: [(w.priority, w.moon_id) for w in a.wishes.all() if w.moon_id in moon_rarity]
         for a in applications
     }
-    picks = allocate_moons(ranking, wishes, settings.max_moons_per_corp)
+    picks = allocate_moons(ranking, wishes, settings.max_moons_per_corp, moon_rarity, settings.rarity_limits)
 
-    # 3) store result atomically
+    # 4) store result atomically
     corp_by_id = {a.corporation.corporation_id: a.corporation for a in applications}
     with transaction.atomic():
         round_obj.scores.all().delete()
@@ -143,6 +214,10 @@ def run_distribution(round_obj: Round) -> None:
                 score_pvp=scores[cid]["score_pvp"],
                 score_members=scores[cid]["score_members"],
                 score_fleet=scores[cid]["score_fleet"],
+                base_score=scores[cid]["base"],
+                bonus_auto=scores[cid]["auto"],
+                bonus_manual=scores[cid]["manual"],
+                bonus_note=scores[cid]["note"][:500],
                 total_score=scores[cid]["total"],
                 rank=rank,
                 pvp_error=cid in pvp_errors,
@@ -169,6 +244,10 @@ def run_distribution(round_obj: Round) -> None:
             "per_member": settings.per_member,
             "max_moons_per_corp": settings.max_moons_per_corp,
             "active_days": settings.active_days,
+            "exclude_r64": settings.exclude_r64,
+            "rarity_limits": settings.rarity_limits,
+            "bonus_no_moon": settings.bonus_no_moon,
+            "bonus_no_r32": settings.bonus_no_r32,
         }
         round_obj.save()
 

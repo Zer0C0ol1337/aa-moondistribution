@@ -45,6 +45,27 @@ class DistributionSettings(models.Model):
             "so small but very active corps are not outranked by size alone."
         ),
     )
+
+    # --- Fairness ---
+    exclude_r64 = models.BooleanField(
+        default=True, help_text=_("R64 moons are kept by the alliance and never put into a round."),
+    )
+    max_r32_per_corp = models.PositiveSmallIntegerField(
+        null=True, blank=True, default=1,
+        help_text=_("Max. R32 moons per corp and round. Empty = no limit."),
+    )
+    max_r16_per_corp = models.PositiveSmallIntegerField(
+        null=True, blank=True, default=None,
+        help_text=_("Max. R16 moons per corp and round. Empty = no limit."),
+    )
+    bonus_no_moon = models.PositiveSmallIntegerField(
+        default=15, validators=[MaxValueValidator(100)],
+        help_text=_("Bonus points if the corp applied in the previous round and got no moon at all. 0 = off."),
+    )
+    bonus_no_r32 = models.PositiveSmallIntegerField(
+        default=8, validators=[MaxValueValidator(100)],
+        help_text=_("Bonus points if the corp got moons in the previous round, but no R32. 0 = off."),
+    )
     max_moons_per_corp = models.PositiveSmallIntegerField(
         default=3, validators=[MinValueValidator(1)],
         help_text=_("Maximum number of moons a single corp can receive per round."),
@@ -56,6 +77,10 @@ class DistributionSettings(models.Model):
     active_days = models.PositiveSmallIntegerField(
         default=30, validators=[MinValueValidator(1)],
         help_text=_("A player counts as active if one of his characters logged in within this many days."),
+    )
+    application_days = models.PositiveSmallIntegerField(
+        default=7, validators=[MinValueValidator(1)],
+        help_text=_("Applications stay open this many days after a round is opened, then it is distributed once."),
     )
     allow_directors = models.BooleanField(
         default=True,
@@ -75,6 +100,16 @@ class DistributionSettings(models.Model):
         """Return the single settings row, create it on first access."""
         obj, _created = cls.objects.get_or_create(pk=1)
         return obj
+
+    @property
+    def rarity_limits(self) -> dict:
+        """Per-corp limits by rarity – only rarities with a limit are included (None = unlimited)."""
+        limits = {}
+        if self.max_r32_per_corp is not None:
+            limits["R32"] = self.max_r32_per_corp
+        if self.max_r16_per_corp is not None:
+            limits["R16"] = self.max_r16_per_corp
+        return limits
 
     @property
     def weights(self) -> dict:
@@ -135,9 +170,12 @@ class Round(models.Model):
 
     name = models.CharField(max_length=100, help_text=_("e.g. 'Moon Distribution H1/2027'"))
     description = models.TextField(blank=True, default="")
-    application_start = models.DateTimeField()
+    application_start = models.DateTimeField(
+        null=True, blank=True, help_text=_("Set automatically when the round is opened."),
+    )
     application_end = models.DateTimeField(
-        help_text=_("When applications close the round is evaluated and distributed automatically."),
+        null=True, blank=True,
+        help_text=_("Set automatically when the round is opened; the round is distributed once at this time."),
     )
     evaluation_start = models.DateField(help_text=_("Start of the activity period that is checked."))
     evaluation_end = models.DateField(help_text=_("End of the activity period that is checked."))
@@ -154,7 +192,7 @@ class Round(models.Model):
 
     class Meta:
         default_permissions = ()
-        ordering = ["-application_end"]
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.name
@@ -162,13 +200,14 @@ class Round(models.Model):
     @property
     def is_open(self) -> bool:
         """True while corps may submit or change applications."""
-        now = timezone.now()
-        return self.status == self.Status.OPEN and self.application_start <= now < self.application_end
+        if self.status != self.Status.OPEN or not self.application_start or not self.application_end:
+            return False
+        return self.application_start <= timezone.now() < self.application_end
 
     @staticmethod
     def default_evaluation_window(application_end) -> tuple:
         """Default activity window: the 6 months before applications close."""
-        end = application_end.date()
+        end = application_end.date() if hasattr(application_end, "date") else application_end
         start = end - timedelta(days=182)
         return start, end
 
@@ -213,6 +252,27 @@ class ApplicationWish(models.Model):
         return f"{self.application.corporation} #{self.priority}: {self.moon}"
 
 
+class RoundBonus(models.Model):
+    """Manual bonus (or malus) points for a corp in a round, with a reason that everyone can see."""
+
+    round = models.ForeignKey(Round, on_delete=models.CASCADE, related_name="bonuses")
+    corporation = models.ForeignKey(EveCorporationInfo, on_delete=models.CASCADE, related_name="+")
+    points = models.SmallIntegerField(validators=[MinValueValidator(-100), MaxValueValidator(100)])
+    reason = models.CharField(max_length=255)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=["round", "corporation"], name="moondist_one_bonus_per_corp"),
+        ]
+        ordering = ["corporation__corporation_name"]
+
+    def __str__(self):
+        return f"{self.corporation}: {self.points:+d}"
+
+
 class CorporationScore(models.Model):
     """Collected activity and calculated score of an applying corp in a round."""
 
@@ -232,6 +292,10 @@ class CorporationScore(models.Model):
     score_members = models.FloatField(default=0)
     score_fleet = models.FloatField(default=0)
 
+    base_score = models.FloatField(default=0, help_text=_("Weighted activity score before bonuses."))
+    bonus_auto = models.FloatField(default=0, help_text=_("Compensation for a bad result in the previous round."))
+    bonus_manual = models.FloatField(default=0, help_text=_("Bonus set by the Mining Officer."))
+    bonus_note = models.CharField(max_length=500, blank=True, default="")
     total_score = models.FloatField(default=0)
     rank = models.PositiveSmallIntegerField(default=0)
     pvp_error = models.BooleanField(default=False, help_text=_("zKillboard could not be reached."))

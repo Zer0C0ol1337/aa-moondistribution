@@ -48,7 +48,7 @@
                         </div>
                         <div class="form-check mt-3">
                             {{ form.per_member }}
-                            <label class="form-check-label" for="{{ form.per_member.id_for_label }}">{% translate "Per active member" %}</label>
+                            <label class="form-check-label" for="{{ form.per_member.id_for_label }}">{% translate "Per active member (helps small corps)" %}</label>
                             <div class="form-text">{{ form.per_member.help_text }}</div>
                         </div>
                     </div>
@@ -57,6 +57,11 @@
                 <div class="card mb-3">
                     <div class="card-header fw-bold">{% translate "Rules" %}</div>
                     <div class="card-body row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.application_days.id_for_label }}">{% translate "Application phase (days)" %}</label>
+                            {{ form.application_days }}{{ form.application_days.errors }}
+                            <div class="form-text">{% translate "Starts when you open a round, then it is distributed once." %}</div>
+                        </div>
                         <div class="col-md-4">
                             <label class="form-label" for="{{ form.max_moons_per_corp.id_for_label }}">{% translate "Max. moons per corp" %}</label>
                             {{ form.max_moons_per_corp }}{{ form.max_moons_per_corp.errors }}
@@ -75,6 +80,42 @@
                                 <label class="form-check-label" for="{{ form.allow_directors.id_for_label }}">{% translate "Directors may apply too" %}</label>
                                 <div class="form-text">{{ form.allow_directors.help_text }}</div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header fw-bold">{% translate "Fairness" %}</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <div class="form-check">
+                                {{ form.exclude_r64 }}
+                                <label class="form-check-label" for="{{ form.exclude_r64.id_for_label }}">{% translate "Exclude R64 moons" %}</label>
+                                <div class="form-text">{{ form.exclude_r64.help_text }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.max_r32_per_corp.id_for_label }}">{% translate "Max. R32 per corp" %}</label>
+                            {{ form.max_r32_per_corp }}{{ form.max_r32_per_corp.errors }}
+                            <div class="form-text">{{ form.max_r32_per_corp.help_text }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.max_r16_per_corp.id_for_label }}">{% translate "Max. R16 per corp" %}</label>
+                            {{ form.max_r16_per_corp }}{{ form.max_r16_per_corp.errors }}
+                            <div class="form-text">{{ form.max_r16_per_corp.help_text }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.bonus_no_moon.id_for_label }}">{% translate "Bonus: no moon last round" %}</label>
+                            {{ form.bonus_no_moon }}{{ form.bonus_no_moon.errors }}
+                            <div class="form-text">{{ form.bonus_no_moon.help_text }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.bonus_no_r32.id_for_label }}">{% translate "Bonus: no R32 last round" %}</label>
+                            {{ form.bonus_no_r32 }}{{ form.bonus_no_r32.errors }}
+                            <div class="form-text">{{ form.bonus_no_r32.help_text }}</div>
+                        </div>
+                        <div class="col-12 small text-muted">
+                            {% translate "Bonus points are added to the score (0–100). Manual bonuses per corp are set on the round page. For small corps also consider “Per active member” in the weights." %}
                         </div>
                     </div>
                 </div>
