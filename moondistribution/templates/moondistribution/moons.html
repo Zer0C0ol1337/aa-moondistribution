@@ -55,20 +55,38 @@ R-ARKN I - Moon 1
         </div>
     </div>
 
+    {# --- Region tabs --- #}
+    {% if regions|length > 1 or regions.0.0 %}
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <a class="nav-link {% if not region_filter %}active{% endif %}" href="?rarity={{ rarity_filter }}&q={{ search|urlencode }}">{% translate "All regions" %}</a>
+            </li>
+            {% for region, n in regions %}
+                <li class="nav-item">
+                    <a class="nav-link {% if region and region_filter == region or not region and region_filter == 'other' %}active{% endif %}"
+                       href="?region={% if region %}{{ region|urlencode }}{% else %}other{% endif %}&rarity={{ rarity_filter }}&q={{ search|urlencode }}">
+                        {% if region %}{{ region }}{% else %}{% translate "Other" %}{% endif %} <span class="badge text-bg-secondary">{{ n }}</span>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
     {# --- Filter --- #}
     <form method="get" class="d-flex flex-wrap gap-2 align-items-center mb-2">
         <div class="btn-group btn-group-sm" role="group">
-            <a class="btn btn-outline-secondary {% if not rarity_filter %}active{% endif %}" href="?q={{ search|urlencode }}">{% translate "All" %}</a>
-            <a class="btn btn-outline-warning {% if rarity_filter == 'missing' %}active{% endif %}" href="?rarity=missing&q={{ search|urlencode }}">
+            <a class="btn btn-outline-secondary {% if not rarity_filter %}active{% endif %}" href="?region={{ region_filter|urlencode }}&q={{ search|urlencode }}">{% translate "All" %}</a>
+            <a class="btn btn-outline-warning {% if rarity_filter == 'missing' %}active{% endif %}" href="?rarity=missing&region={{ region_filter|urlencode }}&q={{ search|urlencode }}">
                 {% translate "No rarity" %} <span class="badge text-bg-warning">{{ counts.missing|default:0 }}</span>
             </a>
             {% for value, label in rarity_choices %}
-                <a class="btn btn-outline-secondary {% if rarity_filter == value %}active{% endif %}" href="?rarity={{ value }}&q={{ search|urlencode }}">
+                <a class="btn btn-outline-secondary {% if rarity_filter == value %}active{% endif %}" href="?rarity={{ value }}&region={{ region_filter|urlencode }}&q={{ search|urlencode }}">
                     {{ label }}
                 </a>
             {% endfor %}
         </div>
         <input type="hidden" name="rarity" value="{{ rarity_filter }}">
+        <input type="hidden" name="region" value="{{ region_filter }}">
         <input type="search" name="q" value="{{ search }}" class="form-control form-control-sm" style="max-width: 16rem;" placeholder="{% translate 'Search moon / system' %}">
     </form>
 

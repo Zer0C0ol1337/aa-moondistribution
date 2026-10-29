@@ -193,6 +193,47 @@ def parse_rarity_paste(text: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Regions
+# ---------------------------------------------------------------------------
+
+def region_names_for(systems) -> dict:
+    """{system name: region name} from the EVE map data – eve_sde (Corptools) first, then eveuniverse."""
+    wanted = {s for s in systems if s}
+    result = {}
+    if wanted and apps.is_installed("eve_sde"):
+        from eve_sde.models import SolarSystem
+
+        result.update({
+            name: region for name, region in SolarSystem.objects.filter(name__in=wanted)
+            .values_list("name", "constellation__region__name") if region
+        })
+    missing = wanted - set(result)
+    if missing and apps.is_installed("eveuniverse"):
+        from eveuniverse.models import EveSolarSystem
+
+        result.update({
+            name: region for name, region in EveSolarSystem.objects.filter(name__in=missing)
+            .values_list("name", "eve_constellation__eve_region__name") if region
+        })
+    # case-insensitive access (sheets sometimes differ in case)
+    return {**result, **{k.lower(): v for k, v in result.items()}}
+
+
+def fill_missing_regions() -> int:
+    """Set region_name for all moons that don't have one yet. Returns the number of updated moons."""
+    moons = list(Moon.objects.filter(region_name=""))
+    regions = region_names_for({m.system_name for m in moons})
+    changed = []
+    for moon in moons:
+        region = regions.get(moon.system_name) or regions.get(moon.system_name.lower())
+        if region:
+            moon.region_name = region
+            changed.append(moon)
+    Moon.objects.bulk_update(changed, ["region_name"], batch_size=500)
+    return len(changed)
+
+
+# ---------------------------------------------------------------------------
 # Writing
 # ---------------------------------------------------------------------------
 
@@ -240,6 +281,7 @@ def apply_moon_data(entries: dict, overwrite: bool = False, create_missing: bool
     Moon.objects.bulk_create(new.values(), batch_size=500)
     stats["updated"] = len(changed)
     stats["created"] = len(new)
+    fill_missing_regions()
     return stats
 
 

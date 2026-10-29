@@ -11,6 +11,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
@@ -22,7 +23,7 @@ from .distribution import application_summary
 from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_wishlist
 from .models import Allocation, Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
 from .providers import alliance_corporations, eligible_corporations_for, sync_moons_from_corptools
-from .rarity import apply_moon_data, parse_paste, rarities_from_moonmining
+from .rarity import apply_moon_data, fill_missing_regions, parse_paste, rarities_from_moonmining
 from .tasks import distribute_round
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,23 @@ def _ctx(request, **extra) -> dict:
         "application_days": DistributionSettings.get_solo().application_days,
         **extra,
     }
+
+
+def group_by_region(items, moon_of=lambda item: item) -> list:
+    """Group moons (or rows containing a moon) by region for the region tabs.
+
+    Returns [{'region': 'Esoteria', 'slug': 'region-esoteria', 'items': [...]}, ...] sorted by region,
+    moons without a known region last under 'Other'.
+    """
+    groups = {}
+    for item in items:
+        region = moon_of(item).region_name or ""
+        groups.setdefault(region, []).append(item)
+    ordered = sorted(groups, key=lambda r: (r == "", r))
+    return [
+        {"region": r or _("Other"), "slug": "region-" + (slugify(r) or "other"), "items": groups[r]}
+        for r in ordered
+    ]
 
 
 def _visible_rounds(request):
@@ -112,6 +130,7 @@ def round_detail(request, round_id: int):
         request,
         round=round_obj,
         moons=moons,
+        moon_regions=group_by_region(moons, lambda row: row["moon"]),
         scores=list(round_obj.scores.select_related("corporation")) if round_obj.status == Round.Status.DONE else [],
         allocations=allocations,
         applications=applications,
@@ -169,6 +188,7 @@ def apply(request, round_id: int, corporation_id: int):
     return render(request, "moondistribution/apply.html", _ctx(
         request, round=round_obj, corporation=corporation, rows=rows, comment=comment,
         application=application, max_wishes=settings.max_wishes,
+        row_regions=group_by_region(rows, lambda row: row["moon"]),
     ))
 
 
@@ -190,6 +210,13 @@ def withdraw(request, round_id: int, corporation_id: int):
 # Officer views – rounds
 # ---------------------------------------------------------------------------
 
+def _moon_checkbox_regions(form) -> list:
+    """The moon checkboxes of the round form grouped by region (one tab per region)."""
+    moons = {str(m.pk): m for m in form.fields["moons"].queryset}
+    boxes = [box for box in form["moons"] if str(box.data["value"]) in moons]
+    return group_by_region(boxes, lambda box: moons[str(box.data["value"])])
+
+
 @officer_required
 def round_create(request):
     """Create a new round (draft). The application week starts only when the round is opened."""
@@ -208,7 +235,9 @@ def round_create(request):
         expected_end = timezone.now() + timedelta(days=settings.application_days)
         ev_start, ev_end = Round.default_evaluation_window(expected_end)
         form = RoundForm(initial={"evaluation_start": ev_start, "evaluation_end": ev_end})
-    return render(request, "moondistribution/round_form.html", _ctx(request, form=form, round=None))
+    return render(request, "moondistribution/round_form.html", _ctx(
+        request, form=form, round=None, moon_regions=_moon_checkbox_regions(form),
+    ))
 
 
 @officer_required
@@ -225,7 +254,9 @@ def round_edit(request, round_id: int):
         ApplicationWish.objects.filter(application__round=round_obj).exclude(moon__in=round_obj.moons.all()).delete()
         messages.success(request, _("Round saved."))
         return redirect("moondistribution:round_detail", round_id=round_obj.pk)
-    return render(request, "moondistribution/round_form.html", _ctx(request, form=form, round=round_obj))
+    return render(request, "moondistribution/round_form.html", _ctx(
+        request, form=form, round=round_obj, moon_regions=_moon_checkbox_regions(form),
+    ))
 
 
 @officer_required
@@ -334,6 +365,7 @@ def officer_apply(request, round_id: int):
 def moons(request):
     """List of all moons with filter (rarity / missing rarity / search), bulk edit and rarity import."""
     rarity_filter = request.GET.get("rarity", "")
+    region_filter = request.GET.get("region", "")
     search = (request.GET.get("q") or "").strip()
     moon_list = Moon.objects.select_related("owner_corporation").prefetch_related(
         Prefetch(
@@ -345,11 +377,17 @@ def moons(request):
         moon_list = moon_list.filter(rarity="")
     elif rarity_filter:
         moon_list = moon_list.filter(rarity=rarity_filter)
+    if region_filter == "other":
+        moon_list = moon_list.filter(region_name="")
+    elif region_filter:
+        moon_list = moon_list.filter(region_name=region_filter)
     if search:
         moon_list = moon_list.filter(Q(name__icontains=search) | Q(system_name__icontains=search))
     counts = {r or "missing": n for r, n in Moon.objects.values_list("rarity").annotate(n=Count("id"))}
+    regions = list(Moon.objects.values_list("region_name").annotate(n=Count("id")).order_by("region_name"))
     return render(request, "moondistribution/moons.html", _ctx(
         request, moons=moon_list, rarity_filter=rarity_filter, search=search, counts=counts,
+        region_filter=region_filter, regions=regions,
         rarity_choices=[c for c in Moon.Rarity.choices if c[0]],
         moonmining_installed=apps.is_installed("moonmining"),
     ))
@@ -425,9 +463,10 @@ def moon_sync(request):
         stats = sync_moons_from_corptools()
         messages.success(request, _(
             "Import done: %(created)s new, %(updated)s updated, %(skipped)s skipped, "
-            "%(rarity_from_moonmining)s rarities taken from aa-moonmining."
+            "%(rarity_from_moonmining)s rarities taken from aa-moonmining, %(regions)s regions set."
         ) % stats)
     except ValueError as exc:
+        fill_missing_regions()
         messages.error(request, str(exc))
     return redirect("moondistribution:moons")
 

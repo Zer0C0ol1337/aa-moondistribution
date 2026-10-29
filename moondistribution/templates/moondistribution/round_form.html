@@ -34,14 +34,25 @@
             <div class="col-12">
                 <label class="form-label">{% translate "Moons in this round" %}</label>
                 <div class="mb-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('input[name=moons]').forEach(c => c.checked = true)">{% translate "All" %}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('input[name=moons]').forEach(c => c.checked = true)">{% translate "All regions" %}</button>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('input[name=moons]').forEach(c => c.checked = false)">{% translate "None" %}</button>
                 </div>
-                <div class="border rounded p-2" style="max-height: 24rem; overflow-y: auto;">
-                    {% for checkbox in form.moons %}
-                        <div class="form-check">
-                            {{ checkbox.tag }}
-                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label>
+                {% include "moondistribution/_region_tabs_nav.html" with groups=moon_regions prefix="pick" %}
+                <div class="tab-content">
+                    {% for g in moon_regions %}
+                        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="pick-{{ g.slug }}" role="tabpanel">
+                            <div class="mb-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('#pick-{{ g.slug }} input[name=moons]').forEach(c => c.checked = true)">{% blocktranslate with region=g.region %}All in {{ region }}{% endblocktranslate %}</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('#pick-{{ g.slug }} input[name=moons]').forEach(c => c.checked = false)">{% blocktranslate with region=g.region %}None in {{ region }}{% endblocktranslate %}</button>
+                            </div>
+                            <div class="border rounded p-2" style="max-height: 24rem; overflow-y: auto;">
+                                {% for checkbox in g.items %}
+                                    <div class="form-check">
+                                        {{ checkbox.tag }}
+                                        <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label>
+                                    </div>
+                                {% endfor %}
+                            </div>
                         </div>
                     {% empty %}
                         <p class="text-muted mb-0">

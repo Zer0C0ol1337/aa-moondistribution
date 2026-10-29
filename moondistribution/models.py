@@ -135,6 +135,10 @@ class Moon(models.Model):
 
     name = models.CharField(max_length=150, help_text=_("Moon name, e.g. 'R-ARKN VII - Moon 3'"))
     system_name = models.CharField(max_length=100, blank=True, default="")
+    region_name = models.CharField(
+        max_length=100, blank=True, default="",
+        help_text=_("Filled automatically from the EVE map data (SDE) – used for the region tabs."),
+    )
     structure_id = models.BigIntegerField(
         null=True, blank=True, unique=True,
         help_text=_("Refinery structure ID (set automatically by the Corptools import)."),
@@ -157,7 +161,7 @@ class Moon(models.Model):
 
     class Meta:
         default_permissions = ()
-        ordering = ["system_name", "name"]
+        ordering = ["region_name", "system_name", "name"]
 
     def __str__(self):
         return self.name

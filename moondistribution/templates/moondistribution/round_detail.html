@@ -166,41 +166,50 @@
     {% endif %}
 
     <h4 class="mb-3">{% translate "Moons" %} <span class="text-muted small">({{ moons|length }})</span></h4>
-    <div class="table-responsive mb-4">
-        <table class="table table-sm table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>{% translate "Moon" %}</th>
-                    <th>{% translate "Rarity" %}</th>
-                    <th>{% translate "Current owner" %}</th>
-                    {% if is_officer %}<th class="text-end" title="{% translate 'Number of corps that have this moon on their wishlist' %}">{% translate "Applications" %}</th>{% endif %}
-                    {% if round.status == "done" %}<th>{% translate "Assigned to" %}</th><th class="text-end">{% translate "Wish #" %}</th>{% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in moons %}
-                    <tr>
-                        <td>
-                            {{ row.moon.name }}
-                            {% if row.moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=row.moon %}</div>{% endif %}
-                        </td>
-                        <td>{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
-                        <td class="small">{{ row.moon.owner_corporation.corporation_name|default:"–" }}{% if row.moon.notes %} <span class="text-muted">· {{ row.moon.notes }}</span>{% endif %}</td>
-                        {% if is_officer %}
-                            <td class="text-end">
-                                {% if row.wishes %}<span class="badge {% if row.wishes > 1 %}text-bg-warning{% else %}text-bg-secondary{% endif %}">{{ row.wishes }}</span>{% else %}<span class="text-muted">0</span>{% endif %}
-                            </td>
-                        {% endif %}
-                        {% if round.status == "done" %}
-                            <td class="fw-bold">{{ row.allocation.corporation.corporation_name|default:"–" }}</td>
-                            <td class="text-end">{{ row.allocation.wish_priority|default:"" }}</td>
-                        {% endif %}
-                    </tr>
-                {% empty %}
-                    <tr><td colspan="6" class="text-muted">{% translate "No moons in this round." %}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {% include "moondistribution/_region_tabs_nav.html" with groups=moon_regions prefix="moons" %}
+    <div class="tab-content">
+        {% for g in moon_regions %}
+            <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="moons-{{ g.slug }}" role="tabpanel">
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Moon" %}</th>
+                                <th>{% translate "Rarity" %}</th>
+                                <th>{% translate "Current owner" %}</th>
+                                {% if is_officer %}<th class="text-end" title="{% translate 'Number of corps that have this moon on their wishlist' %}">{% translate "Applications" %}</th>{% endif %}
+                                {% if round.status == "done" %}<th>{% translate "Assigned to" %}</th><th class="text-end">{% translate "Wish #" %}</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in g.items %}
+                                <tr>
+                                    <td>
+                                        {{ row.moon.name }}
+                                        {% if row.moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=row.moon %}</div>{% endif %}
+                                    </td>
+                                    <td>{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
+                                    <td class="small">{{ row.moon.owner_corporation.corporation_name|default:"–" }}{% if row.moon.notes %} <span class="text-muted">· {{ row.moon.notes }}</span>{% endif %}</td>
+                                    {% if is_officer %}
+                                        <td class="text-end">
+                                            {% if row.wishes %}<span class="badge {% if row.wishes > 1 %}text-bg-warning{% else %}text-bg-secondary{% endif %}">{{ row.wishes }}</span>{% else %}<span class="text-muted">0</span>{% endif %}
+                                        </td>
+                                    {% endif %}
+                                    {% if round.status == "done" %}
+                                        <td class="fw-bold">{{ row.allocation.corporation.corporation_name|default:"–" }}</td>
+                                        <td class="text-end">{{ row.allocation.wish_priority|default:"" }}</td>
+                                    {% endif %}
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="6" class="text-muted">{% translate "No moons in this round." %}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% empty %}
+            <p class="text-muted">{% translate "No moons in this round." %}</p>
+        {% endfor %}
     </div>
 
     {% if applications %}

@@ -11,6 +11,7 @@ from allianceauth.services.tasks import QueueOnce
 from .distribution import run_distribution
 from .models import Round
 from .providers import sync_moons_from_corptools
+from .rarity import fill_missing_regions
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ def sync_moons():
         return sync_moons_from_corptools()
     except ValueError as exc:
         logger.warning("Moon sync skipped: %s", exc)
+        fill_missing_regions()  # manually added moons still get their region
         return None
 
 

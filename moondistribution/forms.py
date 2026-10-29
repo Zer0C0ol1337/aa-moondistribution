@@ -67,7 +67,7 @@ class MoonForm(forms.ModelForm):
 
     class Meta:
         model = Moon
-        fields = ["name", "system_name", "rarity", "notes", "is_active"]
+        fields = ["name", "system_name", "region_name", "rarity", "notes", "is_active"]
 
     def __init__(self, *args, **kwargs):
         """Bootstrap classes for all inputs."""

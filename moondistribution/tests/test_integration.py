@@ -388,3 +388,57 @@ class RarityIntegrationTest(IntegrationBase):
         resp = self.client.get(reverse("moondistribution:round_detail", args=[r.pk]))
         rows = {row["moon"].pk: row["wishes"] for row in resp.context["moons"]}
         self.assertEqual(rows, {self.moon1.pk: 2, self.moon2.pk: 0})
+
+
+
+class RegionTest(IntegrationBase):
+    """Region from the EVE map data and region tabs."""
+
+    @classmethod
+    def setUpTestData(cls):
+        """Two regions with one system each in the SDE tables."""
+        super().setUpTestData()
+        from eve_sde.models import Constellation, Region, SolarSystem
+
+        for rid, region, cid, system in ((10000039, "Esoteria", 20000450, "02V-BK"),
+                                         (10000056, "Feythabolis", 20000650, "D6SK-L")):
+            r = Region.objects.create(id=rid, name=region)
+            c = Constellation.objects.create(id=cid, name=f"C-{region}", region=r)
+            SolarSystem.objects.create(id=cid * 10, name=system, constellation=c)
+
+    def test_region_set_on_import(self):
+        """Pasted moons get their region; unknown systems stay empty ('Other')."""
+        self.client.force_login(self.officer)
+        paste = "02V-BK\t6\t15\tR32\t28\nR32\tD6SK-L\t4\t1\tZircon\t17.5%\nNOWHERE\t1\t1\tR8\t10\n"
+        self.client.post(reverse("moondistribution:moon_rarity_import"),
+                         {"paste": paste, "source": "paste", "create": "on"})
+        regions = dict(Moon.objects.filter(name__in=[
+            "02V-BK VI - Moon 15", "D6SK-L IV - Moon 1", "NOWHERE I - Moon 1",
+        ]).values_list("name", "region_name"))
+        self.assertEqual(regions, {
+            "02V-BK VI - Moon 15": "Esoteria", "D6SK-L IV - Moon 1": "Feythabolis", "NOWHERE I - Moon 1": "",
+        })
+
+    def test_region_tabs_render(self):
+        """Apply page, round page, round form and moon list show one tab per region."""
+        a = Moon.objects.create(name="02V-BK VI - Moon 15", system_name="02V-BK", region_name="Esoteria", rarity="R32")
+        b = Moon.objects.create(name="D6SK-L IV - Moon 1", system_name="D6SK-L", region_name="Feythabolis", rarity="R16")
+        now = timezone.now()
+        r = Round.objects.create(
+            name="H3", application_start=now - timedelta(days=1), application_end=now + timedelta(days=6),
+            evaluation_start=date.today() - timedelta(days=182), evaluation_end=date.today(), status=Round.Status.OPEN,
+        )
+        r.moons.set([a, b])
+        self.client.force_login(self.officer)
+        pages = [
+            reverse("moondistribution:apply", args=[r.pk, self.corp_a.corporation_id]),
+            reverse("moondistribution:round_detail", args=[r.pk]),
+            reverse("moondistribution:round_edit", args=[r.pk]),
+            reverse("moondistribution:moons"),
+        ]
+        for url in pages:
+            resp = self.client.get(url)
+            self.assertContains(resp, "Esoteria")
+            self.assertContains(resp, "Feythabolis")
+        self.assertContains(self.client.get(reverse("moondistribution:moons"), {"region": "Esoteria"}), a.name)
+        self.assertNotContains(self.client.get(reverse("moondistribution:moons"), {"region": "Esoteria"}), b.name)

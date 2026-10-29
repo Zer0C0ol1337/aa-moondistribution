@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4] - 2026-10-29
+
+### Added
+
+- **Region tabs**: moons are grouped by region (e.g. Esoteria / Feythabolis) on the application page, the round page, the round form and the moon list
+- Region is filled automatically from the EVE map data (eve_sde from Corptools, eveuniverse as fallback) on every import and by the daily task; editable per moon for systems that are not in the map data
+- Migration `0003_moon_region`
+
 ## [0.1.3] - 2026-10-29
 
 ### Added

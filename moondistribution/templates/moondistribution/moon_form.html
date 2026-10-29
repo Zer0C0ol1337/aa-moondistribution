@@ -16,6 +16,11 @@
             {{ form.system_name }}{{ form.system_name.errors }}
         </div>
         <div class="mb-3">
+            <label class="form-label" for="{{ form.region_name.id_for_label }}">{% translate "Region" %}</label>
+            {{ form.region_name }}{{ form.region_name.errors }}
+            <div class="form-text">{{ form.region_name.help_text }}</div>
+        </div>
+        <div class="mb-3">
             <label class="form-label" for="{{ form.rarity.id_for_label }}">{% translate "Rarity" %}</label>
             {{ form.rarity }}{{ form.rarity.errors }}
         </div>
