@@ -1,5 +1,7 @@
 """Django admin – mainly for debugging, day-to-day work happens in the app UI."""
 
+from solo.admin import SingletonModelAdmin
+
 from django.contrib import admin
 
 from .models import (
@@ -7,18 +9,33 @@ from .models import (
 )
 
 
+class ReadOnlyAdmin(admin.ModelAdmin):
+    """Results are written only by the distribution – visible in the admin, but not editable."""
+
+    def has_add_permission(self, request):
+        """No manual results."""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """No manual changes of results."""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Results are replaced by 'Re-run distribution', never deleted by hand."""
+        return False
+
+
 @admin.register(DistributionSettings)
-class DistributionSettingsAdmin(admin.ModelAdmin):
+class DistributionSettingsAdmin(SingletonModelAdmin):
     """Singleton settings."""
 
-    list_display = ("__str__", "alliance_id", "weight_pvp", "weight_fleet", "weight_members")
 
 
 @admin.register(Moon)
 class MoonAdmin(admin.ModelAdmin):
     """Moons with refinery info."""
 
-    list_display = ("name", "system_name", "rarity", "owner_corporation", "is_active", "last_seen")
+    list_display = ("name", "system_name", "region_name", "rarity", "owner_corporation", "owner_name", "is_active", "last_seen")
     list_filter = ("rarity", "is_active")
     search_fields = ("name", "system_name", "structure_name")
 
@@ -57,7 +74,7 @@ class RoundBonusAdmin(admin.ModelAdmin):
 
 
 @admin.register(CorporationScore)
-class CorporationScoreAdmin(admin.ModelAdmin):
+class CorporationScoreAdmin(ReadOnlyAdmin):
     """Calculated scores."""
 
     list_display = ("round", "rank", "corporation", "total_score", "base_score", "bonus_auto", "bonus_manual",
@@ -67,7 +84,7 @@ class CorporationScoreAdmin(admin.ModelAdmin):
 
 
 @admin.register(Allocation)
-class AllocationAdmin(admin.ModelAdmin):
+class AllocationAdmin(ReadOnlyAdmin):
     """Distribution results."""
 
     list_display = ("round", "pick_number", "moon", "corporation", "wish_priority")

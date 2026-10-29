@@ -4,7 +4,6 @@ Every activity is attributed via the *main character* of the AA user. That way
 alt corps count for the corp of the player's main.
 """
 
-import logging
 import time
 from datetime import date, timedelta
 
@@ -15,12 +14,13 @@ from django.contrib.auth.models import User
 from django.db.models import Count
 from django.utils import timezone
 
+from allianceauth.services.hooks import get_extension_logger
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 
 from . import app_settings
 from .models import DistributionSettings, Moon
 
-logger = logging.getLogger(__name__)
+logger = get_extension_logger(__name__)
 
 # Path from a corptools CharacterAudit to the corp ID of the owner's main
 _MAIN_CORP = "character_ownership__user__profile__main_character__corporation_id"
@@ -55,8 +55,9 @@ def eligible_corporations_for(user: User, include_officer: bool = True):
     if DistributionSettings.get_solo().allow_directors and apps.is_installed("corptools"):
         from corptools.models import CharacterRoles
 
+        # only characters whose Corptools audit is active, so stale role data of left/abandoned chars doesn't count
         director_corp_ids = CharacterRoles.objects.filter(
-            character__character__in=chars, director=True,
+            character__character__in=chars, character__active=True, director=True,
         ).values_list("character__character__corporation_id", flat=True)
         allowed_ids |= set(director_corp_ids)
 
@@ -213,6 +214,7 @@ def sync_moons_from_corptools() -> dict:
                 "system_name": structure.system_name.name if structure.system_name else "",
                 "structure_name": structure.name,
                 "owner_corporation": structure.corporation.corporation,
+                "owner_name": structure.corporation.corporation.corporation_name,
                 "last_seen": now,
             },
         )

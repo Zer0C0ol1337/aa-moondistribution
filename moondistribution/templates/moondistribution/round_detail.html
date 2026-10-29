@@ -8,12 +8,12 @@
             <h3 class="mb-1">{{ round.name }} {% include "moondistribution/_status_badge.html" with r=round %}</h3>
             <div class="text-muted small">
                 {% if round.application_end %}
-                    {% translate "Applications" %}: {{ round.application_start|date:"d.m.Y H:i" }} – {{ round.application_end|date:"d.m.Y H:i" }} EVE ·
+                    {% translate "Applications" %}: {{ round.application_start|date:"Y-m-d H:i" }} – {{ round.application_end|date:"Y-m-d H:i" }} EVE ·
                 {% else %}
                     {% blocktranslate %}Applications open for {{ application_days }} days once the round is opened{% endblocktranslate %} ·
                 {% endif %}
-                {% translate "Activity checked" %}: {{ round.evaluation_start|date:"d.m.Y" }} – {{ round.evaluation_end|date:"d.m.Y" }}
-                {% if round.distributed_at %} · {% translate "Distributed" %}: {{ round.distributed_at|date:"d.m.Y H:i" }}{% endif %}
+                {% translate "Activity checked" %}: {{ round.evaluation_start|date:"Y-m-d" }} – {{ round.evaluation_end|date:"Y-m-d" }}
+                {% if round.distributed_at %} · {% translate "Distributed" %}: {{ round.distributed_at|date:"Y-m-d H:i" }}{% endif %}
             </div>
         </div>
 
@@ -169,27 +169,26 @@
         {% for g in moon_regions %}
             <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="moons-{{ g.slug }}" role="tabpanel">
                 <div class="table-responsive mb-4">
-                    <table class="table table-sm table-hover align-middle md-sortable">
+                    <table class="table table-sm table-hover md-sortable md-moon-table">
                         <thead>
                             <tr>
-                                <th data-sort="text">{% translate "Moon" %}</th>
-                                <th data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
-                                <th class="text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
-                                <th data-sort="text">{% translate "Current owner" %}</th>
-                                {% if is_officer %}<th class="text-end" data-sort="num" title="{% translate 'Number of corps that have this moon on their wishlist' %}">{% translate "Applications" %}</th>{% endif %}
-                                {% if round.status == "done" %}<th data-sort="text">{% translate "Assigned to" %}</th><th class="text-end" data-sort="num">{% translate "Wish #" %}</th>{% endif %}
+                                <th class="md-narrow" data-sort="text">{% translate "Moon" %}</th>
+                                <th class="md-narrow" data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
+                                <th class="md-narrow text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
+                                <th>{% translate "Composition" %}</th>
+                                {% if has_owner %}<th class="md-narrow" data-sort="text">{% translate "Current owner" %}</th>{% endif %}
+                                {% if is_officer %}<th class="md-narrow text-end" data-sort="num" title="{% translate 'Number of corps that have this moon on their wishlist' %}">{% translate "Applications" %}</th>{% endif %}
+                                {% if round.status == "done" %}<th class="md-narrow" data-sort="text">{% translate "Assigned to" %}</th><th class="md-narrow text-end" data-sort="num">{% translate "Wish #" %}</th>{% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for row in g.items %}
                                 <tr>
-                                    <td data-value="{{ row.moon.name }}">
-                                        {{ row.moon.name }}
-                                        {% if row.moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=row.moon %}</div>{% endif %}
-                                    </td>
+                                    <td class="md-name" data-value="{{ row.moon.name }}">{{ row.moon.name }}</td>
                                     <td data-value="{{ row.moon.rarity_sort|stringformat:'.1f' }}">{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
                                     <td class="text-end" data-value="{% if row.moon.best_share is not None %}{{ row.moon.best_share|stringformat:'.1f' }}{% endif %}">{% if row.moon.best_share is not None %}{{ row.moon.best_share|floatformat:"-1" }}%{% else %}<span class="text-muted">–</span>{% endif %}</td>
-                                    <td class="small" data-value="{{ row.moon.owner_corporation.corporation_name|default:'' }}">{{ row.moon.owner_corporation.corporation_name|default:"–" }}{% if row.moon.notes %} <span class="text-muted">· {{ row.moon.notes }}</span>{% endif %}</td>
+                                    <td>{% include "moondistribution/_composition.html" with moon=row.moon %} {% if row.moon.notes and row.moon.notes|last != "%" %}<span class="small text-muted">{{ row.moon.notes }}</span>{% endif %}</td>
+                                    {% if has_owner %}<td class="small md-name" data-value="{{ row.moon.owner_display }}">{{ row.moon.owner_display|default:"–" }}</td>{% endif %}
                                     {% if is_officer %}
                                         <td class="text-end" data-value="{{ row.wishes }}">
                                             {% if row.wishes %}<span class="badge {% if row.wishes > 1 %}text-bg-warning{% else %}text-bg-secondary{% endif %}">{{ row.wishes }}</span>{% else %}<span class="text-muted">0</span>{% endif %}
@@ -200,8 +199,6 @@
                                         <td class="text-end" data-value="{{ row.allocation.wish_priority|default:'' }}">{{ row.allocation.wish_priority|default:"" }}</td>
                                     {% endif %}
                                 </tr>
-                            {% empty %}
-                                <tr><td colspan="7" class="text-muted">{% translate "No moons in this round." %}</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -220,7 +217,7 @@
                     <span class="fw-bold">{{ app.corporation.corporation_name }}</span>
                     <span class="small text-muted">
                         {% translate "by" %} {{ app.submitted_by.profile.main_character.character_name|default:app.submitted_by.username }},
-                        {{ app.updated_at|date:"d.m.Y H:i" }}
+                        {{ app.updated_at|date:"Y-m-d H:i" }}
                     </span>
                 </div>
                 <div class="card-body py-2">

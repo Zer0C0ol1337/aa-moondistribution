@@ -7,13 +7,23 @@
 {% block extra_css %}
     <style>
         /* Rarity colours like in the alliance sheet: R64 red, R32 orange, R16 green, R8 blue, R4 white */
-        .md-rarity { border: 1px solid rgba(0, 0, 0, .15); color: #212529; }
+        /* own "chip" instead of .badge so themes (uppercase / letter-spacing) don't change it */
+        .md-chip {
+            display: inline-block; padding: .05rem .4rem; margin: 0 .2rem .15rem 0; border-radius: .25rem;
+            font-size: .75rem; line-height: 1.35; font-weight: 600; white-space: nowrap; vertical-align: middle;
+            text-transform: none !important; letter-spacing: normal !important;
+            border: 1px solid rgba(0, 0, 0, .25); color: #1b1b1b !important;
+        }
+        .md-moon-table th, .md-moon-table td { vertical-align: middle; }
+        .md-moon-table .md-name { white-space: nowrap; }
+        .md-moon-table .md-narrow { width: 1%; white-space: nowrap; }
         .md-r64 { background-color: #f28b82; }
         .md-r32 { background-color: #ffa94d; }
         .md-r16 { background-color: #69db7c; }
         .md-r8 { background-color: #74a9f7; }
         .md-r4 { background-color: #ffffff; }
         .md-none { background-color: #ffe066; }
+        .md-chip.md-none, .md-chip.md- { background-color: #dee2e6; }
     </style>
 {% endblock extra_css %}
 

@@ -1,6 +1,5 @@
 """Views of Moon Distribution."""
 
-import logging
 from datetime import timedelta
 
 from django.apps import apps
@@ -15,6 +14,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
+from allianceauth.services.hooks import get_extension_logger
 from allianceauth.eveonline.models import EveCorporationInfo
 
 from . import __version__
@@ -22,11 +22,12 @@ from .decorators import check_access, officer_required
 from .distribution import application_summary
 from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_wishlist
 from .models import Allocation, Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
-from .providers import alliance_corporations, eligible_corporations_for, sync_moons_from_corptools
-from .rarity import apply_moon_data, fill_missing_regions, parse_paste, rarities_from_moonmining
-from .tasks import distribute_round
+from .providers import alliance_corporations, eligible_corporations_for
+from .rarity import parse_paste
+from .tasks import distribute_round, import_moon_data, sync_moons
+from .utils import reset_open_rounds_count
 
-logger = logging.getLogger(__name__)
+logger = get_extension_logger(__name__)
 
 
 def _ctx(request, **extra) -> dict:
@@ -37,6 +38,19 @@ def _ctx(request, **extra) -> dict:
         "application_days": DistributionSettings.get_solo().application_days,
         **extra,
     }
+
+
+def _queue(request, task, *args) -> bool:
+    """Queue a Celery task; if the broker is unreachable show a message instead of an error page."""
+    try:
+        task.delay(*args)
+        return True
+    except Exception:  # broker down (kombu OperationalError etc.)
+        logger.exception("Could not queue task %s", task.name)
+        messages.warning(request, _(
+            "The task queue is not reachable right now – please try again in a few minutes."
+        ))
+        return False
 
 
 def ids_from_csv(value: str) -> list:
@@ -141,8 +155,8 @@ def round_detail(request, round_id: int):
         {"moon": m, "allocation": moon_owner.get(m.pk), "wishes": wish_counts.get(m.pk, 0)}
         for m in round_obj.moons.select_related("owner_corporation")
     ]
-    if is_officer:
-        moons.sort(key=lambda row: (-row["wishes"], row["moon"].name))
+    # Default order: most wanted first (officers), then rarity + best share, so the good moons are on top
+    moons.sort(key=lambda row: (-row["wishes"], -row["moon"].rarity_sort, row["moon"].name))
 
     if is_officer:
         applications = application_summary(round_obj)
@@ -154,6 +168,7 @@ def round_detail(request, round_id: int):
         round=round_obj,
         moons=moons,
         moon_regions=group_by_region(moons, lambda row: row["moon"]),
+        has_owner=any(row["moon"].owner_display for row in moons),
         scores=list(round_obj.scores.select_related("corporation")) if round_obj.status == Round.Status.DONE else [],
         allocations=allocations,
         applications=applications,
@@ -192,15 +207,16 @@ def apply(request, round_id: int, corporation_id: int):
             current = {m.pk: posted.get(f"prio_{m.pk}", "") for m in moons}
         else:
             with transaction.atomic():
-                if application is None:
-                    application = Application.objects.create(
-                        round=round_obj, corporation=corporation, submitted_by=request.user, comment=comment,
-                    )
-                else:
-                    application.comment = comment
-                    application.submitted_by = request.user
-                    application.save()
-                    application.wishes.all().delete()
+                # get_or_create + row lock: two officers/directors saving at the same time can't create
+                # a second application (unique constraint) or mix their wishlists
+                application, _created = Application.objects.select_for_update().get_or_create(
+                    round=round_obj, corporation=corporation,
+                    defaults={"submitted_by": request.user, "comment": comment},
+                )
+                application.comment = comment
+                application.submitted_by = request.user
+                application.save()
+                application.wishes.all().delete()
                 ApplicationWish.objects.bulk_create([
                     ApplicationWish(application=application, moon=moon, priority=prio) for prio, moon in wishes
                 ])
@@ -208,11 +224,15 @@ def apply(request, round_id: int, corporation_id: int):
             return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 
     rows = [{"moon": m, "priority": current.get(m.pk, "")} for m in moons]
-    rows.sort(key=lambda r: (r["priority"] == "" or r["priority"] is None, str(r["priority"]).zfill(3), r["moon"].name))
+    # Wished moons first (by priority), then the rest by rarity + best share
+    rows.sort(key=lambda r: (
+        r["priority"] in ("", None), str(r["priority"]).zfill(3), -r["moon"].rarity_sort, r["moon"].name,
+    ))
     return render(request, "moondistribution/apply.html", _ctx(
         request, round=round_obj, corporation=corporation, rows=rows, comment=comment,
         application=application, max_wishes=settings.max_wishes,
         row_regions=group_by_region(rows, lambda row: row["moon"]),
+        has_owner=any(row["moon"].owner_display for row in rows),
     ))
 
 
@@ -296,8 +316,9 @@ def round_open(request, round_id: int):
         round_obj.application_end = now + timedelta(days=DistributionSettings.get_solo().application_days)
         round_obj.status = Round.Status.OPEN
         round_obj.save(update_fields=["application_start", "application_end", "status"])
+        reset_open_rounds_count()
         messages.success(request, _("Round is open for applications until %(end)s EVE time – then it is distributed automatically.") % {
-            "end": round_obj.application_end.strftime("%d.%m.%Y %H:%M"),
+            "end": round_obj.application_end.strftime("%Y-%m-%d %H:%M"),
         })
     return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 
@@ -310,8 +331,11 @@ def round_close_now(request, round_id: int):
     round_obj.application_end = timezone.now()
     round_obj.status = Round.Status.CLOSED
     round_obj.save(update_fields=["application_end", "status"])
-    distribute_round.delay(round_obj.pk)
-    messages.success(request, _("Applications closed – distribution is running, reload in a moment."))
+    reset_open_rounds_count()
+    if _queue(request, distribute_round, round_obj.pk):
+        messages.success(request, _("Applications closed – distribution is running, reload in a moment."))
+    else:
+        messages.info(request, _("The round is closed; start the distribution with 'Re-run distribution' later."))
     return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 
 
@@ -321,8 +345,8 @@ def round_redistribute(request, round_id: int):
     """Re-run evaluation and distribution (e.g. after zKillboard was down)."""
     round_obj = get_object_or_404(Round, pk=round_id, status__in=[Round.Status.CLOSED, Round.Status.DONE])
     Round.objects.filter(pk=round_obj.pk).update(status=Round.Status.CLOSED, last_error="")
-    distribute_round.delay(round_obj.pk)
-    messages.success(request, _("Distribution restarted – reload in a moment."))
+    if _queue(request, distribute_round, round_obj.pk):
+        messages.success(request, _("Distribution restarted – reload in a moment."))
     return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 
 
@@ -332,6 +356,7 @@ def round_delete(request, round_id: int):
     """Delete a round that is still a draft."""
     round_obj = get_object_or_404(Round, pk=round_id, status=Round.Status.DRAFT)
     round_obj.delete()
+    reset_open_rounds_count()
     messages.info(request, _("Draft deleted."))
     return redirect("moondistribution:index")
 
@@ -447,25 +472,17 @@ def moon_bulk(request):
 def moon_rarity_import(request):
     """Add / update moons from pasted sheet rows, moon scans or a 'moon; R32' list, or from aa-moonmining.
 
-    Sets rarity, ore composition and note. With 'create' ticked, missing moons are created.
+    Quick check here (does the paste contain moons at all?), the import itself runs as a task –
+    the officer gets an AA notification with the result.
     """
-    overwrite = request.POST.get("overwrite") == "on"
-    create_missing = request.POST.get("create") == "on"
-    if request.POST.get("source") == "moonmining":
-        entries = rarities_from_moonmining()
-        if not entries:
-            messages.error(request, _("aa-moonmining is not installed or has no scanned moons."))
-            return redirect("moondistribution:moons")
-    else:
-        entries = parse_paste(request.POST.get("paste", ""))
-        if not entries:
-            messages.error(request, _("No moons recognised in the pasted text."))
-            return redirect("moondistribution:moons")
-    stats = apply_moon_data(entries, overwrite=overwrite, create_missing=create_missing)
-    messages.success(request, _(
-        "%(found)s moons recognised: %(created)s created, %(updated)s updated, %(unchanged)s unchanged, "
-        "%(unknown)s not in the moon list (tick 'Create missing moons' to add them)."
-    ) % {"found": len(entries), **stats})
+    source = "moonmining" if request.POST.get("source") == "moonmining" else "paste"
+    paste = request.POST.get("paste", "")
+    if source == "paste" and not parse_paste(paste):
+        messages.error(request, _("No moons recognised in the pasted text."))
+        return redirect("moondistribution:moons")
+    if _queue(request, import_moon_data, paste, request.POST.get("overwrite") == "on",
+              request.POST.get("create") == "on", request.user.pk, source):
+        messages.info(request, _("Import started – you get a notification with the result in a moment."))
     return redirect("moondistribution:moons")
 
 
@@ -475,7 +492,12 @@ def moon_edit(request, moon_id: int | None = None):
     moon = get_object_or_404(Moon, pk=moon_id) if moon_id else None
     form = MoonForm(request.POST or None, instance=moon)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        moon = form.save(commit=False)
+        # keep the AA corp link in sync with the typed owner name
+        moon.owner_corporation = EveCorporationInfo.objects.filter(
+            corporation_name__iexact=moon.owner_name.strip(),
+        ).first() if moon.owner_name.strip() else None
+        moon.save()
         messages.success(request, _("Moon saved."))
         return redirect("moondistribution:moons")
     return render(request, "moondistribution/moon_form.html", _ctx(request, form=form, moon=moon))
@@ -484,16 +506,9 @@ def moon_edit(request, moon_id: int | None = None):
 @officer_required
 @require_POST
 def moon_sync(request):
-    """Import refineries from Corptools right now (instead of waiting for the daily task)."""
-    try:
-        stats = sync_moons_from_corptools()
-        messages.success(request, _(
-            "Import done: %(created)s new, %(updated)s updated, %(skipped)s skipped, "
-            "%(rarity_from_moonmining)s rarities taken from aa-moonmining, %(regions)s regions set."
-        ) % stats)
-    except ValueError as exc:
-        fill_missing_regions()
-        messages.error(request, str(exc))
+    """Start the Corptools import now (instead of waiting for the daily task) – result as notification."""
+    if _queue(request, sync_moons, request.user.pk):
+        messages.info(request, _("Import from Corptools started – you get a notification with the result."))
     return redirect("moondistribution:moons")
 
 

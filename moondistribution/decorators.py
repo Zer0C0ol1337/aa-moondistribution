@@ -7,13 +7,17 @@ from django.core.exceptions import PermissionDenied
 
 
 def check_access(perm: str = "moondistribution.basic_access"):
-    """Require login and the given permission, otherwise raise 403."""
+    """Require login and the given permission, otherwise raise 403.
+
+    Mining Officers always pass, so they don't need basic_access in addition.
+    """
 
     def decorator(view_func):
         @wraps(view_func)
         @login_required
         def _wrapped(request, *args, **kwargs):
-            if not request.user.has_perm(perm):
+            user = request.user
+            if not (user.has_perm(perm) or user.has_perm("moondistribution.mining_officer")):
                 raise PermissionDenied
             return view_func(request, *args, **kwargs)
 

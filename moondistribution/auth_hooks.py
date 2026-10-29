@@ -4,7 +4,7 @@ from allianceauth import hooks
 from allianceauth.services.hooks import MenuItemHook, UrlHook
 
 from . import app_settings, urls
-from .models import Round
+from .utils import open_rounds_count
 
 
 class MoonDistributionMenuItem(MenuItemHook):
@@ -21,10 +21,10 @@ class MoonDistributionMenuItem(MenuItemHook):
         )
 
     def render(self, request):
-        """Only render for users with basic_access; badge = number of open rounds."""
-        if request.user.has_perm("moondistribution.basic_access"):
-            open_rounds = Round.objects.filter(status=Round.Status.OPEN).count()
-            self.count = open_rounds or None
+        """Render for members (basic_access) and officers (mining_officer); badge = number of open rounds."""
+        user = request.user
+        if user.has_perm("moondistribution.basic_access") or user.has_perm("moondistribution.mining_officer"):
+            self.count = open_rounds_count() or None
             return MenuItemHook.render(self, request)
         return ""
 

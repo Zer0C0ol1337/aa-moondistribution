@@ -4,7 +4,7 @@
 
 {% block moondist_content %}
     <h3 class="mb-1">{% translate "Application" %}: {{ corporation.corporation_name }}</h3>
-    <p class="text-muted">{{ round.name }} · {% translate "Applications until" %} {{ round.application_end|date:"d.m.Y H:i" }} EVE</p>
+    <p class="text-muted">{{ round.name }} · {% translate "Applications until" %} {{ round.application_end|date:"Y-m-d H:i" }} EVE</p>
 
     <div class="alert alert-info small">
         {% blocktranslate %}Enter a priority for every moon you want (1 = most wanted). Leave the field empty for moons you don't want. You can choose up to {{ max_wishes }} moons and change your wishlist until applications close.{% endblocktranslate %}
@@ -18,32 +18,29 @@
             {% for g in row_regions %}
                 <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="apply-{{ g.slug }}" role="tabpanel">
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle md-sortable">
+                        <table class="table table-sm table-hover md-sortable md-moon-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 7rem;" data-sort="num">{% translate "Priority" %}</th>
-                                    <th data-sort="text">{% translate "Moon" %}</th>
-                                    <th data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
-                                    <th class="text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
-                                    <th data-sort="text">{% translate "Current owner" %}</th>
-                                    <th data-sort="text">{% translate "Notes" %}</th>
+                                    <th class="md-narrow" data-sort="num">{% translate "Priority" %}</th>
+                                    <th class="md-narrow" data-sort="text">{% translate "Moon" %}</th>
+                                    <th class="md-narrow" data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
+                                    <th class="md-narrow text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
+                                    <th>{% translate "Composition" %}</th>
+                                    {% if has_owner %}<th class="md-narrow" data-sort="text">{% translate "Current owner" %}</th>{% endif %}
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for row in g.items %}
                                     <tr>
                                         <td>
-                                            <input type="number" min="1" max="{{ max_wishes }}" class="form-control form-control-sm md-prio"
+                                            <input type="number" min="1" max="{{ max_wishes }}" class="form-control form-control-sm md-prio" style="width: 5rem;"
                                                    data-moon="{{ row.moon.pk }}" value="{{ row.priority|default_if_none:'' }}">
                                         </td>
-                                        <td data-value="{{ row.moon.name }}">
-                                            {{ row.moon.name }}
-                                            {% if row.moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=row.moon %}</div>{% endif %}
-                                        </td>
+                                        <td class="md-name" data-value="{{ row.moon.name }}">{{ row.moon.name }}</td>
                                         <td data-value="{{ row.moon.rarity_sort|stringformat:'.1f' }}">{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
                                         <td class="text-end" data-value="{% if row.moon.best_share is not None %}{{ row.moon.best_share|stringformat:'.1f' }}{% endif %}">{% if row.moon.best_share is not None %}{{ row.moon.best_share|floatformat:"-1" }}%{% else %}<span class="text-muted">–</span>{% endif %}</td>
-                                        <td class="small">{{ row.moon.owner_corporation.corporation_name|default:"–" }}</td>
-                                        <td class="small text-muted">{{ row.moon.notes }}</td>
+                                        <td>{% include "moondistribution/_composition.html" with moon=row.moon %} {% if row.moon.notes and row.moon.notes|last != "%" %}<span class="small text-muted">{{ row.moon.notes }}</span>{% endif %}</td>
+                                        {% if has_owner %}<td class="small md-name" data-value="{{ row.moon.owner_display }}">{{ row.moon.owner_display|default:"–" }}</td>{% endif %}
                                     </tr>
                                 {% endfor %}
                             </tbody>

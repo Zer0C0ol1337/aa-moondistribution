@@ -86,6 +86,15 @@ class IntegrationBase(TestCase):
         cls.moon2 = Moon.objects.create(name="R-ARKN II - Moon 1", rarity="R16")
         cls.moon_r64 = Moon.objects.create(name="R-ARKN III - Moon 1", rarity="R64")
 
+    def setUp(self):
+        """Run the import tasks synchronously (no Celery worker in tests)."""
+        from moondistribution.tasks import import_moon_data, sync_moons
+
+        for task in (import_moon_data, sync_moons):
+            patcher = mock.patch.object(task, "delay", side_effect=task)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def _round(self, status=Round.Status.OPEN, ended=False):
         """Round with both moons; open now or already ended."""
         now = timezone.now()
@@ -501,3 +510,74 @@ class LargePoolTest(IntegrationBase):
             self.assertContains(resp, "md-sortable")
             self.assertContains(resp, 'data-value="32059.9"')  # R32 + 59.9 % best share
             self.assertContains(resp, "59.9%")
+
+
+
+class HardeningTest(IntegrationBase):
+    """Fixes from the app check: officer access, menu, read-only admin, system check, owner sheet, broker down."""
+
+    def test_officer_without_basic_access(self):
+        """mining_officer alone is enough for all pages and the menu entry."""
+        from moondistribution.auth_hooks import MoonDistributionMenuItem
+
+        user, _c = _make_user("only_officer", 5099, self.corp_a, perms=("mining_officer",))
+        self.client.force_login(user)
+        self.assertEqual(self.client.get(reverse("moondistribution:index")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("moondistribution:settings")).status_code, 200)
+        request = mock.Mock(user=user, path="/moondistribution/")
+        with mock.patch("allianceauth.menu.hooks.MenuItemHook.render", return_value="menu"):
+            self.assertEqual(MoonDistributionMenuItem().render(request), "menu")
+
+    def test_results_read_only_in_admin(self):
+        """Scores and allocations can't be added, changed or deleted in the Django admin."""
+        from django.contrib import admin
+
+        from moondistribution.models import Allocation, CorporationScore
+
+        request = mock.Mock(user=User.objects.create_superuser("root", "r@example.com", "x"))
+        for model in (CorporationScore, Allocation):
+            model_admin = admin.site._registry[model]
+            self.assertFalse(model_admin.has_add_permission(request))
+            self.assertFalse(model_admin.has_change_permission(request))
+            self.assertFalse(model_admin.has_delete_permission(request))
+
+    def test_system_check_fleet_tracker(self):
+        """W002 appears only when no fleet tracker is installed."""
+        from moondistribution.checks import data_sources_check
+
+        self.assertEqual([w.id for w in data_sources_check(None)], [])
+        with mock.patch("moondistribution.checks.apps.is_installed", side_effect=lambda name: name == "corptools"):
+            self.assertEqual([w.id for w in data_sources_check(None)], ["moondistribution.W002"])
+
+    def test_owner_sheet(self):
+        """System | Planet | Moon | Type | Corp → owner linked to the AA corp, unknown corps kept as text."""
+        self.client.force_login(self.officer)
+        paste = (
+            "System\tPlanet\tMoon\tType\tCorp\n"
+            "I9-ZQZ\t9\t14\tR32\tAlpha Corp\n"
+            "R97-CI\t6\t8\tR16\tAbyssus Abyssum Invocat Noricum\n"
+        )
+        self.client.post(reverse("moondistribution:moon_rarity_import"),
+                         {"paste": paste, "source": "paste", "create": "on"})
+        a = Moon.objects.get(name="I9-ZQZ IX - Moon 14")
+        b = Moon.objects.get(name="R97-CI VI - Moon 8")
+        self.assertEqual((a.owner_corporation, a.owner_display), (self.corp_a, "Alpha Corp"))
+        self.assertEqual((b.owner_corporation, b.owner_display), (None, "Abyssus Abyssum Invocat Noricum"))
+
+    def test_broker_down_shows_message(self):
+        """If Celery is unreachable the officer gets a message, not an error page."""
+        from moondistribution.tasks import distribute_round
+
+        r = self._round()
+        self.client.force_login(self.officer)
+        with mock.patch.object(distribute_round, "delay", side_effect=ConnectionError("broker down")):
+            resp = self.client.post(reverse("moondistribution:round_close_now", args=[r.pk]), follow=True)
+        self.assertEqual(resp.status_code, 200)
+        r.refresh_from_db()
+        self.assertEqual(r.status, Round.Status.CLOSED)
+
+    def test_german_translation(self):
+        """German users see the German UI."""
+        self.client.force_login(self.officer)
+        resp = self.client.get(reverse("moondistribution:moons"), HTTP_ACCEPT_LANGUAGE="de")
+        self.assertContains(resp, "Monde")

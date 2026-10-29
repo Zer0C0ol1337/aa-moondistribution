@@ -30,7 +30,7 @@
                 <p class="small text-muted mb-2">
                     {% translate "Paste the copied results of the in-game moon scan (any number of moons at once) – the rarity is taken from the best ore. A simple list with one moon per line also works:" %}
                     <code>R-ARKN I - Moon 1; R32</code>.
-                    {% translate "Rows copied from your moon sheets work directly (system | planet | moon, with category and/or ores and shares in any of the usual layouts) – ores and shares are stored as the moon's composition." %}
+                    {% translate "Rows copied from your moon sheets work directly (system | planet | moon, with category and/or ores and shares, or with the owner corp, in any of the usual layouts) – ores become the moon's composition, a corp name becomes its current owner. With 'Overwrite' an owner list updates the owners." %}
                 </p>
                 <textarea id="paste" name="paste" class="form-control font-monospace small mb-2" rows="8"
                           placeholder="Moon	Moon Product	Quantity	Ore TypeID	SolarSystemID	PlanetID	MoonID
@@ -107,43 +107,46 @@ R-ARKN I - Moon 1
         </div>
 
         <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle md-sortable">
+            <table class="table table-sm table-hover md-sortable md-moon-table">
                 <thead>
                     <tr>
-                        <th style="width: 2rem;"><input type="checkbox" class="form-check-input" onclick="document.querySelectorAll('.md-bulk').forEach(c => c.checked = this.checked)"></th>
-                        <th data-sort="text">{% translate "Moon" %}</th>
-                        <th data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
-                        <th class="text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
-                        <th data-sort="text">{% translate "Refinery / owner" %}</th>
-                        <th data-sort="text">{% translate "Last assigned" %}</th>
-                        <th data-sort="text">{% translate "Last seen" %}</th>
-                        <th data-sort="num">{% translate "Active" %}</th>
-                        <th></th>
+                        <th class="md-narrow"><input type="checkbox" class="form-check-input" onclick="document.querySelectorAll('.md-bulk').forEach(c => c.checked = this.checked)"></th>
+                        <th class="md-narrow" data-sort="text">{% translate "Moon" %}</th>
+                        <th class="md-narrow" data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
+                        <th class="md-narrow text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
+                        <th>{% translate "Composition" %}</th>
+                        <th class="md-narrow" data-sort="text">{% translate "Owner" %}</th>
+                        <th class="md-narrow" data-sort="text">{% translate "Last assigned" %}</th>
+                        <th class="md-narrow" data-sort="text">{% translate "Source" %}</th>
+                        <th class="md-narrow" data-sort="num">{% translate "Active" %}</th>
+                        <th class="md-narrow"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for moon in moons %}
                         <tr class="{% if not moon.is_active %}text-muted{% endif %}">
                             <td><input type="checkbox" class="form-check-input md-bulk" value="{{ moon.pk }}"></td>
-                            <td data-value="{{ moon.name }}">
-                                {{ moon.name }}
-                                {% if moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=moon %}</div>{% endif %}
-                                {% if moon.notes %}<div class="small text-muted">{{ moon.notes }}</div>{% endif %}
-                            </td>
+                            <td class="md-name" data-value="{{ moon.name }}">{{ moon.name }}</td>
                             <td data-value="{{ moon.rarity_sort|stringformat:'.1f' }}">{% include "moondistribution/_rarity_badge.html" with rarity=moon.rarity %}</td>
                             <td class="text-end" data-value="{% if moon.best_share is not None %}{{ moon.best_share|stringformat:'.1f' }}{% endif %}">{% if moon.best_share is not None %}{{ moon.best_share|floatformat:"-1" }}%{% else %}<span class="text-muted">–</span>{% endif %}</td>
-                            <td class="small">{{ moon.structure_name|default:"–" }}<br>{{ moon.owner_corporation.corporation_name|default:"" }}</td>
-                            <td class="small">
+                            <td>
+                                {% include "moondistribution/_composition.html" with moon=moon %}
+                                {% if moon.notes and moon.notes|last != "%" %}<span class="small text-muted">{{ moon.notes }}</span>{% endif %}
+                            </td>
+                            <td class="small md-name" data-value="{{ moon.owner_display }}">{{ moon.owner_display|default:"–" }}</td>
+                            <td class="small" data-value="{% with last=moon.allocations.all|first %}{{ last.corporation.corporation_name|default:'' }}{% endwith %}">
                                 {% with last=moon.allocations.all|first %}
-                                    {% if last %}{{ last.corporation.corporation_name }}<br><span class="text-muted">{{ last.round.name }}</span>{% else %}–{% endif %}
+                                    {% if last %}{{ last.corporation.corporation_name }} <span class="text-muted">({{ last.round.name }})</span>{% else %}–{% endif %}
                                 {% endwith %}
                             </td>
-                            <td class="small" data-value="{{ moon.last_seen|date:'Y-m-d'|default:'' }}">{{ moon.last_seen|date:"d.m.Y"|default:"manual" }}</td>
+                            <td class="small" data-value="{{ moon.last_seen|date:'Y-m-d'|default:'' }}">
+                                {% if moon.structure_id %}{{ moon.structure_name|default:"Corptools" }}{% else %}{% translate "Sheet / manual" %}{% endif %}
+                            </td>
                             <td data-value="{% if moon.is_active %}1{% else %}0{% endif %}">{% if moon.is_active %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-xmark"></i>{% endif %}</td>
-                            <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_edit' moon.pk %}">{% translate "Edit" %}</a></td>
+                            <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_edit' moon.pk %}"><i class="fas fa-pen"></i></a></td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="9" class="text-muted">{% translate "No moons found." %}</td></tr>
+                        <tr><td colspan="10" class="text-muted">{% translate "No moons found." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

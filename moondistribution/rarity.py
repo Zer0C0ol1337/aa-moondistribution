@@ -5,14 +5,15 @@ it works row by row and looks for "system | planet | moon" followed by ores and 
 no matter which columns come before or after.
 """
 
-import logging
 import re
 
 from django.apps import apps
 
+from allianceauth.services.hooks import get_extension_logger
+
 from .models import Moon
 
-logger = logging.getLogger(__name__)
+logger = get_extension_logger(__name__)
 
 # Base moon ores per rarity class. Variants ("Brimful", "Glistening", "Copious", "Twinkling", ...)
 # are matched by the base name at the end of the ore name.
@@ -26,6 +27,7 @@ ORE_RARITY = {
 RARITY_ORDER = {"R4": 4, "R8": 8, "R16": 16, "R32": 32, "R64": 64}
 _RARITY_TOKEN = re.compile(r"^R ?(4|8|16|32|64)$", re.IGNORECASE)
 _NUMBER = re.compile(r"^-?\d+(?:[.,]\d+)?$")
+_NOT_OWNER = {"ok", "yes", "no", "ja", "nein", "x", "sum", "class", "type", "corp", "owner"}
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +124,15 @@ def parse_sheet_row(cells: list):
             for ore in composition:
                 rarity = higher_rarity(rarity, ore_rarity(ore["ore"]))
 
+        # Owner sheet: a text cell after the triple that is no ore, category, number or marker → corp name
+        owner = ""
+        for cell in rest:
+            c = cell.strip()
+            if (len(c) >= 3 and any(ch.isalpha() for ch in c) and not rarity_token(c) and not ore_rarity(c)
+                    and parse_percent(c) is None and c.lower() not in _NOT_OWNER):
+                owner = c
+                break
+
         # Simple sheet without ores: the number right after the category is the share of the rare ore
         note = ""
         if not composition:
@@ -133,7 +144,7 @@ def parse_sheet_row(cells: list):
                     break
         if not rarity:
             return None
-        return name, {"rarity": rarity, "composition": composition, "note": note}
+        return name, {"rarity": rarity, "composition": composition, "note": note, "owner": owner}
     return None
 
 
@@ -245,14 +256,27 @@ def apply_moon_data(entries: dict, overwrite: bool = False, create_missing: bool
     create_missing=True adds moons that are not in the list yet – needed when the refineries
     are not visible in Corptools.
     """
-    stats = {"created": 0, "updated": 0, "unchanged": 0, "unknown": 0}
+    stats = {"created": 0, "updated": 0, "unchanged": 0, "unknown": 0, "owners_not_in_aa": 0}
     moons = {m.name.lower(): m for m in Moon.objects.all()}
+
+    # Owner names from the paste → AA corps (case-insensitive name match)
+    from allianceauth.eveonline.models import EveCorporationInfo
+
+    owner_names = {e.get("owner", "").lower() for e in entries.values() if isinstance(e, dict) and e.get("owner")}
+    corps = {
+        c.corporation_name.lower(): c
+        for c in EveCorporationInfo.objects.all().only("id", "corporation_name")
+        if c.corporation_name.lower() in owner_names
+    }
+    stats["owners_not_in_aa"] = len(owner_names - set(corps))
     changed, new = [], {}
     for name, entry in entries.items():
         if isinstance(entry, str):
             entry = {"rarity": entry, "composition": [], "note": ""}
         clean = " ".join(name.split())
         rarity, composition, note = entry["rarity"], entry.get("composition") or [], entry.get("note") or ""
+        owner = entry.get("owner") or ""
+        owner_corp = corps.get(owner.lower()) if owner else None
         moon = moons.get(clean.lower())
 
         if moon is None:
@@ -260,6 +284,7 @@ def apply_moon_data(entries: dict, overwrite: bool = False, create_missing: bool
                 new[clean.lower()] = Moon(
                     name=clean, system_name=system_from_moon_name(clean),
                     rarity=rarity, composition=composition, notes=note,
+                    owner_name=owner, owner_corporation=owner_corp,
                 )
             elif not create_missing:
                 stats["unknown"] += 1
@@ -272,12 +297,16 @@ def apply_moon_data(entries: dict, overwrite: bool = False, create_missing: bool
             moon.composition, dirty = composition, True
         if note and moon.notes != note and (not moon.notes or overwrite):
             moon.notes, dirty = note, True
+        if owner and moon.owner_name != owner and (not moon.owner_name or overwrite):
+            moon.owner_name, moon.owner_corporation, dirty = owner, owner_corp, True
         if dirty:
             changed.append(moon)
         else:
             stats["unchanged"] += 1
 
-    Moon.objects.bulk_update(changed, ["rarity", "composition", "notes"], batch_size=500)
+    Moon.objects.bulk_update(
+        changed, ["rarity", "composition", "notes", "owner_name", "owner_corporation"], batch_size=500,
+    )
     Moon.objects.bulk_create(new.values(), batch_size=500)
     stats["updated"] = len(changed)
     stats["created"] = len(new)

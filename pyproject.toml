@@ -16,7 +16,7 @@ requires-python = ">=3.10"
 classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
-    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.2",
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
@@ -29,8 +29,8 @@ dynamic = [
     "version",
 ]
 dependencies = [
-    "allianceauth>=4.0.0",
-    "allianceauth-corptools",
+    "allianceauth>=5.0,<6",
+    "allianceauth-corptools>=3.4",
     "requests",
 ]
 
@@ -43,6 +43,9 @@ Tracker = "https://github.com/Zer0C0ol1337/aa-moondistribution/issues"
 path = "moondistribution/__init__.py"
 
 [tool.hatch.build.targets.sdist]
+exclude = [
+    "/moondistribution/tests",
+]
 include = [
     "/moondistribution",
     "/README.md",
@@ -53,4 +56,7 @@ include = [
 [tool.hatch.build.targets.wheel]
 packages = [
     "moondistribution",
+]
+exclude = [
+    "moondistribution/tests",
 ]

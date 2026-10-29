@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.1.8] - 2026-10-29
+
+### Added
+
+- **Current owner from the owner sheet** (`System | Planet | Moon | Type | Corp`): the corp is linked to the AA corp, unknown corps are kept as text (`Moon.owner_name`, migration `0005_moon_owner_name`); owner editable per moon
+- **German translation** of the whole UI
+- System check `moondistribution.W002` when no fleet tracker is installed (and `W001` without Corptools)
+- GitHub Actions workflow running the tests against Alliance Auth 5.2 and 5.4
+
+### Changed
+
+- Compact moon tables: composition as small chips in its own column (not affected by theme badge styles), empty owner column hidden, best moons (rarity + best share) on top by default
+- Moon import from sheets/scans and the Corptools import run as background tasks – the officer gets an AA notification with the result
+- Mining Officers no longer need `basic_access` in addition (menu entry and pages)
+- Menu badge (open rounds) is cached instead of one query per page load
+- Dates shown in EVE format `YYYY-MM-DD HH:MM`
+- Distribution results (scores, allocations) are read-only in the Django admin
+- Settings use `django-solo`, logging uses AA's extension logger
+- Director role only counts from active Corptools characters
+- `allianceauth>=5.0,<6`, `allianceauth-corptools>=3.4`; tests are no longer shipped in the package
+- README: Docker installation, upgrade, uninstall, data protection notes
+
+### Fixed
+
+- Error page when the Celery broker is unreachable – now a message, the round stays closed for a later re-run
+- Two people saving the same corp's application at the same moment could cause an error
+
 ## [0.1.7] - 2026-10-29
 
 ### Added

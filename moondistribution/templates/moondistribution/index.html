@@ -16,7 +16,7 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <a href="{% url 'moondistribution:round_detail' info.round.pk %}" class="fw-bold">{{ info.round.name }}</a>
                 <span class="text-muted small">
-                    {% translate "Applications until" %} {{ info.round.application_end|date:"d.m.Y H:i" }} EVE
+                    {% translate "Applications until" %} {{ info.round.application_end|date:"Y-m-d H:i" }} EVE
                 </span>
             </div>
             <div class="card-body">
@@ -24,10 +24,10 @@
                 <p class="small text-muted mb-2">
                     {{ info.round.n_moons }} {% translate "moons in the pool" %} ·
                     {{ info.round.n_apps }} {% translate "applications" %} ·
-                    {% translate "activity checked" %} {{ info.round.evaluation_start|date:"d.m.Y" }} – {{ info.round.evaluation_end|date:"d.m.Y" }}
+                    {% translate "activity checked" %} {{ info.round.evaluation_start|date:"Y-m-d" }} – {{ info.round.evaluation_end|date:"Y-m-d" }}
                 </p>
                 {% if not info.round.is_open %}
-                    <p class="mb-0 text-muted">{% translate "Applications open on" %} {{ info.round.application_start|date:"d.m.Y H:i" }} EVE.</p>
+                    <p class="mb-0 text-muted">{% translate "Applications open on" %} {{ info.round.application_start|date:"Y-m-d H:i" }} EVE.</p>
                 {% elif info.corps %}
                     <ul class="list-group">
                         {% for c in info.corps %}
@@ -82,7 +82,7 @@
                         <td>{% include "moondistribution/_status_badge.html" with r=r %}</td>
                         <td>{{ r.n_apps }}</td>
                         <td>{{ r.n_moons }}</td>
-                        <td>{{ r.application_end|date:"d.m.Y H:i" }}</td>
+                        <td>{{ r.application_end|date:"Y-m-d H:i" }}</td>
                     </tr>
                 {% empty %}
                     <tr><td colspan="5" class="text-muted">{% translate "No rounds yet." %}</td></tr>

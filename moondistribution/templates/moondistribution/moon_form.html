@@ -21,6 +21,11 @@
             <div class="form-text">{{ form.region_name.help_text }}</div>
         </div>
         <div class="mb-3">
+            <label class="form-label" for="{{ form.owner_name.id_for_label }}">{% translate "Owner corp" %}</label>
+            {{ form.owner_name }}{{ form.owner_name.errors }}
+            <div class="form-text">{% if moon.owner_corporation %}{% translate "Linked to AA corp" %}: {{ moon.owner_corporation.corporation_name }}{% else %}{{ form.owner_name.help_text }}{% endif %}</div>
+        </div>
+        <div class="mb-3">
             <label class="form-label" for="{{ form.rarity.id_for_label }}">{% translate "Rarity" %}</label>
             {{ form.rarity }}{{ form.rarity.errors }}
         </div>

@@ -12,3 +12,7 @@ class MoonDistributionConfig(AppConfig):
     label = "moondistribution"
     verbose_name = f"Moon Distribution v{__version__}"
     default_auto_field = "django.db.models.BigAutoField"
+
+    def ready(self):
+        """Register the system checks (no database access at startup)."""
+        from . import checks  # noqa: F401

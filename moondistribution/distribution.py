@@ -5,17 +5,17 @@ touch the database and are unit tested. run_distribution() wires them together
 with the data providers and stores the result.
 """
 
-import logging
 
 from django.db import transaction
 from django.utils import timezone
 
+from allianceauth.services.hooks import get_extension_logger
 from allianceauth.notifications import notify
 
 from . import providers
 from .models import Allocation, Application, CorporationScore, DistributionSettings, Moon, Round
 
-logger = logging.getLogger(__name__)
+logger = get_extension_logger(__name__)
 
 CRITERIA = ("pvp", "members", "fleet")
 

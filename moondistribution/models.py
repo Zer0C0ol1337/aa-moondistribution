@@ -8,6 +8,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from solo.models import SingletonModel
+
 from allianceauth.eveonline.models import EveCorporationInfo
 
 
@@ -23,7 +25,7 @@ class General(models.Model):
         )
 
 
-class DistributionSettings(models.Model):
+class DistributionSettings(SingletonModel):
     """Singleton with all settings that the Mining Officer can change in the UI."""
 
     alliance_id = models.PositiveIntegerField(
@@ -94,12 +96,6 @@ class DistributionSettings(models.Model):
     def __str__(self):
         return "Moon Distribution Settings"
 
-    @classmethod
-    def get_solo(cls) -> "DistributionSettings":
-        """Return the single settings row, create it on first access."""
-        obj, _created = cls.objects.get_or_create(pk=1)
-        return obj
-
     @property
     def rarity_limits(self) -> dict:
         """Per-corp limits by rarity – only rarities with a limit are included (None = unlimited)."""
@@ -144,7 +140,11 @@ class Moon(models.Model):
     structure_name = models.CharField(max_length=150, blank=True, default="")
     owner_corporation = models.ForeignKey(
         EveCorporationInfo, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
-        help_text=_("Corp that currently owns the refinery."),
+        help_text=_("Corp that currently owns the moon (alliance corp known in AA)."),
+    )
+    owner_name = models.CharField(
+        max_length=150, blank=True, default="",
+        help_text=_("Owner as written in the sheet – kept even if the corp is not known in AA."),
     )
     rarity = models.CharField(max_length=3, choices=Rarity.choices, blank=True, default="")
     composition = models.JSONField(
@@ -171,6 +171,13 @@ class Moon(models.Model):
 
         rows = [{**c, "rarity": ore_rarity(c.get("ore", ""))} for c in (self.composition or [])]
         return sorted(rows, key=lambda r: (-RARITY_ORDER.get(r["rarity"], 0), -(r.get("percent") or 0)))
+
+    @property
+    def owner_display(self) -> str:
+        """Owner corp name: the AA corp if linked, otherwise the name from the sheet."""
+        if self.owner_corporation_id:
+            return self.owner_corporation.corporation_name
+        return self.owner_name
 
     @property
     def best_share(self):
