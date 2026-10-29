@@ -6,7 +6,6 @@ from django.apps import apps
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
-from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -20,7 +19,7 @@ from allianceauth.eveonline.models import EveCorporationInfo
 from . import __version__
 from .decorators import check_access, officer_required
 from .distribution import application_summary
-from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_wishlist
+from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_selection
 from .models import Allocation, Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
 from .providers import alliance_corporations, eligible_corporations_for
 from .rarity import parse_paste
@@ -64,16 +63,6 @@ def round_form_data(post):
     data = post.copy()
     data.setlist("moons", [str(i) for i in ids_from_csv(post.get("moon_ids", ""))])
     return data
-
-
-def wishlist_from_post(post) -> dict:
-    """{'prio_<moon id>': '<priority>'} from the single 'wishlist' field ('12:1,15:2,…')."""
-    result = {}
-    for pair in (post.get("wishlist") or "").split(","):
-        moon_id, _sep, prio = pair.partition(":")
-        if moon_id.strip().isdigit():
-            result[f"prio_{int(moon_id)}"] = prio.strip()
-    return result
 
 
 def group_by_region(items, moon_of=lambda item: item) -> list:
@@ -176,12 +165,14 @@ def round_detail(request, round_id: int):
         snapshot=round_obj.settings_snapshot or {},
         bonuses=list(round_obj.bonuses.select_related("corporation", "created_by__profile__main_character")),
         bonus_form=RoundBonusForm(corporations=alliance_corporations()) if is_officer else None,
+        alliance_corps=alliance_corporations() if is_officer else [],
+        own_corps=list(eligible_corporations_for(request.user, include_officer=False)),
     ))
 
 
 @check_access()
 def apply(request, round_id: int, corporation_id: int):
-    """Create or change the application (moon wishlist) of a corp for an open round."""
+    """Create or change the application of a corp: tick the wanted moons, all are wanted equally."""
     round_obj = get_object_or_404(Round, pk=round_id)
     corporation = get_object_or_404(eligible_corporations_for(request.user), corporation_id=corporation_id)
     if not round_obj.is_open:
@@ -194,17 +185,17 @@ def apply(request, round_id: int, corporation_id: int):
         moons_qs = moons_qs.exclude(rarity=Moon.Rarity.R64)
     moons = list(moons_qs)
     application = Application.objects.filter(round=round_obj, corporation=corporation).first()
-    current = {w.moon_id: w.priority for w in application.wishes.all()} if application else {}
+    selected = set(application.wishes.values_list("moon_id", flat=True)) if application else set()
     comment = application.comment if application else ""
 
     if request.method == "POST":
-        posted = wishlist_from_post(request.POST)
-        wishes, errors = parse_wishlist(posted, moons, settings.max_wishes)
+        posted_ids = ids_from_csv(request.POST.get("moon_ids", ""))
+        chosen, errors = parse_selection(posted_ids, moons, settings.max_wishes)
         comment = (request.POST.get("comment") or "").strip()[:2000]
         if errors:
             for err in errors:
                 messages.error(request, err)
-            current = {m.pk: posted.get(f"prio_{m.pk}", "") for m in moons}
+            selected = set(posted_ids)
         else:
             with transaction.atomic():
                 # get_or_create + row lock: two officers/directors saving at the same time can't create
@@ -218,19 +209,17 @@ def apply(request, round_id: int, corporation_id: int):
                 application.save()
                 application.wishes.all().delete()
                 ApplicationWish.objects.bulk_create([
-                    ApplicationWish(application=application, moon=moon, priority=prio) for prio, moon in wishes
+                    ApplicationWish(application=application, moon=moon, priority=1) for moon in chosen
                 ])
             messages.success(request, _("Application for %(corp)s saved.") % {"corp": corporation.corporation_name})
             return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 
-    rows = [{"moon": m, "priority": current.get(m.pk, "")} for m in moons]
-    # Wished moons first (by priority), then the rest by rarity + best share
-    rows.sort(key=lambda r: (
-        r["priority"] in ("", None), str(r["priority"]).zfill(3), -r["moon"].rarity_sort, r["moon"].name,
-    ))
+    rows = [{"moon": m, "selected": m.pk in selected} for m in moons]
+    # Ticked moons first, then the rest by rarity + best share
+    rows.sort(key=lambda r: (not r["selected"], -r["moon"].rarity_sort, r["moon"].name))
     return render(request, "moondistribution/apply.html", _ctx(
         request, round=round_obj, corporation=corporation, rows=rows, comment=comment,
-        application=application, max_wishes=settings.max_wishes,
+        application=application, max_wishes=settings.max_wishes, selected_count=len(selected),
         row_regions=group_by_region(rows, lambda row: row["moon"]),
         has_owner=any(row["moon"].owner_display for row in rows),
     ))
@@ -248,6 +237,33 @@ def withdraw(request, round_id: int, corporation_id: int):
         Application.objects.filter(round=round_obj, corporation=corporation).delete()
         messages.info(request, _("Application withdrawn."))
     return redirect("moondistribution:round_detail", round_id=round_obj.pk)
+
+
+# Languages offered by Alliance Auth → guide template name
+GUIDE_LANGUAGES = [
+    ("en", "English"), ("de", "Deutsch"), ("es", "Español"), ("fr", "Français"), ("it", "Italiano"),
+    ("nl", "Nederlands"), ("pl", "Polski"), ("ru", "Русский"), ("uk", "Українська"),
+    ("ja", "日本語"), ("ko", "한국어"), ("zh_hans", "简体中文"),
+]
+
+
+def _guide_lang(code: str) -> str:
+    """AA language code ('fr-fr', 'zh-hans', 'ko-kr') → guide template name ('fr', 'zh_hans', 'ko')."""
+    code = (code or "en").lower().replace("-", "_")
+    available = {c for c, _label in GUIDE_LANGUAGES}
+    if code in available:
+        return code
+    short = code.split("_")[0]
+    return short if short in available else "en"
+
+
+@check_access()
+def guide(request):
+    """'How it works' page for the corps – in the user's AA language (or ?lang=xx), with the current settings."""
+    lang = _guide_lang(request.GET.get("lang") or getattr(request, "LANGUAGE_CODE", "en"))
+    return render(request, f"moondistribution/guide/{lang}.html", _ctx(
+        request, s=DistributionSettings.get_solo(), guide_lang=lang, guide_languages=GUIDE_LANGUAGES,
+    ))
 
 
 # ---------------------------------------------------------------------------
@@ -399,11 +415,16 @@ def bonus_delete(request, round_id: int, bonus_id: int):
 
 @officer_required
 def officer_apply(request, round_id: int):
-    """Officer shortcut: pick any alliance corp to apply for it."""
-    corp_id = request.GET.get("corporation_id")
-    if corp_id and alliance_corporations().filter(corporation_id=corp_id).exists():
-        return redirect("moondistribution:apply", round_id=round_id, corporation_id=corp_id)
-    raise Http404
+    """Officer shortcut: pick any alliance corp to apply for it (message instead of 404 if nothing valid was picked)."""
+    round_obj = get_object_or_404(Round, pk=round_id)
+    corp_id = (request.GET.get("corporation_id") or "").strip()
+    if corp_id.isdigit() and alliance_corporations().filter(corporation_id=int(corp_id)).exists():
+        return redirect("moondistribution:apply", round_id=round_obj.pk, corporation_id=int(corp_id))
+    if not alliance_corporations().exists():
+        messages.error(request, _("No alliance corps found – check the Alliance ID in the settings."))
+    else:
+        messages.error(request, _("Please choose a corp of the alliance."))
+    return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 
 
 # ---------------------------------------------------------------------------

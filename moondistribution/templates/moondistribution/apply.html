@@ -7,12 +7,18 @@
     <p class="text-muted">{{ round.name }} · {% translate "Applications until" %} {{ round.application_end|date:"Y-m-d H:i" }} EVE</p>
 
     <div class="alert alert-info small">
-        {% blocktranslate %}Enter a priority for every moon you want (1 = most wanted). Leave the field empty for moons you don't want. You can choose up to {{ max_wishes }} moons and change your wishlist until applications close.{% endblocktranslate %}
+        <a href="{% url 'moondistribution:guide' %}" class="alert-link float-end ms-2"><i class="fas fa-circle-info"></i> {% translate "How it works" %}</a>
+        {% blocktranslate %}Tick every moon your corp wants – up to {{ max_wishes }}. All ticked moons count the same: when it is your corp's turn in the distribution, you get the best of your moons that is still free (rarity first, then share of the valuable ore). You can change your choice until applications close.{% endblocktranslate %}
     </div>
 
     <form method="post" id="apply-form">
         {% csrf_token %}
-        <input type="hidden" name="wishlist" id="wishlist">
+        <input type="hidden" name="moon_ids" id="moon-ids">
+        <p class="mb-2">
+            <span class="badge text-bg-primary" id="md-selected-count">{{ selected_count }}</span> / {{ max_wishes }}
+            {% translate "moons selected" %}
+            <span class="text-danger small ms-2 d-none" id="md-too-many">{% translate "Too many – untick some moons." %}</span>
+        </p>
         {% include "moondistribution/_region_tabs_nav.html" with groups=row_regions prefix="apply" %}
         <div class="tab-content">
             {% for g in row_regions %}
@@ -21,7 +27,7 @@
                         <table class="table table-sm table-hover md-sortable md-moon-table">
                             <thead>
                                 <tr>
-                                    <th class="md-narrow" data-sort="num">{% translate "Priority" %}</th>
+                                    <th class="md-narrow" data-sort="num">{% translate "Wanted" %}</th>
                                     <th class="md-narrow" data-sort="text">{% translate "Moon" %}</th>
                                     <th class="md-narrow" data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
                                     <th class="md-narrow text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
@@ -32,9 +38,9 @@
                             <tbody>
                                 {% for row in g.items %}
                                     <tr>
-                                        <td>
-                                            <input type="number" min="1" max="{{ max_wishes }}" class="form-control form-control-sm md-prio" style="width: 5rem;"
-                                                   data-moon="{{ row.moon.pk }}" value="{{ row.priority|default_if_none:'' }}">
+                                        <td class="text-center">
+                                            <input type="checkbox" class="form-check-input md-wish" value="{{ row.moon.pk }}"
+                                                   aria-label="{{ row.moon.name }}" {% if row.selected %}checked{% endif %}>
                                         </td>
                                         <td class="md-name" data-value="{{ row.moon.name }}">{{ row.moon.name }}</td>
                                         <td data-value="{{ row.moon.rarity_sort|stringformat:'.1f' }}">{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
@@ -49,7 +55,7 @@
                 </div>
             {% endfor %}
         </div>
-        <p class="small text-muted">{% translate "Priorities count across all regions – every number may only be used once." %}</p>
+        <p class="small text-muted">{% translate "Your selection counts across all region tabs." %}</p>
 
         <div class="mb-3">
             <label for="comment" class="form-label">{% translate "Comment (optional)" %}</label>
@@ -65,11 +71,18 @@
 
 {% block extra_script %}
     {{ block.super }}
-    // Send only the filled priorities as one field "moon:prio,…" (one input per moon would exceed Django's field limit)
+    // Live counter of ticked moons (all region tabs) and warning above the limit
+    const mdMax = {{ max_wishes }};
+    const mdCount = function () {
+        const n = document.querySelectorAll(".md-wish:checked").length;
+        document.getElementById("md-selected-count").textContent = n;
+        document.getElementById("md-too-many").classList.toggle("d-none", n <= mdMax);
+    };
+    document.querySelectorAll(".md-wish").forEach(function (c) { c.addEventListener("change", mdCount); });
+    mdCount();
+    // Send the ticked moons as one field (one checkbox field per moon would exceed Django's field limit)
     document.getElementById("apply-form").addEventListener("submit", function () {
-        const pairs = Array.from(document.querySelectorAll(".md-prio"))
-            .filter(i => i.value.trim() !== "")
-            .map(i => i.dataset.moon + ":" + i.value.trim());
-        document.getElementById("wishlist").value = pairs.join(",");
+        const ids = Array.from(document.querySelectorAll(".md-wish:checked")).map(function (c) { return c.value; });
+        document.getElementById("moon-ids").value = ids.join(",");
     });
 {% endblock extra_script %}

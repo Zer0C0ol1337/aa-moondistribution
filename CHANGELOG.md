@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.9] - 2026-10-29
+
+### Added
+
+- **"How it works" guide** for the corps in all 12 Alliance Auth languages (EN, DE, ES, FR, IT, NL, PL, RU, UK, JA, KO, ZH) – explains timeline, application, scoring, bonuses and allocation and always shows the current settings; language follows the user's AA language, switch on the page (e.g. to copy a version to Discord)
+- Officer shortcut "apply for corp" also on the round page
+
+### Changed
+
+- **No more priorities:** corps simply tick the moons they want (live counter, limit from the settings). All ticked moons count the same; on its turn a corp gets the best of its moons that is still free (rarity first, then share of the valuable ore). Migration `0006_wishes_without_ranking` removes the unique-priority constraint.
+- Applications on the round page show the wanted moons with their rarity; the "Wish #" column is gone
+
+### Fixed
+
+- "Apply for corp" with an empty corp list (no alliance ID set) ended in a 404 – now a hint with a link to the settings
+
 ## [0.1.8] - 2026-10-29
 
 ### Added

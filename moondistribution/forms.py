@@ -120,34 +120,18 @@ class RoundBonusForm(forms.ModelForm):
         self.fields["reason"].widget.attrs.update({"class": "form-control form-control-sm"})
 
 
-def parse_wishlist(post_data, moons, max_wishes: int):
-    """Read the priority inputs (name 'prio_<moon_id>') of the apply form.
+def parse_selection(selected_ids, moons, max_wishes: int):
+    """Ticked moons of the application form → (list of moons, list of errors).
 
-    Returns (list of (priority, moon), list of error strings). Empty inputs = not wanted.
+    No priorities: every ticked moon is wanted equally. Only moons of the round pool count.
     """
-    wishes, errors = [], []
-    for moon in moons:
-        raw = (post_data.get(f"prio_{moon.pk}") or "").strip()
-        if raw == "":
-            continue
-        try:
-            prio = int(raw)
-        except ValueError:
-            errors.append(_("Priority for %(moon)s is not a number.") % {"moon": moon.name})
-            continue
-        if prio < 1:
-            errors.append(_("Priority for %(moon)s must be 1 or higher.") % {"moon": moon.name})
-            continue
-        wishes.append((prio, moon))
-
-    prios = [p for p, _m in wishes]
-    if len(prios) != len(set(prios)):
-        errors.append(_("Every priority may only be used once."))
-    if len(wishes) > max_wishes:
-        errors.append(_("You can choose at most %(n)s moons.") % {"n": max_wishes})
-    if not wishes and not errors:
+    pool = {m.pk: m for m in moons}
+    chosen = [pool[i] for i in dict.fromkeys(selected_ids) if i in pool]
+    errors = []
+    if not chosen:
         errors.append(_("Choose at least one moon."))
-
-    # Renumber to 1..n so gaps (1, 3, 7) don't matter
-    wishes.sort(key=lambda w: w[0])
-    return [(i, moon) for i, (_p, moon) in enumerate(wishes, start=1)], errors
+    elif len(chosen) > max_wishes:
+        errors.append(_("You can choose at most %(n)s moons (you ticked %(count)s).") % {
+            "n": max_wishes, "count": len(chosen),
+        })
+    return chosen, errors

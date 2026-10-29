@@ -1,0 +1,39 @@
+{% extends "moondistribution/guide/_layout.html" %}
+{# Generated guide for language "zh_hans" – edit the generator or this file #}
+{% block guide_title %}卫星分配说明{% endblock guide_title %}
+{% block guide_body %}
+<h5 class="mt-3">1. 这是什么？</h5>
+<p>联盟每隔几个月重新分配一次卫星。各军团申请想要的卫星，Auth 根据活跃度为每个军团评分，并<strong>自动、透明地</strong>分配卫星。 {% if s.exclude_r64 %}<span class="md-chip md-r64">R64</span> 卫星由联盟保留，不参与分配。{% endif %}</p>
+<h5 class="mt-3">2. 流程</h5>
+<ol><li>Mining Officer 准备并开启一轮分配。</li><li>开启后申请期为 <strong>{{ s.application_days }} 天</strong>。截止前可以随时修改申请。</li><li>时间结束后，本轮会自动评分并<strong>只分配一次</strong>。</li><li>所有申请人都会收到包含结果的 Auth 通知。完整排名可在本轮页面查看。</li></ol>
+<h5 class="mt-3">3. 谁可以申请？</h5>
+<p>联盟军团的 <strong>CEO</strong> – 每个军团一份申请。{% if s.allow_directors %} <strong>董事</strong>也可以申请；董事通过 Corptools 识别，因此角色需要有效的 Corptools 审计。{% endif %}</p>
+<h5 class="mt-3">4. 如何申请</h5>
+<ol><li>打开 <em>Moon Distribution → 轮次</em>，点击你军团旁边的<em>申请</em>。</li><li>勾选你军团想要的所有卫星 – 最多 <strong>{{ s.max_wishes }}</strong> 个。卫星按星域分在不同标签页中，选择在所有标签页中通用。</li><li>点击列标题即可排序（例如按稀有度或高价值矿石占比）；Shift+点击可添加第二级排序。</li><li>保存。所有勾选的卫星同等对待 – 没有优先顺序。</li></ol>
+         <p>颜色： <span class="md-chip md-r32">R32</span> <span class="md-chip md-r16">R16</span> <span class="md-chip md-r8">R8</span> <span class="md-chip md-r4">R4</span>. 卫星旁的标签显示其矿石及占比；<em>最高 %</em> 是该卫星等级中最有价值矿石的占比。</p>
+<h5 class="mt-3">5. 军团如何评分</h5>
+<p>统计本轮所示时间段内的活跃度（通常为最近约 6 个月）。每项指标以申请军团中的最高者为 100，换算为 0–100 分，加权平均即为你的得分。</p>
+         <table class="table table-sm w-auto">
+         <thead><tr><th>指标</th><th>数据来源</th><th class="text-end">权重</th></tr></thead>
+         <tbody>
+         {% if s.weight_pvp %}<tr><td>PvP</td><td>你军团击毁的舰船（zKillboard）</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
+         {% if s.weight_fleet %}<tr><td>舰队</td><td>舰队参与（FAT 链接）</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
+         {% if s.weight_members %}<tr><td>活跃成员</td><td>主角色在你军团中、且在最近 {{ s.active_days }} 天内登录过的玩家</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         </tbody></table>
+         {% if s.per_member %}<p>PvP 和舰队按<strong>每名活跃成员</strong>计算，让规模小但非常活跃的军团也能与大军团竞争。</p>{% endif %}
+         <p>所有数据都计入<strong>主角色</strong>所在的军团——在其他军团的小号也计入主号的军团。</p>
+<h5 class="mt-3">6. 加分</h5>
+<ul>
+         {% if s.bonus_no_moon %}<li><strong>+{{ s.bonus_no_moon }}</strong> 如果你的军团上一轮申请了但没有得到任何卫星。</li>{% endif %}
+         {% if s.bonus_no_r32 %}<li><strong>+{{ s.bonus_no_r32 }}</strong> 如果你的军团上一轮得到了卫星，但没有得到以下等级： <span class="md-chip md-r32">R32</span>.</li>{% endif %}
+         <li>Mining Officer 可以给军团额外加分（或扣分）——理由始终在本轮页面上对所有人公开。</li></ul>
+<h5 class="mt-3">7. 卫星如何分配</h5>
+<ol><li>所有申请军团按总分排序（同分时先申请者优先）。</li><li>各军团依次获得<strong>一个</strong>卫星：在其勾选的卫星中仍空闲的最好的一个（先看稀有度，再看高价值矿石占比）。</li><li>然后从最高分军团开始下一轮，直到每个军团获得 <strong>{{ s.max_moons_per_corp }}</strong> 个卫星，或其想要的卫星都已被分走。</li></ol>
+         <p>每个军团每轮的上限：
+         {% if s.max_r32_per_corp is not None %}max. <strong>{{ s.max_r32_per_corp }}</strong> × <span class="md-chip md-r32">R32</span>{% endif %}
+         {% if s.max_r16_per_corp is not None %}, max. <strong>{{ s.max_r16_per_corp }}</strong> × <span class="md-chip md-r16">R16</span>{% endif %}
+         – 达到上限后，将改为分配另一等级的下一个空闲卫星。</p>
+<h5 class="mt-3">8. 建议</h5>
+<ul><li>勾选足够多的卫星——如果在轮到你之前你想要的卫星都被分走，你的军团将一无所获。</li><li>确保所有成员都已在 Auth 中注册角色——只有注册的玩家才算活跃成员。</li><li>参加带 FAT 链接的舰队并积极战斗——这最重要。</li></ul>
+{% endblock guide_body %}
+{% block guide_footer %}本页面始终显示 Mining Officer 的当前设置。{% endblock guide_footer %}

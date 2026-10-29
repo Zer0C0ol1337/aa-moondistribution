@@ -132,7 +132,7 @@ class DistributionIntegrationTest(IntegrationBase):
         for corp, user in ((self.corp_a, self.ceo_a), (self.corp_b, self.ceo_b)):
             app = Application.objects.create(round=r, corporation=corp, submitted_by=user)
             ApplicationWish.objects.create(application=app, moon=self.moon1, priority=1)
-            ApplicationWish.objects.create(application=app, moon=self.moon2, priority=2)
+            ApplicationWish.objects.create(application=app, moon=self.moon2, priority=1)
 
         with mock.patch.object(distribute_round, "delay", side_effect=distribute_round):
             process_rounds()
@@ -166,15 +166,15 @@ class DistributionIntegrationTest(IntegrationBase):
         self.assertIn("zKillboard", r.last_error)
 
     def test_apply_view(self):
-        """CEO applies via the form, priorities are stored renumbered."""
+        """CEO ticks moons, all are stored as equal wishes."""
         r = self._round()
         self.client.force_login(self.ceo_a)
         url = reverse("moondistribution:apply", args=[r.pk, self.corp_a.corporation_id])
         self.assertEqual(self.client.get(url).status_code, 200)
-        resp = self.client.post(url, {"wishlist": f"{self.moon2.pk}:5,{self.moon1.pk}:9", "comment": "pls"})
+        resp = self.client.post(url, {"moon_ids": f"{self.moon2.pk},{self.moon1.pk}", "comment": "pls"})
         self.assertEqual(resp.status_code, 302)
-        wishes = list(Application.objects.get(round=r).wishes.values_list("moon_id", "priority"))
-        self.assertEqual(wishes, [(self.moon2.pk, 1), (self.moon1.pk, 2)])
+        wishes = set(Application.objects.get(round=r).wishes.values_list("moon_id", "priority"))
+        self.assertEqual(wishes, {(self.moon2.pk, 1), (self.moon1.pk, 1)})
 
     def test_apply_forbidden_for_other_corp(self):
         """A CEO can't apply for another corp."""
@@ -266,10 +266,10 @@ class FairnessIntegrationTest(IntegrationBase):
         return r
 
     def _apply(self, r, corp, user, moons):
-        """Application with the given moons in priority order."""
+        """Application with the given moons, all wanted equally."""
         app = Application.objects.create(round=r, corporation=corp, submitted_by=user)
-        for prio, moon in enumerate(moons, start=1):
-            ApplicationWish.objects.create(application=app, moon=moon, priority=prio)
+        for moon in moons:
+            ApplicationWish.objects.create(application=app, moon=moon, priority=1)
 
     def test_manual_bonus_turns_the_ranking(self):
         """Bravo flew fewer fleets, but a manual bonus of +100 puts it first."""
@@ -281,7 +281,8 @@ class FairnessIntegrationTest(IntegrationBase):
         top = r.scores.get(rank=1)
         self.assertEqual(top.corporation, self.corp_b)
         self.assertEqual(top.bonus_manual, 100)
-        self.assertEqual(r.allocations.get(moon=self.moon2).corporation, self.corp_b)
+        # Bravo is first now and gets the best moon of its list (moon1, R32)
+        self.assertEqual(r.allocations.get(moon=self.moon1).corporation, self.corp_b)
 
     def test_compensation_from_previous_round(self):
         """Corp that got nothing last round receives the automatic bonus this round."""
@@ -581,3 +582,47 @@ class HardeningTest(IntegrationBase):
         self.client.force_login(self.officer)
         resp = self.client.get(reverse("moondistribution:moons"), HTTP_ACCEPT_LANGUAGE="de")
         self.assertContains(resp, "Monde")
+
+    def test_officer_apply_shortcut(self):
+        """Officer picks a corp → apply page; nothing picked or no alliance → message, no 404."""
+        r = self._round()
+        self.client.force_login(self.officer)
+        url = reverse("moondistribution:officer_apply", args=[r.pk])
+        resp = self.client.get(url, {"corporation_id": self.corp_b.corporation_id})
+        self.assertRedirects(resp, reverse("moondistribution:apply", args=[r.pk, self.corp_b.corporation_id]),
+                             fetch_redirect_response=False)
+        self.assertEqual(self.client.get(url).status_code, 302)
+        settings = DistributionSettings.get_solo()
+        settings.alliance_id = None
+        settings.save()
+        resp = self.client.get(url, follow=True)
+        self.assertContains(resp, "No alliance corps found")
+        self.assertContains(self.client.get(reverse("moondistribution:round_detail", args=[r.pk])), "No alliance corps found")
+
+
+class GuideTest(IntegrationBase):
+    """'How it works' page in every Alliance Auth language with the current settings."""
+
+    def test_all_languages_render(self):
+        """Every language version renders and shows the configured numbers."""
+        from moondistribution.views import GUIDE_LANGUAGES
+
+        settings = DistributionSettings.get_solo()
+        settings.application_days, settings.max_wishes, settings.weight_fleet = 9, 17, 33
+        settings.max_r16_per_corp = 2
+        settings.save()
+        self.client.force_login(self.ceo_a)
+        for code, _label in GUIDE_LANGUAGES:
+            resp = self.client.get(reverse("moondistribution:guide"), {"lang": code})
+            self.assertEqual(resp.status_code, 200, code)
+            for value in ("9", "17", "33"):
+                self.assertContains(resp, value, msg_prefix=code)
+            self.assertContains(resp, "md-r16", msg_prefix=code)
+
+    def test_language_from_user(self):
+        """Without ?lang the AA language of the user is used, unknown languages fall back to English."""
+        self.client.force_login(self.ceo_a)
+        self.assertContains(self.client.get(reverse("moondistribution:guide"), HTTP_ACCEPT_LANGUAGE="de"),
+                            "So funktioniert die Moon Distribution")
+        self.assertContains(self.client.get(reverse("moondistribution:guide"), {"lang": "xx"}),
+                            "How the moon distribution works")

@@ -280,7 +280,8 @@ class Application(models.Model):
 
 
 class ApplicationWish(models.Model):
-    """One moon on the wishlist of an application. Priority 1 = most wanted."""
+    """One moon on the wishlist of an application. All wishes are equal (priority 1); the field is kept
+    so a ranking could be added again later."""
 
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="wishes")
     moon = models.ForeignKey(Moon, on_delete=models.CASCADE, related_name="+")
@@ -290,7 +291,6 @@ class ApplicationWish(models.Model):
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(fields=["application", "moon"], name="moondist_wish_unique_moon"),
-            models.UniqueConstraint(fields=["application", "priority"], name="moondist_wish_unique_priority"),
         ]
         ordering = ["priority"]
 

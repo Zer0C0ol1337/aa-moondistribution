@@ -85,19 +85,23 @@ def compensation_bonus(corp_ids: list, previous: dict | None, bonus_no_moon: int
 
 
 def allocate_moons(ranking: list, wishes: dict, max_per_corp: int,
-                   moon_rarity: dict | None = None, rarity_limits: dict | None = None) -> list:
+                   moon_rarity: dict | None = None, rarity_limits: dict | None = None,
+                   moon_quality: dict | None = None) -> list:
     """Draft-style allocation.
 
     In every pass each corp (in ranking order) receives its highest-priority wish
     that is still free, until all corps hit max_per_corp or no wish can be served.
     rarity_limits ({"R32": 1, ...}) cap how many moons of a rarity one corp can get;
     a wish over the limit is skipped and the corp takes its next free wish instead.
+    Wishes with the same priority (normally all of them) are served best moon first –
+    moon_quality ({moon_id: rarity_sort}) decides: rarity class, then share of the valuable ore.
 
     wishes: {corp_id: [(priority, moon_id), ...]}
     returns [{"pick": n, "corp": id, "moon": id, "priority": p}, ...]
     """
     moon_rarity = moon_rarity or {}
     rarity_limits = rarity_limits or {}
+    moon_quality = moon_quality or {}
     taken, picks = set(), []
     counts = {cid: 0 for cid in ranking}
     rarity_counts = {cid: {} for cid in ranking}
@@ -106,7 +110,8 @@ def allocate_moons(ranking: list, wishes: dict, max_per_corp: int,
         for cid in ranking:
             if counts[cid] >= max_per_corp:
                 continue
-            for priority, moon_id in sorted(wishes.get(cid, [])):
+            ordered = sorted(wishes.get(cid, []), key=lambda w: (w[0], -moon_quality.get(w[1], 0), w[1]))
+            for priority, moon_id in ordered:
                 if moon_id in taken:
                     continue
                 rarity = moon_rarity.get(moon_id, "")
@@ -187,12 +192,16 @@ def run_distribution(round_obj: Round) -> None:
     pool_qs = round_obj.moons.all()
     if settings.exclude_r64:
         pool_qs = pool_qs.exclude(rarity=Moon.Rarity.R64)
-    moon_rarity = dict(pool_qs.values_list("id", "rarity"))
+    pool_moons = list(pool_qs)
+    moon_rarity = {m.pk: m.rarity for m in pool_moons}
+    moon_quality = {m.pk: m.rarity_sort for m in pool_moons}
     wishes = {
         a.corporation.corporation_id: [(w.priority, w.moon_id) for w in a.wishes.all() if w.moon_id in moon_rarity]
         for a in applications
     }
-    picks = allocate_moons(ranking, wishes, settings.max_moons_per_corp, moon_rarity, settings.rarity_limits)
+    picks = allocate_moons(
+        ranking, wishes, settings.max_moons_per_corp, moon_rarity, settings.rarity_limits, moon_quality,
+    )
 
     # 4) store result atomically
     corp_by_id = {a.corporation.corporation_id: a.corporation for a in applications}

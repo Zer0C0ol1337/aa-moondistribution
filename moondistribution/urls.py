@@ -9,6 +9,8 @@ app_name = "moondistribution"
 urlpatterns = [
     # Overview with open rounds and history
     path("", views.index, name="index"),
+    # "How it works" guide for the corps (all AA languages)
+    path("guide/", views.guide, name="guide"),
     # Round details, results and applications
     path("round/<int:round_id>/", views.round_detail, name="round_detail"),
     # Apply / change wishlist for a corp

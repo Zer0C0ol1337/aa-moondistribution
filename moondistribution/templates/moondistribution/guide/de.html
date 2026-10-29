@@ -1,0 +1,63 @@
+{% extends "moondistribution/guide/_layout.html" %}
+{# Generated guide for language "de" – edit the generator or this file #}
+{% block guide_title %}So funktioniert die Moon Distribution{% endblock guide_title %}
+{% block guide_body %}
+<h5 class="mt-3">1. Worum geht es?</h5>
+<p>Alle paar Monate verteilt die Allianz ihre Monde neu. Die Corps bewerben sich auf die Monde, die sie haben möchten,
+         die Auth bewertet jede Corp nach ihrer Aktivität und vergibt die Monde <strong>automatisch und nachvollziehbar</strong>.
+         {% if s.exclude_r64 %}<span class="md-chip md-r64">R64</span>-Monde behält die Allianz, sie werden nicht verteilt.{% endif %}</p>
+<h5 class="mt-3">2. Ablauf</h5>
+<ol>
+         <li>Die Mining Officer bereiten eine Runde vor und öffnen sie.</li>
+         <li>Ab dann läuft die Bewerbung <strong>{{ s.application_days }} Tage</strong>. Bis zum Schluss könnt ihr eure Bewerbung jederzeit ändern.</li>
+         <li>Danach wird die Runde automatisch ausgewertet und <strong>genau einmal</strong> verteilt.</li>
+         <li>Alle Bewerber bekommen eine Auth-Benachrichtigung mit dem Ergebnis. Die komplette Rangliste steht auf der Rundenseite.</li>
+         </ol>
+<h5 class="mt-3">3. Wer darf sich bewerben?</h5>
+<p>Der <strong>CEO</strong>{% if s.allow_directors %} oder ein <strong>Direktor</strong>{% endif %} einer Allianz-Corp – eine Bewerbung pro Corp.
+         {% if s.allow_directors %}Direktoren werden über Corptools erkannt, der Charakter braucht also einen aktiven Corptools-Audit.{% endif %}</p>
+<h5 class="mt-3">4. So bewerbt ihr euch</h5>
+<ol>
+         <li>Öffnet <em>Moon Distribution → Runden</em> und klickt bei eurer Corp auf <em>Bewerben</em>.</li>
+         <li>Hakt alle Monde an, die eure Corp möchte – bis zu <strong>{{ s.max_wishes }}</strong>. Die Monde sind in Tabs nach Region sortiert, eure Auswahl gilt über alle Tabs.</li>
+         <li>Ein Klick auf eine Spaltenüberschrift sortiert (z. B. nach Rarity oder nach dem Anteil des wertvollen Erzes), Shift+Klick fügt eine zweite Sortierstufe hinzu.</li>
+         <li>Speichern. Alle angehakten Monde zählen gleich – es gibt keine Rangfolge.</li>
+         </ol>
+         <p>Farben: <span class="md-chip md-r32">R32</span> <span class="md-chip md-r16">R16</span> <span class="md-chip md-r8">R8</span> <span class="md-chip md-r4">R4</span>. Die Chips neben einem Mond zeigen seine Erze und deren Anteil,
+         <em>Bester %</em> ist der Anteil des wertvollsten Erzes der Mondklasse.</p>
+<h5 class="mt-3">5. So werden die Corps bewertet</h5>
+<p>Gemessen wird die Aktivität im Zeitraum, der bei der Runde angegeben ist (meist die letzten ~6 Monate).
+         Jedes Kriterium wird gegen die beste bewerbende Corp auf 0 bis 100 skaliert, der gewichtete Durchschnitt ergibt eure Punkte.</p>
+         <table class="table table-sm w-auto">
+         <thead><tr><th>Kriterium</th><th>Quelle</th><th class="text-end">Gewicht</th></tr></thead>
+         <tbody>
+         {% if s.weight_pvp %}<tr><td>PvP</td><td>Von eurer Corp zerstörte Schiffe (zKillboard)</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
+         {% if s.weight_fleet %}<tr><td>Fleets</td><td>Fleet-Teilnahmen (FAT-Links)</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
+         {% if s.weight_members %}<tr><td>Aktive Mitglieder</td><td>Spieler, deren Main in eurer Corp ist und die sich in den letzten {{ s.active_days }} Tagen eingeloggt haben</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         </tbody></table>
+         {% if s.per_member %}<p>PvP und Fleets zählen <strong>pro aktivem Mitglied</strong>, damit kleine, aber sehr aktive Corps mit großen mithalten können.</p>{% endif %}
+         <p>Alles zählt für die Corp des <strong>Main-Charakters</strong> – Alts in anderen Corps zählen für die Corp des Mains.</p>
+<h5 class="mt-3">6. Bonuspunkte</h5>
+<ul>
+         {% if s.bonus_no_moon %}<li><strong>+{{ s.bonus_no_moon }}</strong>, wenn sich eure Corp in der letzten Runde beworben und keinen Mond bekommen hat.</li>{% endif %}
+         {% if s.bonus_no_r32 %}<li><strong>+{{ s.bonus_no_r32 }}</strong>, wenn eure Corp in der letzten Runde Monde, aber keinen <span class="md-chip md-r32">R32</span> bekommen hat.</li>{% endif %}
+         <li>Die Mining Officer können einer Corp Zusatzpunkte geben (oder abziehen) – immer mit einer Begründung, die alle auf der Rundenseite sehen.</li>
+         </ul>
+<h5 class="mt-3">7. So werden die Monde vergeben</h5>
+<ol>
+         <li>Alle bewerbenden Corps werden nach ihren Gesamtpunkten sortiert (bei Gleichstand gewinnt die frühere Bewerbung).</li>
+         <li>Der Reihe nach bekommt jede Corp <strong>einen</strong> Mond: den besten ihrer angehakten Monde, der noch frei ist (zuerst Rarity, dann Anteil des wertvollen Erzes).</li>
+         <li>Dann beginnt der nächste Durchgang wieder bei der besten Corp – bis jede Corp <strong>{{ s.max_moons_per_corp }}</strong> Monde hat oder keiner ihrer Monde mehr frei ist.</li>
+         </ol>
+         <p>Limits pro Corp und Runde:
+         {% if s.max_r32_per_corp is not None %}max. <strong>{{ s.max_r32_per_corp }}</strong> × <span class="md-chip md-r32">R32</span>{% endif %}
+         {% if s.max_r16_per_corp is not None %}, max. <strong>{{ s.max_r16_per_corp }}</strong> × <span class="md-chip md-r16">R16</span>{% endif %}
+         – ist ein Limit erreicht, bekommt eure Corp stattdessen den nächsten freien Mond einer anderen Klasse.</p>
+<h5 class="mt-3">8. Tipps</h5>
+<ul>
+         <li>Hakt genug Monde an – sind alle eure Monde vergeben, bevor ihr dran seid, geht eure Corp leer aus.</li>
+         <li>Sorgt dafür, dass alle Mitglieder ihre Charaktere in der Auth registriert haben – nur registrierte Spieler zählen als aktive Mitglieder.</li>
+         <li>Fliegt Fleets mit FAT-Links und kämpft – das zählt am meisten.</li>
+         </ul>
+{% endblock guide_body %}
+{% block guide_footer %}Diese Seite zeigt immer die aktuellen Einstellungen der Mining Officer.{% endblock guide_footer %}

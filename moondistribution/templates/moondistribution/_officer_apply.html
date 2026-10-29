@@ -1,0 +1,18 @@
+{% load i18n %}
+{# Officer shortcut: open the application page of any alliance corp #}
+{% if alliance_corps %}
+    <form class="row g-2 align-items-center" method="get" action="{% url 'moondistribution:officer_apply' round_obj.pk %}">
+        <div class="col-auto"><label class="col-form-label small text-muted" for="officer-corp-{{ round_obj.pk }}">{% translate "Officer: apply for" %}</label></div>
+        <div class="col">
+            <select name="corporation_id" id="officer-corp-{{ round_obj.pk }}" class="form-select form-select-sm" required>
+                {% for corp in alliance_corps %}<option value="{{ corp.corporation_id }}">{{ corp.corporation_name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">{% translate "Open" %}</button></div>
+    </form>
+{% else %}
+    <div class="alert alert-warning small mb-0">
+        {% translate "No alliance corps found – check the Alliance ID in the settings." %}
+        <a href="{% url 'moondistribution:settings' %}" class="alert-link">{% translate "Open settings" %}</a>
+    </div>
+{% endif %}

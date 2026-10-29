@@ -1,0 +1,63 @@
+{% extends "moondistribution/guide/_layout.html" %}
+{# Generated guide for language "en" – edit the generator or this file #}
+{% block guide_title %}How the moon distribution works{% endblock guide_title %}
+{% block guide_body %}
+<h5 class="mt-3">1. What is it?</h5>
+<p>Every few months the alliance re-distributes its moons. Corps apply for the moons they want,
+         the Auth rates every corp by its activity and assigns the moons <strong>automatically and transparently</strong>.
+         {% if s.exclude_r64 %}<span class="md-chip md-r64">R64</span> moons stay with the alliance and are not distributed.{% endif %}</p>
+<h5 class="mt-3">2. Timeline</h5>
+<ol>
+         <li>The Mining Officers prepare a round and open it.</li>
+         <li>From then on applications are open for <strong>{{ s.application_days }} days</strong>. You can change your application at any time until the deadline.</li>
+         <li>When the time is up, the round is evaluated and distributed <strong>exactly once</strong>, automatically.</li>
+         <li>Everyone who applied gets an Auth notification with the result. The full ranking is visible on the round page.</li>
+         </ol>
+<h5 class="mt-3">3. Who can apply?</h5>
+<p>The <strong>CEO</strong>{% if s.allow_directors %} or a <strong>director</strong>{% endif %} of an alliance corp – one application per corp.
+         {% if s.allow_directors %}Directors are recognised via Corptools, so the character needs an active Corptools audit.{% endif %}</p>
+<h5 class="mt-3">4. How to apply</h5>
+<ol>
+         <li>Open <em>Moon Distribution → Rounds</em> and click <em>Apply</em> next to your corp.</li>
+         <li>Tick every moon your corp wants – up to <strong>{{ s.max_wishes }}</strong>. The moons are grouped in tabs per region; your selection counts across all tabs.</li>
+         <li>Click a column header to sort (e.g. by rarity or by the share of the valuable ore), Shift+click adds a second sort level.</li>
+         <li>Save. All ticked moons count the same – there is no ranking.</li>
+         </ol>
+         <p>Colours: <span class="md-chip md-r32">R32</span> <span class="md-chip md-r16">R16</span> <span class="md-chip md-r8">R8</span> <span class="md-chip md-r4">R4</span>. The chips next to a moon show its ores and their share,
+         <em>Best %</em> is the share of the most valuable ore of the moon's class.</p>
+<h5 class="mt-3">5. How corps are rated</h5>
+<p>Activity is measured for the period shown on the round (usually the last ~6 months).
+         Each criterion is scaled from 0 to 100 against the best applying corp, then the weighted average is your score.</p>
+         <table class="table table-sm w-auto">
+         <thead><tr><th>Criterion</th><th>Source</th><th class="text-end">Weight</th></tr></thead>
+         <tbody>
+         {% if s.weight_pvp %}<tr><td>PvP</td><td>Ships destroyed by your corp (zKillboard)</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
+         {% if s.weight_fleet %}<tr><td>Fleets</td><td>Fleet participations (FAT links)</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
+         {% if s.weight_members %}<tr><td>Active members</td><td>Players whose main is in your corp and who logged in within the last {{ s.active_days }} days</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         </tbody></table>
+         {% if s.per_member %}<p>PvP and fleets are counted <strong>per active member</strong>, so small but very active corps can keep up with big ones.</p>{% endif %}
+         <p>Everything counts for the corp of the player's <strong>main character</strong> – alts in other corps count for the main's corp.</p>
+<h5 class="mt-3">6. Bonus points</h5>
+<ul>
+         {% if s.bonus_no_moon %}<li><strong>+{{ s.bonus_no_moon }}</strong> if your corp applied in the previous round and got no moon.</li>{% endif %}
+         {% if s.bonus_no_r32 %}<li><strong>+{{ s.bonus_no_r32 }}</strong> if your corp got moons in the previous round, but no <span class="md-chip md-r32">R32</span>.</li>{% endif %}
+         <li>The Mining Officers can give extra points (or deduct points) to a corp – always with a reason that everyone can see on the round page.</li>
+         </ul>
+<h5 class="mt-3">7. How the moons are assigned</h5>
+<ol>
+         <li>All applying corps are sorted by their total score (on a tie, the earlier application wins).</li>
+         <li>In order, every corp gets <strong>one</strong> moon: the best of its ticked moons that is still free (rarity first, then share of the valuable ore).</li>
+         <li>Then the next pass starts with the best corp again – until every corp has <strong>{{ s.max_moons_per_corp }}</strong> moons or none of its moons is free any more.</li>
+         </ol>
+         <p>Limits per corp and round:
+         {% if s.max_r32_per_corp is not None %}max. <strong>{{ s.max_r32_per_corp }}</strong> × <span class="md-chip md-r32">R32</span>{% endif %}
+         {% if s.max_r16_per_corp is not None %}, max. <strong>{{ s.max_r16_per_corp }}</strong> × <span class="md-chip md-r16">R16</span>{% endif %}
+         – if your corp reached a limit, the next free moon of a different class is taken instead.</p>
+<h5 class="mt-3">8. Tips</h5>
+<ul>
+         <li>Tick enough moons – if all of your moons are taken before it is your turn, your corp gets nothing.</li>
+         <li>Make sure all your members have registered their characters in the Auth – only registered players count as active members.</li>
+         <li>Fly fleets with FAT links and fight – that is what counts most.</li>
+         </ul>
+{% endblock guide_body %}
+{% block guide_footer %}This page always shows the current settings of the Mining Officers.{% endblock guide_footer %}

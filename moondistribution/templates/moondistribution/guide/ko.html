@@ -1,0 +1,39 @@
+{% extends "moondistribution/guide/_layout.html" %}
+{# Generated guide for language "ko" – edit the generator or this file #}
+{% block guide_title %}위성 분배 방식 안내{% endblock guide_title %}
+{% block guide_body %}
+<h5 class="mt-3">1. 개요</h5>
+<p>얼라이언스는 몇 달마다 위성을 다시 분배합니다. 각 코퍼레이션은 원하는 위성에 신청하고, Auth가 활동량으로 코퍼레이션을 평가하여 위성을 <strong>자동으로, 투명하게</strong> 배정합니다. {% if s.exclude_r64 %}<span class="md-chip md-r64">R64</span> 위성은 얼라이언스가 보유하며 분배되지 않습니다.{% endif %}</p>
+<h5 class="mt-3">2. 진행 순서</h5>
+<ol><li>마이닝 오피서가 라운드를 준비하고 엽니다.</li><li>그때부터 <strong>{{ s.application_days }}일</strong> 동안 신청을 받습니다. 마감 전까지 언제든지 신청을 변경할 수 있습니다.</li><li>기간이 끝나면 라운드가 자동으로 평가되고 <strong>정확히 한 번</strong> 분배됩니다.</li><li>신청한 모든 사람은 결과가 담긴 Auth 알림을 받습니다. 전체 순위는 라운드 페이지에서 볼 수 있습니다.</li></ol>
+<h5 class="mt-3">3. 누가 신청할 수 있나요?</h5>
+<p>얼라이언스 소속 코퍼레이션의 <strong>CEO</strong> – 코퍼레이션당 신청 1건.{% if s.allow_directors %} <strong>디렉터</strong>도 신청할 수 있습니다. 디렉터는 Corptools로 확인하므로 캐릭터에 활성화된 Corptools 감사가 필요합니다.{% endif %}</p>
+<h5 class="mt-3">4. 신청 방법</h5>
+<ol><li><em>Moon Distribution → 라운드</em>를 열고 내 코퍼레이션 옆의 <em>신청</em>을 클릭합니다.</li><li>코퍼레이션이 원하는 위성을 모두 체크합니다 – 최대 <strong>{{ s.max_wishes }}</strong>개. 위성은 지역별 탭으로 나뉘어 있으며, 선택은 모든 탭에 걸쳐 적용됩니다.</li><li>열 제목을 클릭하면 정렬됩니다(예: 희귀도 또는 고가치 광석 비율). Shift+클릭으로 두 번째 정렬 기준을 추가할 수 있습니다.</li><li>저장합니다. 체크한 위성은 모두 동등하게 취급되며 우선순위는 없습니다.</li></ol>
+         <p>색상: <span class="md-chip md-r32">R32</span> <span class="md-chip md-r16">R16</span> <span class="md-chip md-r8">R8</span> <span class="md-chip md-r4">R4</span>. 위성 옆의 라벨은 광석과 그 비율을 보여 줍니다. <em>최고 %</em>는 해당 위성 등급에서 가장 가치 있는 광석의 비율입니다.</p>
+<h5 class="mt-3">5. 코퍼레이션 평가 방식</h5>
+<p>라운드에 표시된 기간(보통 최근 약 6개월)의 활동을 측정합니다. 각 기준은 신청한 코퍼레이션 중 최고를 100으로 하여 0~100으로 환산되며, 가중 평균이 점수가 됩니다.</p>
+         <table class="table table-sm w-auto">
+         <thead><tr><th>기준</th><th>데이터 출처</th><th class="text-end">가중치</th></tr></thead>
+         <tbody>
+         {% if s.weight_pvp %}<tr><td>PvP</td><td>코퍼레이션이 파괴한 함선(zKillboard)</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
+         {% if s.weight_fleet %}<tr><td>함대</td><td>함대 참여(FAT 링크)</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
+         {% if s.weight_members %}<tr><td>활동 멤버</td><td>메인 캐릭터가 코퍼레이션에 있고 최근 {{ s.active_days }}일 이내에 접속한 플레이어</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         </tbody></table>
+         {% if s.per_member %}<p>PvP와 함대는 <strong>활동 멤버 1인당</strong>으로 계산되어, 작지만 매우 활발한 코퍼레이션도 큰 코퍼레이션과 경쟁할 수 있습니다.</p>{% endif %}
+         <p>모든 활동은 <strong>메인 캐릭터</strong>의 코퍼레이션에 합산됩니다. 다른 코퍼레이션의 부캐도 메인의 코퍼레이션에 합산됩니다.</p>
+<h5 class="mt-3">6. 보너스 점수</h5>
+<ul>
+         {% if s.bonus_no_moon %}<li><strong>+{{ s.bonus_no_moon }}</strong> 지난 라운드에 신청했지만 위성을 하나도 받지 못한 경우.</li>{% endif %}
+         {% if s.bonus_no_r32 %}<li><strong>+{{ s.bonus_no_r32 }}</strong> 지난 라운드에 위성은 받았지만 다음 등급은 하나도 받지 못한 경우: <span class="md-chip md-r32">R32</span>.</li>{% endif %}
+         <li>마이닝 오피서는 코퍼레이션에 추가 점수를 주거나 감점할 수 있으며, 그 사유는 항상 라운드 페이지에 모두에게 공개됩니다.</li></ul>
+<h5 class="mt-3">7. 위성 배정 방식</h5>
+<ol><li>신청한 모든 코퍼레이션을 총점 순으로 정렬합니다(동점이면 먼저 신청한 쪽이 우선).</li><li>차례대로 각 코퍼레이션이 <strong>하나</strong>의 위성을 받습니다: 체크한 위성 중 아직 남아 있는 가장 좋은 위성(먼저 희귀도, 그다음 고가치 광석 비율).</li><li>그다음 다시 최고 코퍼레이션부터 다음 바퀴가 시작되며, 각 코퍼레이션이 <strong>{{ s.max_moons_per_corp }}</strong>개의 위성을 받거나 원하는 위성이 모두 소진될 때까지 계속됩니다.</li></ol>
+         <p>코퍼레이션·라운드당 한도:
+         {% if s.max_r32_per_corp is not None %}max. <strong>{{ s.max_r32_per_corp }}</strong> × <span class="md-chip md-r32">R32</span>{% endif %}
+         {% if s.max_r16_per_corp is not None %}, max. <strong>{{ s.max_r16_per_corp }}</strong> × <span class="md-chip md-r16">R16</span>{% endif %}
+         – 한도에 도달하면 대신 다른 등급의 다음 남은 위성이 배정됩니다.</p>
+<h5 class="mt-3">8. 팁</h5>
+<ul><li>위성을 충분히 체크하세요. 내 차례 전에 원하는 위성이 모두 배정되면 코퍼레이션은 아무것도 받지 못합니다.</li><li>모든 멤버가 Auth에 캐릭터를 등록했는지 확인하세요. 등록된 플레이어만 활동 멤버로 계산됩니다.</li><li>FAT 링크가 있는 함대에 참여하고 싸우세요. 그것이 가장 중요합니다.</li></ul>
+{% endblock guide_body %}
+{% block guide_footer %}이 페이지에는 항상 마이닝 오피서의 현재 설정이 표시됩니다.{% endblock guide_footer %}

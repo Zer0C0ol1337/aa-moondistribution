@@ -3,7 +3,6 @@
 from django.test import SimpleTestCase
 
 from moondistribution.distribution import allocate_moons, compensation_bonus, normalize_scores, rank_corporations
-from moondistribution.forms import parse_wishlist
 
 
 class _Moon:
@@ -90,6 +89,17 @@ class TestAllocation(SimpleTestCase):
         self.assertEqual(picks[0]["priority"], 1)
 
 
+class TestEqualWishes(SimpleTestCase):
+    """All wishes equal: a corp gets the best of its free moons."""
+
+    def test_best_moon_first(self):
+        """A gets its best moon (R32 59 %), B the best of the rest, then A the next one."""
+        quality = {1: 4050.0, 2: 32059.9, 3: 16030.0, 4: 32020.0}
+        wishes = {"A": [(1, m) for m in (1, 2, 3, 4)], "B": [(1, m) for m in (2, 4, 3)]}
+        picks = allocate_moons(["A", "B"], wishes, max_per_corp=2, moon_quality=quality)
+        self.assertEqual([(p["corp"], p["moon"]) for p in picks], [("A", 2), ("B", 4), ("A", 3)])
+
+
 class TestRarityLimits(SimpleTestCase):
     """allocate_moons() with rarity limits."""
 
@@ -128,32 +138,32 @@ class TestCompensationBonus(SimpleTestCase):
         self.assertEqual(compensation_bonus([1], {1: []}, 0, 0), {1: 0})
 
 
-class TestParseWishlist(SimpleTestCase):
-    """parse_wishlist()"""
+class TestParseSelection(SimpleTestCase):
+    """parse_selection()"""
 
     moons = [_Moon(1, "M1"), _Moon(2, "M2"), _Moon(3, "M3")]
 
-    def test_gaps_are_renumbered(self):
-        """Priorities 3 and 7 become 1 and 2."""
-        wishes, errors = parse_wishlist({"prio_1": "7", "prio_3": "3"}, self.moons, 10)
-        self.assertEqual(errors, [])
-        self.assertEqual([(p, m.pk) for p, m in wishes], [(1, 3), (2, 1)])
+    def test_selection(self):
+        """Ticked moons of the pool are returned, duplicates and foreign IDs ignored."""
+        from moondistribution.forms import parse_selection
 
-    def test_duplicate_priority(self):
-        """Same priority twice is rejected."""
-        _w, errors = parse_wishlist({"prio_1": "1", "prio_2": "1"}, self.moons, 10)
-        self.assertTrue(errors)
+        chosen, errors = parse_selection([3, 1, 3, 99], self.moons, 10)
+        self.assertEqual(errors, [])
+        self.assertEqual([m.pk for m in chosen], [3, 1])
 
     def test_too_many(self):
-        """More wishes than allowed are rejected."""
-        _w, errors = parse_wishlist({"prio_1": "1", "prio_2": "2", "prio_3": "3"}, self.moons, 2)
+        """More ticks than allowed are rejected."""
+        from moondistribution.forms import parse_selection
+
+        _c, errors = parse_selection([1, 2, 3], self.moons, 2)
         self.assertTrue(errors)
 
     def test_empty(self):
         """At least one moon is required."""
-        _w, errors = parse_wishlist({}, self.moons, 10)
-        self.assertTrue(errors)
+        from moondistribution.forms import parse_selection
 
+        _c, errors = parse_selection([], self.moons, 10)
+        self.assertTrue(errors)
 
 class TestRarityPaste(SimpleTestCase):
     """parse_rarity_paste() / ore_rarity()"""

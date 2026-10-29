@@ -1,0 +1,39 @@
+{% extends "moondistribution/guide/_layout.html" %}
+{# Generated guide for language "nl" – edit the generator or this file #}
+{% block guide_title %}Zo werkt de maanverdeling{% endblock guide_title %}
+{% block guide_body %}
+<h5 class="mt-3">1. Waar gaat het om?</h5>
+<p>Om de paar maanden verdeelt de alliantie haar manen opnieuw. Corps melden zich aan voor de manen die ze willen, de Auth beoordeelt elke corp op activiteit en wijst de manen <strong>automatisch en transparant</strong> toe. {% if s.exclude_r64 %}<span class="md-chip md-r64">R64</span> manen blijven bij de alliantie en worden niet verdeeld.{% endif %}</p>
+<h5 class="mt-3">2. Verloop</h5>
+<ol><li>De Mining Officers bereiden een ronde voor en openen die.</li><li>Vanaf dan staan aanmeldingen <strong>{{ s.application_days }} dagen</strong> open. Tot de deadline kun je je aanmelding altijd wijzigen.</li><li>Als de tijd om is, wordt de ronde automatisch beoordeeld en <strong>precies één keer</strong> verdeeld.</li><li>Iedereen die zich heeft aangemeld krijgt een Auth-melding met het resultaat. De volledige ranglijst staat op de rondepagina.</li></ol>
+<h5 class="mt-3">3. Wie mag zich aanmelden?</h5>
+<p>De <strong>CEO</strong> van een alliantie-corp – één aanmelding per corp.{% if s.allow_directors %} Ook <strong>directors</strong> mogen zich aanmelden; zij worden via Corptools herkend, dus het personage heeft een actieve Corptools-audit nodig.{% endif %}</p>
+<h5 class="mt-3">4. Zo meld je je aan</h5>
+<ol><li>Open <em>Moon Distribution → Rondes</em> en klik naast je corp op <em>Aanmelden</em>.</li><li>Vink alle manen aan die je corp wil – tot <strong>{{ s.max_wishes }}</strong>. De manen staan per regio in tabbladen; je selectie geldt voor alle tabbladen.</li><li>Klik op een kolomkop om te sorteren (bijv. op zeldzaamheid of op het aandeel van het waardevolle erts); Shift+klik voegt een tweede sorteerniveau toe.</li><li>Opslaan. Alle aangevinkte manen tellen even zwaar – er is geen volgorde van voorkeur.</li></ol>
+         <p>Kleuren: <span class="md-chip md-r32">R32</span> <span class="md-chip md-r16">R16</span> <span class="md-chip md-r8">R8</span> <span class="md-chip md-r4">R4</span>. De labels naast een maan tonen de ertsen en hun aandeel; <em>Beste %</em> is het aandeel van het waardevolste erts van de maanklasse.</p>
+<h5 class="mt-3">5. Zo worden corps beoordeeld</h5>
+<p>Gemeten wordt de activiteit in de periode die bij de ronde staat (meestal de laatste ~6 maanden). Elk criterium wordt geschaald van 0 tot 100 ten opzichte van de beste corp die zich aanmeldt; het gewogen gemiddelde is jullie score.</p>
+         <table class="table table-sm w-auto">
+         <thead><tr><th>Criterium</th><th>Bron</th><th class="text-end">Gewicht</th></tr></thead>
+         <tbody>
+         {% if s.weight_pvp %}<tr><td>PvP</td><td>Schepen vernietigd door jullie corp (zKillboard)</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
+         {% if s.weight_fleet %}<tr><td>Fleets</td><td>Deelnames aan fleets (FAT-links)</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
+         {% if s.weight_members %}<tr><td>Actieve leden</td><td>Spelers van wie de main in jullie corp zit en die in de laatste {{ s.active_days }} dagen zijn ingelogd</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         </tbody></table>
+         {% if s.per_member %}<p>PvP en fleets tellen <strong>per actief lid</strong>, zodat kleine maar zeer actieve corps kunnen meekomen met grote.</p>{% endif %}
+         <p>Alles telt voor de corp van het <strong>main-personage</strong> – alts in andere corps tellen voor de corp van de main.</p>
+<h5 class="mt-3">6. Bonuspunten</h5>
+<ul>
+         {% if s.bonus_no_moon %}<li><strong>+{{ s.bonus_no_moon }}</strong> als jullie corp zich in de vorige ronde heeft aangemeld en geen maan heeft gekregen.</li>{% endif %}
+         {% if s.bonus_no_r32 %}<li><strong>+{{ s.bonus_no_r32 }}</strong> als jullie corp in de vorige ronde manen heeft gekregen, maar geen <span class="md-chip md-r32">R32</span>.</li>{% endif %}
+         <li>De Mining Officers kunnen een corp extra punten geven (of aftrekken) – altijd met een reden die iedereen op de rondepagina ziet.</li></ul>
+<h5 class="mt-3">7. Zo worden de manen toegewezen</h5>
+<ol><li>Alle corps die zich hebben aangemeld worden gesorteerd op hun totaalscore (bij gelijkspel wint de eerdere aanmelding).</li><li>Om de beurt krijgt elke corp <strong>één</strong> maan: de beste van haar aangevinkte manen die nog vrij is (eerst zeldzaamheid, dan aandeel van het waardevolle erts).</li><li>Daarna begint de volgende ronde weer bij de beste corp – tot elke corp <strong>{{ s.max_moons_per_corp }}</strong> manen heeft of geen van haar manen nog vrij is.</li></ol>
+         <p>Limieten per corp en ronde:
+         {% if s.max_r32_per_corp is not None %}max. <strong>{{ s.max_r32_per_corp }}</strong> × <span class="md-chip md-r32">R32</span>{% endif %}
+         {% if s.max_r16_per_corp is not None %}, max. <strong>{{ s.max_r16_per_corp }}</strong> × <span class="md-chip md-r16">R16</span>{% endif %}
+         – bereikt jullie corp een limiet, dan krijgt ze in plaats daarvan de volgende vrije maan van een andere klasse.</p>
+<h5 class="mt-3">8. Tips</h5>
+<ul><li>Vink genoeg manen aan – zijn al jullie manen weg voordat jullie aan de beurt zijn, dan krijgt jullie corp niets.</li><li>Zorg dat alle leden hun personages in de Auth hebben geregistreerd – alleen geregistreerde spelers tellen als actieve leden.</li><li>Vlieg fleets met FAT-links en vecht – dat telt het zwaarst.</li></ul>
+{% endblock guide_body %}
+{% block guide_footer %}Deze pagina toont altijd de actuele instellingen van de Mining Officers.{% endblock guide_footer %}

@@ -37,6 +37,11 @@
             {% translate "Rounds" %}
         </a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name == 'guide' %}active{% endif %}" href="{% url 'moondistribution:guide' %}">
+            <i class="fas fa-circle-info me-1"></i>{% translate "How it works" %}
+        </a>
+    </li>
     {% if is_officer %}
         <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.url_name == 'round_create' %}active{% endif %}" href="{% url 'moondistribution:round_create' %}">
@@ -75,8 +80,11 @@
         const cellValue = function (row, level) {
             const cell = row.cells[level.col];
             if (!cell) { return level.numeric ? -Infinity : ""; }
-            const input = cell.querySelector("input[type=number]");
-            const raw = input ? input.value : (cell.dataset.value !== undefined ? cell.dataset.value : cell.textContent.trim());
+            const input = cell.querySelector("input[type=number], input[type=checkbox]");
+            let raw;
+            if (input && input.type === "checkbox") { raw = input.checked ? "1" : "0"; }
+            else if (input) { raw = input.value; }
+            else { raw = cell.dataset.value !== undefined ? cell.dataset.value : cell.textContent.trim(); }
             if (level.numeric) {
                 const n = parseFloat(raw);
                 return isNaN(n) ? null : n;  // empty values always go last

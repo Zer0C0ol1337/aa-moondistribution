@@ -1,0 +1,39 @@
+{% extends "moondistribution/guide/_layout.html" %}
+{# Generated guide for language "pl" – edit the generator or this file #}
+{% block guide_title %}Jak działa podział księżyców{% endblock guide_title %}
+{% block guide_body %}
+<h5 class="mt-3">1. O co chodzi?</h5>
+<p>Co kilka miesięcy sojusz na nowo dzieli swoje księżyce. Korporacje zgłaszają się po księżyce, które chcą, Auth ocenia każdą corp według jej aktywności i przydziela księżyce <strong>automatycznie i przejrzyście</strong>. {% if s.exclude_r64 %}<span class="md-chip md-r64">R64</span> księżyce zostają przy sojuszu i nie są rozdzielane.{% endif %}</p>
+<h5 class="mt-3">2. Przebieg</h5>
+<ol><li>Mining Officerowie przygotowują rundę i ją otwierają.</li><li>Od tego momentu zgłoszenia są otwarte przez <strong>{{ s.application_days }} dni</strong>. Do terminu możecie w każdej chwili zmienić zgłoszenie.</li><li>Po upływie czasu runda jest automatycznie oceniana i rozdzielana <strong>dokładnie raz</strong>.</li><li>Wszyscy zgłaszający dostają powiadomienie w Auth z wynikiem. Pełny ranking jest widoczny na stronie rundy.</li></ol>
+<h5 class="mt-3">3. Kto może się zgłosić?</h5>
+<p><strong>CEO</strong> korporacji z sojuszu – jedno zgłoszenie na corp.{% if s.allow_directors %} Zgłaszać się mogą też <strong>dyrektorzy</strong>; są rozpoznawani przez Corptools, więc postać potrzebuje aktywnego audytu Corptools.{% endif %}</p>
+<h5 class="mt-3">4. Jak się zgłosić</h5>
+<ol><li>Otwórzcie <em>Moon Distribution → Rundy</em> i kliknijcie <em>Zgłoś się</em> przy swojej corp.</li><li>Zaznaczcie wszystkie księżyce, które chce wasza corp – maksymalnie <strong>{{ s.max_wishes }}</strong>. Księżyce są pogrupowane w zakładki według regionu; wybór obowiązuje we wszystkich zakładkach.</li><li>Kliknięcie nagłówka kolumny sortuje (np. według rzadkości lub udziału cennej rudy); Shift+klik dodaje drugi poziom sortowania.</li><li>Zapiszcie. Wszystkie zaznaczone księżyce liczą się tak samo – nie ma kolejności priorytetów.</li></ol>
+         <p>Kolory: <span class="md-chip md-r32">R32</span> <span class="md-chip md-r16">R16</span> <span class="md-chip md-r8">R8</span> <span class="md-chip md-r4">R4</span>. Etykiety obok księżyca pokazują jego rudy i ich udział; <em>Najlepszy %</em> to udział najcenniejszej rudy danej klasy księżyca.</p>
+<h5 class="mt-3">5. Jak oceniane są korporacje</h5>
+<p>Mierzona jest aktywność w okresie podanym przy rundzie (zwykle ostatnie ~6 miesięcy). Każde kryterium jest skalowane od 0 do 100 względem najlepszej zgłaszającej się corp; średnia ważona to wasz wynik.</p>
+         <table class="table table-sm w-auto">
+         <thead><tr><th>Kryterium</th><th>Źródło</th><th class="text-end">Waga</th></tr></thead>
+         <tbody>
+         {% if s.weight_pvp %}<tr><td>PvP</td><td>Statki zniszczone przez waszą corp (zKillboard)</td><td class="text-end">{{ s.weight_pvp }}</td></tr>{% endif %}
+         {% if s.weight_fleet %}<tr><td>Floty</td><td>Udział we flotach (linki FAT)</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
+         {% if s.weight_members %}<tr><td>Aktywni członkowie</td><td>Gracze, których główna postać jest w waszej corp i którzy logowali się w ciągu ostatnich {{ s.active_days }} dni</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
+         </tbody></table>
+         {% if s.per_member %}<p>PvP i floty liczone są <strong>na aktywnego członka</strong>, aby małe, ale bardzo aktywne korporacje mogły dorównać dużym.</p>{% endif %}
+         <p>Wszystko liczy się dla corp <strong>głównej postaci</strong> – alty w innych korporacjach liczą się dla corp maina.</p>
+<h5 class="mt-3">6. Punkty bonusowe</h5>
+<ul>
+         {% if s.bonus_no_moon %}<li><strong>+{{ s.bonus_no_moon }}</strong> jeśli wasza corp zgłosiła się w poprzedniej rundzie i nie dostała żadnego księżyca.</li>{% endif %}
+         {% if s.bonus_no_r32 %}<li><strong>+{{ s.bonus_no_r32 }}</strong> jeśli wasza corp dostała w poprzedniej rundzie księżyce, ale żadnego <span class="md-chip md-r32">R32</span>.</li>{% endif %}
+         <li>Mining Officerowie mogą dać corp dodatkowe punkty (lub je odjąć) – zawsze z uzasadnieniem widocznym dla wszystkich na stronie rundy.</li></ul>
+<h5 class="mt-3">7. Jak przydzielane są księżyce</h5>
+<ol><li>Wszystkie zgłoszone korporacje są sortowane według łącznego wyniku (przy remisie wygrywa wcześniejsze zgłoszenie).</li><li>Po kolei każda corp dostaje <strong>jeden</strong> księżyc: najlepszy z zaznaczonych, który jest jeszcze wolny (najpierw rzadkość, potem udział cennej rudy).</li><li>Potem zaczyna się kolejna tura, znowu od najlepszej corp – aż każda corp ma <strong>{{ s.max_moons_per_corp }}</strong> księżyce albo żaden z jej księżyców nie jest już wolny.</li></ol>
+         <p>Limity na corp i rundę:
+         {% if s.max_r32_per_corp is not None %}max. <strong>{{ s.max_r32_per_corp }}</strong> × <span class="md-chip md-r32">R32</span>{% endif %}
+         {% if s.max_r16_per_corp is not None %}, max. <strong>{{ s.max_r16_per_corp }}</strong> × <span class="md-chip md-r16">R16</span>{% endif %}
+         – jeśli wasza corp osiągnie limit, dostaje zamiast tego następny wolny księżyc innej klasy.</p>
+<h5 class="mt-3">8. Wskazówki</h5>
+<ul><li>Zaznaczcie wystarczająco dużo księżyców – jeśli wszystkie zostaną rozdane przed waszą kolejką, corp nic nie dostanie.</li><li>Upewnijcie się, że wszyscy członkowie zarejestrowali swoje postacie w Auth – tylko zarejestrowani gracze liczą się jako aktywni członkowie.</li><li>Latajcie we flotach z linkami FAT i walczcie – to liczy się najbardziej.</li></ul>
+{% endblock guide_body %}
+{% block guide_footer %}Ta strona zawsze pokazuje aktualne ustawienia Mining Officerów.{% endblock guide_footer %}

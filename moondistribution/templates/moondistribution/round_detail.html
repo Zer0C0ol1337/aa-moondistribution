@@ -58,16 +58,20 @@
         {% endif %}
     {% endif %}
 
-    {% if round.is_open and eligible %}
+    {% if round.is_open and is_officer %}
+        <div class="card mb-3"><div class="card-body py-2">{% include "moondistribution/_officer_apply.html" with round_obj=round %}</div></div>
+    {% endif %}
+
+    {% if round.is_open and own_corps %}
         <div class="card mb-4">
             <div class="card-body d-flex flex-wrap gap-2 align-items-center">
                 <span class="me-2">{% translate "Apply / change wishlist for" %}:</span>
-                {% for corp in eligible %}
+                {% for corp in own_corps %}
                     {% if forloop.counter <= 6 %}
                         <a class="btn btn-sm btn-primary" href="{% url 'moondistribution:apply' round.pk corp.corporation_id %}">{{ corp.corporation_name }}</a>
                     {% endif %}
                 {% endfor %}
-                {% if eligible|length > 6 %}<a href="{% url 'moondistribution:index' %}" class="small">{% translate "more…" %}</a>{% endif %}
+                {% if own_corps|length > 6 %}<a href="{% url 'moondistribution:index' %}" class="small">{% translate "more…" %}</a>{% endif %}
             </div>
         </div>
     {% endif %}
@@ -178,7 +182,7 @@
                                 <th>{% translate "Composition" %}</th>
                                 {% if has_owner %}<th class="md-narrow" data-sort="text">{% translate "Current owner" %}</th>{% endif %}
                                 {% if is_officer %}<th class="md-narrow text-end" data-sort="num" title="{% translate 'Number of corps that have this moon on their wishlist' %}">{% translate "Applications" %}</th>{% endif %}
-                                {% if round.status == "done" %}<th class="md-narrow" data-sort="text">{% translate "Assigned to" %}</th><th class="md-narrow text-end" data-sort="num">{% translate "Wish #" %}</th>{% endif %}
+                                {% if round.status == "done" %}<th class="md-narrow" data-sort="text">{% translate "Assigned to" %}</th>{% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -196,7 +200,6 @@
                                     {% endif %}
                                     {% if round.status == "done" %}
                                         <td class="fw-bold" data-value="{{ row.allocation.corporation.corporation_name|default:'' }}">{{ row.allocation.corporation.corporation_name|default:"–" }}</td>
-                                        <td class="text-end" data-value="{{ row.allocation.wish_priority|default:'' }}">{{ row.allocation.wish_priority|default:"" }}</td>
                                     {% endif %}
                                 </tr>
                             {% endfor %}
@@ -221,9 +224,9 @@
                     </span>
                 </div>
                 <div class="card-body py-2">
-                    <ol class="mb-1 small">
-                        {% for w in app.wishes.all %}<li>{{ w.moon.name }}</li>{% endfor %}
-                    </ol>
+                    <div class="mb-1 small">
+                        {% for w in app.wishes.all %}<span class="me-2 text-nowrap">{% include "moondistribution/_rarity_badge.html" with rarity=w.moon.rarity %} {{ w.moon.name }}</span>{% endfor %}
+                    </div>
                     {% if app.comment %}<p class="small text-muted mb-1">{{ app.comment|linebreaksbr }}</p>{% endif %}
                     {% if round.is_open and app.corporation in eligible %}
                         <div class="d-flex gap-2">
