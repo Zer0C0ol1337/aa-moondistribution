@@ -1,0 +1,106 @@
+{% extends "moondistribution/base.html" %}
+
+{% load i18n %}
+
+{% block moondist_content %}
+    <h3 class="mb-2"><i class="fas fa-flag me-2"></i>{% translate "SIGs" %}</h3>
+    <p class="text-muted small">
+        {% translate "SIGs (e.g. G-4) can reserve moons for a round before it is distributed. The SIG leaders tick the moons, a Mining Officer approves them. Approved moons are taken out of the distribution and can't be applied for." %}
+    </p>
+
+    {# claim per round and SIG #}
+    {% for r in rounds %}
+        <div class="card mb-3">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span class="fw-bold">{{ r.name }} {% include "moondistribution/_status_badge.html" %}</span>
+                <span class="d-flex flex-wrap gap-2">
+                    {% for sig in my_sigs %}
+                        <a class="btn btn-sm btn-primary" href="{% url 'moondistribution:sig_claim' r.pk sig.pk %}"><i class="fas fa-hand-pointer me-1"></i>{% blocktranslate with sig=sig.name %}Claim moons for {{ sig }}{% endblocktranslate %}</a>
+                    {% endfor %}
+                </span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>{% translate "SIG" %}</th><th>{% translate "Moon" %}</th><th>{% translate "Rarity" %}</th><th class="text-end">{% translate "Rental / month" %}</th><th>{% translate "Reason" %}</th><th>{% translate "Status" %}</th>{% if is_officer %}<th>{% translate "Decision" %}</th>{% endif %}</tr></thead>
+                    <tbody>
+                        {% for c in claims %}{% if c.round_id == r.pk %}
+                            <tr>
+                                <td>{{ c.sig.name }}</td>
+                                <td class="text-nowrap">{{ c.moon.name }}</td>
+                                <td>{% include "moondistribution/_rarity_badge.html" with rarity=c.moon.rarity %}</td>
+                                <td class="text-end">{{ c.moon.rental_display|default:"–" }}</td>
+                                <td class="small">{{ c.reason|default:"–" }}{% if c.requested_by %}<div class="text-muted">{{ c.requested_by.profile.main_character.character_name|default:c.requested_by.username }}</div>{% endif %}</td>
+                                <td>
+                                    {% if c.status == "approved" %}<span class="badge text-bg-success">{{ c.get_status_display }}</span>
+                                    {% elif c.status == "rejected" %}<span class="badge text-bg-danger">{{ c.get_status_display }}</span>
+                                    {% else %}<span class="badge text-bg-warning">{{ c.get_status_display }}</span>{% endif %}
+                                    {% if c.decision_note %}<div class="small text-muted">{{ c.decision_note }}</div>{% endif %}
+                                </td>
+                                {% if is_officer %}
+                                    <td>
+                                        <form method="post" action="{% url 'moondistribution:sig_claim_decide' c.pk %}" class="d-flex gap-1">
+                                            {% csrf_token %}
+                                            <input type="text" name="note" maxlength="255" class="form-control form-control-sm" placeholder="{% translate 'Note (optional)' %}" style="max-width: 12rem;">
+                                            <button name="decision" value="approve" class="btn btn-sm btn-outline-success" title="{% translate 'Approve' %}"><i class="fas fa-check"></i></button>
+                                            <button name="decision" value="reject" class="btn btn-sm btn-outline-danger" title="{% translate 'Reject' %}"><i class="fas fa-xmark"></i></button>
+                                        </form>
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endif %}{% endfor %}
+                    </tbody>
+                </table>
+                {% if is_officer %}
+                    <div class="p-2 d-flex flex-wrap gap-2">
+                        {% for sig in my_sigs %}
+                            <form method="post" action="{% url 'moondistribution:sig_claims_approve_all' r.pk sig.pk %}">{% csrf_token %}
+                                <button class="btn btn-sm btn-outline-success"><i class="fas fa-check-double me-1"></i>{% blocktranslate with sig=sig.name %}Approve all waiting claims of {{ sig }}{% endblocktranslate %}</button>
+                            </form>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% empty %}
+        <div class="alert alert-info">{% translate "No round in preparation or open for applications – SIGs can claim moons as soon as a round is created." %}</div>
+    {% endfor %}
+
+    {# officers: which AA groups are SIGs #}
+    {% if is_officer %}
+        <div class="card mb-3">
+            <div class="card-header fw-bold">{% translate "Manage SIGs" %}</div>
+            <div class="card-body">
+                <p class="small text-muted">{% translate "A SIG is an AA group. Its group leaders (Group Management → leaders) may claim moons for it." %}</p>
+                <table class="table table-sm align-middle">
+                    <tbody>
+                        {% for sig in all_sigs %}
+                            <tr>
+                                <td>{{ sig.name }}</td>
+                                <td class="small text-muted">{% translate "AA group" %}: {{ sig.group.name }}</td>
+                                <td class="small">{% for leader in sig.leaders %}{{ leader.profile.main_character.character_name|default:leader.username }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-warning">{% translate "no group leader set" %}</span>{% endfor %}</td>
+                                <td class="text-end">
+                                    <form method="post" action="{% url 'moondistribution:sig_toggle' sig.pk %}">{% csrf_token %}
+                                        <button class="btn btn-sm {% if sig.is_active %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">{% if sig.is_active %}{% translate "Deactivate" %}{% else %}{% translate "Activate" %}{% endif %}</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr><td class="text-muted small">{% translate "No SIGs yet." %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <form method="post" action="{% url 'moondistribution:sig_save' %}" class="row g-2">
+                    {% csrf_token %}
+                    <div class="col-md-5">
+                        <select name="group_id" class="form-select form-select-sm" required>
+                            <option value="">{% translate "AA group …" %}</option>
+                            {% for g in free_groups %}<option value="{{ g.pk }}">{{ g.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4"><input type="text" name="name" maxlength="100" class="form-control form-control-sm" placeholder="{% translate 'Display name, e.g. SIG G-4' %}"></div>
+                    <div class="col-md-3"><button class="btn btn-sm btn-primary w-100">{% translate "Add as SIG" %}</button></div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+{% endblock moondist_content %}

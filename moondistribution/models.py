@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
@@ -167,6 +167,10 @@ class Moon(models.Model):
         help_text=_("Ore composition, e.g. [{'ore': 'Zircon', 'percent': 24.5}, ...] – filled by the scan/sheet import."),
     )
     notes = models.CharField(max_length=255, blank=True, default="")
+    rental_isk = models.PositiveBigIntegerField(
+        null=True, blank=True,
+        help_text=_("Monthly rental of the moon in ISK (from the owner sheet), shown with the moon."),
+    )
     is_active = models.BooleanField(
         default=True, help_text=_("Inactive moons are not added to new rounds."),
     )
@@ -193,6 +197,15 @@ class Moon(models.Model):
         if self.owner_corporation_id:
             return self.owner_corporation.corporation_name
         return self.owner_name
+
+    @property
+    def rental_display(self) -> str:
+        """Monthly rental in EVE notation: '180M', '1.1B' (empty if unknown)."""
+        if not self.rental_isk:
+            return ""
+        if self.rental_isk >= 1_000_000_000:
+            return f"{self.rental_isk / 1_000_000_000:.2f}".rstrip("0").rstrip(".") + "B"
+        return f"{self.rental_isk / 1_000_000:.1f}".rstrip("0").rstrip(".") + "M"
 
     @property
     def best_share(self):
@@ -427,3 +440,68 @@ class CorporationProbation(models.Model):
 
     def __str__(self):
         return f"{self.corporation} – joined {self.joined_at:%Y-%m-%d}" if self.joined_at else str(self.corporation)
+
+
+class Sig(models.Model):
+    """A SIG of the alliance (e.g. G-4) – an AA group whose group leaders may claim moons before a round."""
+
+    group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name="+")
+    name = models.CharField(max_length=100, help_text=_("Display name, e.g. 'SIG G-4'."))
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        default_permissions = ()
+        ordering = ["name"]
+        verbose_name = _("SIG")
+        verbose_name_plural = _("SIGs")
+
+    def __str__(self):
+        return self.name
+
+    def leaders(self):
+        """AA users that lead this SIG: group leaders of the AA group (directly or via a leader group)."""
+        from allianceauth.groupmanagement.models import AuthGroup
+
+        auth_group = AuthGroup.objects.filter(group=self.group).first()
+        if auth_group is None:
+            return User.objects.none()
+        # AA's group_leaders points to its User proxy model – compare by primary key
+        leader_ids = list(auth_group.group_leaders.values_list("pk", flat=True))
+        leader_group_ids = list(auth_group.group_leader_groups.values_list("pk", flat=True))
+        return User.objects.filter(
+            models.Q(pk__in=leader_ids) | models.Q(groups__pk__in=leader_group_ids)
+        ).distinct()
+
+
+class SigClaim(models.Model):
+    """A SIG reserves a moon for one round – after an officer approved it, the moon is not distributed."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("waiting for approval")
+        APPROVED = "approved", _("approved")
+        REJECTED = "rejected", _("rejected")
+
+    round = models.ForeignKey(Round, on_delete=models.CASCADE, related_name="sig_claims")
+    sig = models.ForeignKey(Sig, on_delete=models.CASCADE, related_name="claims")
+    moon = models.ForeignKey(Moon, on_delete=models.CASCADE, related_name="+")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    reason = models.CharField(max_length=255, blank=True, default="", help_text=_("Why the SIG needs the moon."))
+    requested_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    decided_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    decision_note = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        default_permissions = ()
+        ordering = ["created_at"]
+        constraints = [
+            # one claim per moon and round (a rejected claim can be withdrawn so another SIG can claim)
+            models.UniqueConstraint(fields=["round", "moon"], name="moondist_one_sig_claim_per_moon"),
+        ]
+        verbose_name = _("SIG claim")
+        verbose_name_plural = _("SIG claims")
+
+    def __str__(self):
+        return f"{self.sig} – {self.moon} ({self.round})"
+

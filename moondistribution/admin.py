@@ -6,7 +6,7 @@ from django.contrib import admin
 
 from .models import (
     Allocation, Application, ApplicationWish, CorporationProbation, CorporationScore,
-    DistributionSettings, Moon, Round, RoundBonus,
+    DistributionSettings, Moon, Round, RoundBonus, Sig, SigClaim,
 )
 
 
@@ -99,3 +99,20 @@ class CorporationProbationAdmin(admin.ModelAdmin):
     list_display = ("corporation", "joined_at", "checked_at", "exempt", "exempt_reason", "exempt_by")
     list_filter = ("exempt",)
     readonly_fields = ("joined_at", "checked_at")
+
+
+@admin.register(Sig)
+class SigAdmin(admin.ModelAdmin):
+    """SIGs (AA groups whose leaders may claim moons)."""
+
+    list_display = ("name", "group", "is_active")
+
+
+@admin.register(SigClaim)
+class SigClaimAdmin(admin.ModelAdmin):
+    """SIG claims per round (normally handled on the SIG page)."""
+
+    list_display = ("round", "sig", "moon", "status", "requested_by", "decided_by", "decided_at")
+    list_filter = ("round", "sig", "status")
+    raw_id_fields = ("moon",)
+

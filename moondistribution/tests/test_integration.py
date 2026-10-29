@@ -12,7 +12,7 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 
 from moondistribution.models import (
-    Application, ApplicationWish, CorporationProbation, DistributionSettings, Moon, Round, RoundBonus,
+    Application, ApplicationWish, CorporationProbation, DistributionSettings, Moon, Round, RoundBonus, Sig, SigClaim,
 )
 from moondistribution.providers import collect_fleets, collect_members, eligible_corporations_for
 from moondistribution.tasks import distribute_round, process_rounds
@@ -767,7 +767,7 @@ class ExcelTemplateTest(IntegrationBase):
         ws["B3"] = ticker
         wanted = {m.pk for m in moons}
         for row in range(7, ws.max_row + 1):
-            if ws.cell(row=row, column=8).value in wanted:
+            if ws.cell(row=row, column=9).value in wanted:
                 ws.cell(row=row, column=1).value = "x"
         out = BytesIO()
         wb.save(out)
@@ -860,6 +860,15 @@ class ExcelTemplateTest(IntegrationBase):
         self.client.post(reverse("moondistribution:apply", args=[r.pk, 1002]), {"moon_ids": str(self.moon1.pk)})
         self.assertFalse(Application.objects.get(round=r, corporation=self.corp_b).entered_by_officer)
 
+    def test_application_without_user_renders(self):
+        """An application whose user was deleted (submitted_by empty) must not break the round page."""
+        r = self._round()
+        Application.objects.create(round=r, corporation=self.corp_c, submitted_by=None)
+        self.client.force_login(self.officer)
+        with self.settings(DEBUG=True):
+            resp = self.client.get(reverse("moondistribution:round_detail", args=[r.pk]))
+        self.assertContains(resp, "Charlie Corp")
+
     def test_all_pages_need_login(self):
         """No public views."""
         r = self._round()
@@ -868,4 +877,171 @@ class ExcelTemplateTest(IntegrationBase):
             resp = self.client.get(reverse(f"moondistribution:{name}", args=args))
             self.assertEqual(resp.status_code, 302, name)
             self.assertIn("login", resp.url, name)
+
+    def test_old_template_with_id_in_column_h(self):
+        """Templates exported before the rental column existed (ID in column H) can still be imported."""
+        r = self._round()
+        wb = self._export(r)
+        wb.worksheets[0].delete_cols(8)  # remove the rental column → ID is in column H again
+        ws = wb.worksheets[0]
+        ws["B3"] = "CHRLY"
+        for row in range(7, ws.max_row + 1):
+            if ws.cell(row=row, column=8).value == self.moon1.pk:
+                ws.cell(row=row, column=1).value = "x"
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        out = BytesIO()
+        wb.save(out)
+        self.client.post(reverse("moondistribution:round_import", args=[r.pk]),
+                         {"files": [SimpleUploadedFile("old.xlsx", out.getvalue())]})
+        self.assertEqual(list(Application.objects.get(round=r, corporation=self.corp_c).wishes.values_list("moon_id", flat=True)),
+                         [self.moon1.pk])
+
+
+class SigTest(IntegrationBase):
+    """SIGs (AA groups) reserve moons per round; leaders claim, officers approve, reserved moons are not distributed."""
+
+    def setUp(self):
+        """SIG G-4 led by member_b, a second SIG without leader."""
+        super().setUp()
+        from django.contrib.auth.models import Group
+
+        group = Group.objects.create(name="G-4")
+        group.authgroup.group_leaders.add(self.member_b.pk)  # AA uses its own User proxy here
+        self.sig = Sig.objects.create(group=group, name="SIG G-4")
+        self.other_sig = Sig.objects.create(group=Group.objects.create(name="Other SIG"), name="Other SIG")
+        patcher = mock.patch("moondistribution.sigs.notify")
+        self.notify = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _claim(self, user, r, moons, sig=None, reason="Indy"):
+        """POST the claim page as user."""
+        self.client.force_login(user)
+        return self.client.post(reverse("moondistribution:sig_claim", args=[r.pk, (sig or self.sig).pk]),
+                                {"moon_ids": ",".join(str(m.pk) for m in moons), "reason": reason})
+
+    def test_leader_claims_and_officer_is_notified(self):
+        """SIG leader ticks a moon → claim waits for approval, officers get a notification."""
+        r = self._round()
+        self._claim(self.member_b, r, [self.moon1])
+        claim = SigClaim.objects.get()
+        self.assertEqual((claim.moon, claim.status, claim.requested_by), (self.moon1, "pending", self.member_b))
+        self.assertTrue(any(call.args[0] == self.officer for call in self.notify.call_args_list))
+        # SIG tab visible for the leader
+        self.assertContains(self.client.get(reverse("moondistribution:index")), reverse("moondistribution:sigs"))
+
+    def test_non_leader_cannot_claim(self):
+        """A CEO who is no SIG leader is sent back, nothing is saved."""
+        r = self._round()
+        self._claim(self.ceo_a, r, [self.moon1])
+        self.assertFalse(SigClaim.objects.exists())
+
+    def test_moon_of_other_sig_cannot_be_claimed(self):
+        """A moon already claimed by another SIG is skipped."""
+        r = self._round()
+        SigClaim.objects.create(round=r, sig=self.other_sig, moon=self.moon1)
+        self._claim(self.member_b, r, [self.moon1, self.moon2])
+        self.assertEqual(list(SigClaim.objects.filter(sig=self.sig).values_list("moon_id", flat=True)), [self.moon2.pk])
+
+    def test_approved_moon_is_not_offered_and_not_distributed(self):
+        """After approval the moon disappears from the application page and from the distribution."""
+        r = self._round()
+        self._claim(self.member_b, r, [self.moon1])
+        claim = SigClaim.objects.get()
+        self.client.force_login(self.officer)
+        self.client.post(reverse("moondistribution:sig_claim_decide", args=[claim.pk]), {"decision": "approve"})
+        claim.refresh_from_db()
+        self.assertEqual(claim.status, "approved")
+        # application page of a CEO no longer offers moon1
+        self.client.force_login(self.ceo_a)
+        resp = self.client.get(reverse("moondistribution:apply", args=[r.pk, 1001]))
+        self.assertNotContains(resp, self.moon1.name)
+        # both corps wanted moon1 – it is reserved, so only moon2 is distributed
+        for corp, user in ((self.corp_a, self.ceo_a), (self.corp_b, self.ceo_b)):
+            app = Application.objects.create(round=r, corporation=corp, submitted_by=user)
+            ApplicationWish.objects.create(application=app, moon=self.moon1, priority=1)
+            ApplicationWish.objects.create(application=app, moon=self.moon2, priority=1)
+        Round.objects.filter(pk=r.pk).update(application_end=timezone.now() - timedelta(minutes=1))
+        with mock.patch.object(distribute_round, "delay", side_effect=distribute_round):
+            process_rounds()
+        r.refresh_from_db()
+        self.assertEqual(r.status, Round.Status.DONE, r.last_error)
+        self.assertEqual(list(r.allocations.values_list("moon_id", flat=True)), [self.moon2.pk])
+        self.assertEqual(r.settings_snapshot["sig_reserved"], 1)
+        resp = self.client.get(reverse("moondistribution:round_detail", args=[r.pk]))
+        self.assertContains(resp, "Reserved for SIGs")
+        self.assertContains(resp, "SIG G-4")
+
+    def test_untick_withdraws_and_reject_then_reclaim(self):
+        """Unticking removes the claim; a rejected claim goes back to waiting when ticked again."""
+        r = self._round()
+        self._claim(self.member_b, r, [self.moon1, self.moon2])
+        self._claim(self.member_b, r, [self.moon2])
+        self.assertEqual(list(SigClaim.objects.values_list("moon_id", flat=True)), [self.moon2.pk])
+        claim = SigClaim.objects.get()
+        self.client.force_login(self.officer)
+        self.client.post(reverse("moondistribution:sig_claim_decide", args=[claim.pk]), {"decision": "reject", "note": "no"})
+        claim.refresh_from_db()
+        self.assertEqual((claim.status, claim.decision_note), ("rejected", "no"))
+        self._claim(self.member_b, r, [self.moon2])
+        claim.refresh_from_db()
+        self.assertEqual(claim.status, "pending")
+
+    def test_officer_manages_sigs_and_pages_render(self):
+        """Officer adds an AA group as SIG, approves all, toggles; SIG page and claim page render."""
+        from django.contrib.auth.models import Group
+
+        r = self._round()
+        self.client.force_login(self.officer)
+        new_group = Group.objects.create(name="Mining SIG")
+        self.client.post(reverse("moondistribution:sig_save"), {"group_id": new_group.pk, "name": "SIG Mining"})
+        self.assertTrue(Sig.objects.filter(name="SIG Mining").exists())
+        SigClaim.objects.create(round=r, sig=self.sig, moon=self.moon1)
+        self.client.post(reverse("moondistribution:sig_claims_approve_all", args=[r.pk, self.sig.pk]))
+        self.assertEqual(SigClaim.objects.get().status, "approved")
+        self.assertEqual(self.client.get(reverse("moondistribution:sigs")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("moondistribution:sig_claim", args=[r.pk, self.sig.pk])).status_code, 200)
+        self.client.post(reverse("moondistribution:sig_toggle", args=[self.sig.pk]))
+        self.sig.refresh_from_db()
+        self.assertFalse(self.sig.is_active)
+        # members without SIG are sent away from the SIG page, and can't decide claims
+        self.client.force_login(self.ceo_a)
+        self.assertEqual(self.client.get(reverse("moondistribution:sigs")).status_code, 302)
+        self.assertEqual(self.client.post(reverse("moondistribution:sig_claim_decide",
+                                                  args=[SigClaim.objects.get().pk]), {"decision": "reject"}).status_code, 403)
+
+
+class RentalTest(IntegrationBase):
+    """Monthly rental from the owner sheet ('Tax Rate 20 %')."""
+
+    SHEET = (
+        "System\tPlanet\tMond\tQualität\tCorp\tTax Rate 20 %\n"
+        "R-ARKN\t1\t1\tR32\tSIG G-4\t200.000.000,00\n"
+        "G-JC9R\t4\t17\tR32\tAbyssus Abyssum Invocat Noricum\t1.095.000.000,00\n"
+    )
+
+    def test_rental_imported_and_updated(self):
+        """Rental is stored, an existing moon gets the new value even without 'overwrite', shown as 200M / 1.1B."""
+        from moondistribution.rarity import apply_moon_data, parse_paste
+
+        apply_moon_data(parse_paste(self.SHEET), overwrite=False, create_missing=True)
+        self.moon1.refresh_from_db()
+        self.assertEqual(self.moon1.rental_isk, 200_000_000)
+        self.assertEqual(self.moon1.rental_display, "200M")
+        new = Moon.objects.get(name="G-JC9R IV - Moon 17")
+        self.assertEqual(new.rental_display, "1.09B")
+        apply_moon_data(parse_paste(self.SHEET.replace("200.000.000,00", "220.000.000,00")), overwrite=False)
+        self.moon1.refresh_from_db()
+        self.assertEqual(self.moon1.rental_isk, 220_000_000)
+
+    def test_rental_shown_on_round_page(self):
+        """The round page shows the rental column when a moon has one."""
+        Moon.objects.filter(pk=self.moon1.pk).update(rental_isk=180_000_000)
+        r = self._round()
+        self.client.force_login(self.ceo_a)
+        resp = self.client.get(reverse("moondistribution:round_detail", args=[r.pk]))
+        self.assertContains(resp, "Rental / month")
+        self.assertContains(resp, "180M")
 

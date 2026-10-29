@@ -30,6 +30,11 @@
             {{ form.rarity }}{{ form.rarity.errors }}
         </div>
         <div class="mb-3">
+            <label class="form-label" for="{{ form.rental_isk.id_for_label }}">{% translate "Rental / month (ISK)" %}</label>
+            {{ form.rental_isk }}{{ form.rental_isk.errors }}
+            <div class="form-text">{{ form.rental_isk.help_text }}</div>
+        </div>
+        <div class="mb-3">
             <label class="form-label" for="{{ form.notes.id_for_label }}">{% translate "Notes (shown to applicants)" %}</label>
             {{ form.notes }}{{ form.notes.errors }}
         </div>

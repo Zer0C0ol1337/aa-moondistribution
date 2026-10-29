@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.13] - 2026-10-30
+
+### Added
+
+- **SIGs reserve moons per round:** new tab "SIGs". A SIG is an AA group (e.g. G-4); its group leaders tick the moons the SIG needs for a round (draft or open), a Mining Officer approves or rejects each claim (or all at once, with a note). Approved moons are taken out of the distribution, are no longer offered on the application page and in the Excel template, and are listed as "Reserved for SIGs" on the round page. Officers get a notification for new claims, the SIG leader for the decision. Officers manage which AA groups are SIGs.
+- **Monthly rental per moon:** the owner sheet with the rental column (`System | Planet | Mond | Qualität | Corp | Tax Rate 20 %`) is recognised by the moon import; amounts like `1.095.000.000,00` are stored per moon and always updated to the current value. Shown as "Rental / month" (e.g. 180M, 1.1B) on the round page, the application page, the SIG page, the moon list, the moon form and in the Excel template.
+- Guide: SIG reservations and rental explained in all 12 languages
+- Migration `0010_sigs_rental`
+
+### Changed
+
+- Excel template: new column "Rental / month"; the import finds the ID column by its header, so templates exported with v0.1.12 can still be imported
+
+### Fixed
+
+- Round page crashed (`VariableDoesNotExist`) for an application without user (e.g. user deleted)
+
 ## [0.1.12] - 2026-10-29
 
 ### Added

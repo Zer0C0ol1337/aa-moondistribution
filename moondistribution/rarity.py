@@ -62,6 +62,21 @@ def to_roman(number: int) -> str:
     return result
 
 
+# ISK amounts like '180.000.000,00', '1,095,000,000.00', '220000000' or '220 000 000 ISK'
+_ISK = re.compile(r"^(\d{1,3}(?:[.,\s]\d{3})+|\d{7,})(?:[.,]\d{1,2})?$")
+
+
+def parse_isk(cell: str):
+    """'180.000.000,00' → 180000000; None for anything that is no ISK amount of at least 1 million."""
+    raw = (cell or "").strip().upper().replace("ISK", "").strip()
+    if not raw or "%" in raw or not _ISK.match(raw):
+        return None
+    # drop decimals (last separator followed by 1–2 digits), then all thousands separators
+    raw = re.sub(r"[.,]\d{1,2}$", "", raw)
+    value = int(re.sub(r"[.,\s]", "", raw))
+    return value if value >= 1_000_000 else None
+
+
 def parse_percent(cell: str):
     """'24.5%' / '24,5 %' / '0.245' (scan fraction) → 24.5; None if it is no number."""
     raw = cell.strip().replace(" ", "")
@@ -142,9 +157,11 @@ def parse_sheet_row(cells: list):
                     if share is not None:
                         note = f"{share:g} %"
                     break
+        # Owner sheet with rental column ('Tax Rate 20 %'): the first ISK amount after the triple
+        rental = next((parse_isk(c) for c in rest if parse_isk(c)), None)
         if not rarity:
             return None
-        return name, {"rarity": rarity, "composition": composition, "note": note, "owner": owner}
+        return name, {"rarity": rarity, "composition": composition, "note": note, "owner": owner, "rental": rental}
     return None
 
 
@@ -276,6 +293,7 @@ def apply_moon_data(entries: dict, overwrite: bool = False, create_missing: bool
         clean = " ".join(name.split())
         rarity, composition, note = entry["rarity"], entry.get("composition") or [], entry.get("note") or ""
         owner = entry.get("owner") or ""
+        rental = entry.get("rental")
         owner_corp = corps.get(owner.lower()) if owner else None
         moon = moons.get(clean.lower())
 
@@ -284,7 +302,7 @@ def apply_moon_data(entries: dict, overwrite: bool = False, create_missing: bool
                 new[clean.lower()] = Moon(
                     name=clean, system_name=system_from_moon_name(clean),
                     rarity=rarity, composition=composition, notes=note,
-                    owner_name=owner, owner_corporation=owner_corp,
+                    owner_name=owner, owner_corporation=owner_corp, rental_isk=rental,
                 )
             elif not create_missing:
                 stats["unknown"] += 1
@@ -299,13 +317,16 @@ def apply_moon_data(entries: dict, overwrite: bool = False, create_missing: bool
             moon.notes, dirty = note, True
         if owner and moon.owner_name != owner and (not moon.owner_name or overwrite):
             moon.owner_name, moon.owner_corporation, dirty = owner, owner_corp, True
+        # the rental is a price from the sheet, not a manual correction – always take the current value
+        if rental and moon.rental_isk != rental:
+            moon.rental_isk, dirty = rental, True
         if dirty:
             changed.append(moon)
         else:
             stats["unchanged"] += 1
 
     Moon.objects.bulk_update(
-        changed, ["rarity", "composition", "notes", "owner_name", "owner_corporation"], batch_size=500,
+        changed, ["rarity", "composition", "notes", "owner_name", "owner_corporation", "rental_isk"], batch_size=500,
     )
     Moon.objects.bulk_create(new.values(), batch_size=500)
     stats["updated"] = len(changed)

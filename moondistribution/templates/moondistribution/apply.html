@@ -31,6 +31,7 @@
                                     <th class="md-narrow" data-sort="text">{% translate "Moon" %}</th>
                                     <th class="md-narrow" data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
                                     <th class="md-narrow text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
+                                    {% if has_rental %}<th class="md-narrow text-end" data-sort="num" title="{% translate 'Monthly rental (owner sheet)' %}">{% translate "Rental / month" %}</th>{% endif %}
                                     <th>{% translate "Composition" %}</th>
                                     {% if has_owner %}<th class="md-narrow" data-sort="text">{% translate "Current owner" %}</th>{% endif %}
                                 </tr>
@@ -45,6 +46,7 @@
                                         <td class="md-name" data-value="{{ row.moon.name }}">{{ row.moon.name }}</td>
                                         <td data-value="{{ row.moon.rarity_sort|stringformat:'.1f' }}">{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
                                         <td class="text-end" data-value="{% if row.moon.best_share is not None %}{{ row.moon.best_share|stringformat:'.1f' }}{% endif %}">{% if row.moon.best_share is not None %}{{ row.moon.best_share|floatformat:"-1" }}%{% else %}<span class="text-muted">–</span>{% endif %}</td>
+                                        {% if has_rental %}<td class="text-end text-nowrap" data-value="{{ row.moon.rental_isk|default:'' }}">{{ row.moon.rental_display|default:"–" }}</td>{% endif %}
                                         <td>{% include "moondistribution/_composition.html" with moon=row.moon %} {% if row.moon.notes and row.moon.notes|last != "%" %}<span class="small text-muted">{{ row.moon.notes }}</span>{% endif %}</td>
                                         {% if has_owner %}<td class="small md-name" data-value="{{ row.moon.owner_display }}">{{ row.moon.owner_display|default:"–" }}</td>{% endif %}
                                     </tr>

@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from django.apps import apps
 from django.contrib import messages
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse
@@ -24,9 +24,11 @@ from .distribution import application_summary
 from .excel_template import export_round, import_templates
 from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_selection
 from .models import (
-    Allocation, Application, ApplicationWish, CorporationProbation, DistributionSettings, Moon, Round, RoundBonus,
+    Allocation, Application, ApplicationWish, CorporationProbation, DistributionSettings, Moon, Round, RoundBonus, Sig,
+    SigClaim,
 )
 from .probation import blocked_corporation_ids, probation_status
+from .sigs import claimed_moon_ids, notify_officers, notify_user, reserved_moon_ids, sigs_led_by
 from .providers import alliance_corporations, collect_members, eligible_corporations_for
 from .rarity import parse_paste
 from .tasks import distribute_round, import_moon_data, sync_moons, update_join_dates
@@ -41,6 +43,8 @@ def _ctx(request, **extra) -> dict:
         "app_version": __version__,
         "is_officer": request.user.has_perm("moondistribution.mining_officer"),
         "application_days": DistributionSettings.get_solo().application_days,
+        # "SIGs" tab for officers and SIG leaders
+        "show_sig_tab": request.user.has_perm("moondistribution.mining_officer") or sigs_led_by(request.user).exists(),
         **extra,
     }
 
@@ -146,8 +150,10 @@ def round_detail(request, round_id: int):
             ApplicationWish.objects.filter(application__round=round_obj)
             .values_list("moon_id").annotate(n=Count("id"))
         )
+    # SIG claims: approved = reserved (not distributed), pending only shown to officers
+    sig_claims = claimed_moon_ids(round_obj)
     moons = [
-        {"moon": m, "allocation": moon_owner.get(m.pk), "wishes": wish_counts.get(m.pk, 0)}
+        {"moon": m, "allocation": moon_owner.get(m.pk), "wishes": wish_counts.get(m.pk, 0), "sig": sig_claims.get(m.pk)}
         for m in round_obj.moons.select_related("owner_corporation")
     ]
     # Default order: most wanted first (officers), then rarity + best share, so the good moons are on top
@@ -176,6 +182,9 @@ def round_detail(request, round_id: int):
         moons=moons,
         moon_regions=group_by_region(moons, lambda row: row["moon"]),
         has_owner=any(row["moon"].owner_display for row in moons),
+        has_rental=any(row["moon"].rental_isk for row in moons),
+        sig_reserved=[c for c in sig_claims.values() if c.status == SigClaim.Status.APPROVED],
+        sig_pending=[c for c in sig_claims.values() if c.status == SigClaim.Status.PENDING] if is_officer else [],
         scores=list(round_obj.scores.select_related("corporation")) if round_obj.status == Round.Status.DONE else [],
         allocations=allocations,
         applications=applications,
@@ -215,6 +224,7 @@ def apply(request, round_id: int, corporation_id: int):
     moons_qs = round_obj.moons.select_related("owner_corporation")
     if settings.exclude_r64:
         moons_qs = moons_qs.exclude(rarity=Moon.Rarity.R64)
+    moons_qs = moons_qs.exclude(pk__in=reserved_moon_ids(round_obj))  # reserved for a SIG – not offered
     moons = list(moons_qs)
     application = Application.objects.filter(round=round_obj, corporation=corporation).first()
     selected = set(application.wishes.values_list("moon_id", flat=True)) if application else set()
@@ -257,6 +267,7 @@ def apply(request, round_id: int, corporation_id: int):
         application=application, max_wishes=settings.max_wishes, selected_count=len(selected),
         row_regions=group_by_region(rows, lambda row: row["moon"]),
         has_owner=any(row["moon"].owner_display for row in rows),
+        has_rental=any(row["moon"].rental_isk for row in rows),
     ))
 
 
@@ -681,4 +692,165 @@ def round_import(request, round_id: int):
                 "file": res["file"], "reason": (res["corp"] + ": " if res["corp"] else "") + res["message"],
             })
     return redirect("moondistribution:round_detail", round_id=round_obj.pk)
+
+
+# ---------------------------------------------------------------------------
+# SIGs – reserve moons for a round before the distribution
+# ---------------------------------------------------------------------------
+
+def _claim_rounds():
+    """Rounds in which SIGs can still claim moons: drafts and rounds open for applications."""
+    return Round.objects.filter(status__in=[Round.Status.DRAFT, Round.Status.OPEN]).order_by("-pk")
+
+
+def _may_claim_for(user, sig) -> bool:
+    """Officers may manage every SIG, SIG leaders only their own."""
+    return user.has_perm("moondistribution.mining_officer") or sigs_led_by(user).filter(pk=sig.pk).exists()
+
+
+@check_access()
+def sigs(request):
+    """SIG tab: SIG leaders see their SIGs and claims per round, officers additionally approve claims and manage SIGs."""
+    is_officer = request.user.has_perm("moondistribution.mining_officer")
+    led = list(sigs_led_by(request.user))
+    if not is_officer and not led:
+        messages.info(request, _("You do not lead a SIG."))
+        return redirect("moondistribution:index")
+    rounds = list(_claim_rounds())
+    claims = SigClaim.objects.filter(round__in=rounds).select_related("sig", "moon", "round", "requested_by__profile__main_character")
+    if not is_officer:
+        claims = claims.filter(sig__in=led)
+    known_groups = set(Sig.objects.values_list("group_id", flat=True))
+    return render(request, "moondistribution/sigs.html", _ctx(
+        request,
+        rounds=rounds,
+        my_sigs=Sig.objects.filter(is_active=True) if is_officer else led,
+        claims=list(claims.order_by("round_id", "sig__name", "moon__name")),
+        all_sigs=list(Sig.objects.select_related("group")) if is_officer else [],
+        free_groups=Group.objects.exclude(pk__in=known_groups).order_by("name") if is_officer else [],
+    ))
+
+
+@check_access()
+def sig_claim(request, round_id: int, sig_id: int):
+    """Tick the moons a SIG wants to reserve for this round; changes go back to 'waiting for approval'."""
+    round_obj = get_object_or_404(_claim_rounds(), pk=round_id)
+    sig = get_object_or_404(Sig, pk=sig_id, is_active=True)
+    if not _may_claim_for(request.user, sig):
+        messages.error(request, _("Only the leaders of %(sig)s can claim moons for it.") % {"sig": sig.name})
+        return redirect("moondistribution:sigs")
+
+    settings = DistributionSettings.get_solo()
+    pool = round_obj.moons.select_related("owner_corporation")
+    if settings.exclude_r64:
+        pool = pool.exclude(rarity=Moon.Rarity.R64)
+    pool = list(pool)
+    others = claimed_moon_ids(round_obj, exclude_sig=sig)  # moons another SIG already claimed
+    own = {c.moon_id: c for c in SigClaim.objects.filter(round=round_obj, sig=sig)}
+
+    if request.method == "POST":
+        wanted = {mid for mid in ids_from_csv(request.POST.get("moon_ids", "")) if mid not in others}
+        wanted &= {m.pk for m in pool}
+        reason = (request.POST.get("reason") or "").strip()[:255]
+        new = 0
+        with transaction.atomic():
+            # unticked → claim withdrawn
+            SigClaim.objects.filter(round=round_obj, sig=sig).exclude(moon_id__in=wanted).delete()
+            for moon_id in wanted:
+                claim = own.get(moon_id)
+                if claim is None:
+                    SigClaim.objects.create(round=round_obj, sig=sig, moon_id=moon_id, reason=reason,
+                                            requested_by=request.user)
+                    new += 1
+                elif claim.status == SigClaim.Status.REJECTED:
+                    claim.status, claim.reason, claim.requested_by = SigClaim.Status.PENDING, reason, request.user
+                    claim.decided_by, claim.decided_at, claim.decision_note = None, None, ""
+                    claim.save()
+                    new += 1
+                elif reason and claim.reason != reason:
+                    claim.reason = reason
+                    claim.save(update_fields=["reason"])
+        if new:
+            notify_officers(
+                f"Moon Distribution: SIG claims ({sig.name})",
+                f"{sig.name} claims {new} moon(s) for {round_obj.name} – please approve or reject them on the SIG page.",
+            )
+        messages.success(request, _("Claims of %(sig)s saved – %(n)s new, waiting for approval by a Mining Officer.") % {
+            "sig": sig.name, "n": new,
+        })
+        return redirect("moondistribution:sigs")
+
+    rows = [{"moon": m, "own": own.get(m.pk), "other": others.get(m.pk)} for m in pool]
+    rows.sort(key=lambda r: (r["own"] is None, r["other"] is not None, -r["moon"].rarity_sort, r["moon"].name))
+    return render(request, "moondistribution/sig_claim.html", _ctx(
+        request, round=round_obj, sig=sig, rows=rows, row_regions=group_by_region(rows, lambda row: row["moon"]),
+        has_rental=any(r["moon"].rental_isk for r in rows),
+        reason=next((c.reason for c in own.values() if c.reason), ""),
+    ))
+
+
+@officer_required
+@require_POST
+def sig_claim_decide(request, claim_id: int):
+    """Officer approves or rejects one SIG claim (with an optional note); the requester gets a notification."""
+    claim = get_object_or_404(SigClaim.objects.select_related("sig", "moon", "round"), pk=claim_id)
+    if claim.round.status not in (Round.Status.DRAFT, Round.Status.OPEN):
+        messages.error(request, _("The round is already closed."))
+        return redirect("moondistribution:sigs")
+    approve = request.POST.get("decision") == "approve"
+    claim.status = SigClaim.Status.APPROVED if approve else SigClaim.Status.REJECTED
+    claim.decided_by, claim.decided_at = request.user, timezone.now()
+    claim.decision_note = (request.POST.get("note") or "").strip()[:255]
+    claim.save()
+    notify_user(
+        claim.requested_by, f"Moon Distribution: SIG claim {'approved' if approve else 'rejected'}",
+        f"{claim.moon.name} for {claim.sig.name} ({claim.round.name}): {'approved' if approve else 'rejected'}"
+        + (f" – {claim.decision_note}" if claim.decision_note else ""),
+        "success" if approve else "warning",
+    )
+    messages.success(request, _("Claim updated."))
+    return redirect("moondistribution:sigs")
+
+
+@officer_required
+@require_POST
+def sig_claims_approve_all(request, round_id: int, sig_id: int):
+    """Officer approves all waiting claims of one SIG in a round at once."""
+    round_obj = get_object_or_404(_claim_rounds(), pk=round_id)
+    sig = get_object_or_404(Sig, pk=sig_id)
+    pending = SigClaim.objects.filter(round=round_obj, sig=sig, status=SigClaim.Status.PENDING)
+    requesters = set(pending.values_list("requested_by", flat=True))
+    count = pending.update(status=SigClaim.Status.APPROVED, decided_by=request.user, decided_at=timezone.now())
+    for user in User.objects.filter(pk__in=requesters):
+        notify_user(user, "Moon Distribution: SIG claims approved",
+                    f"{count} claim(s) of {sig.name} for {round_obj.name} approved.", "success")
+    messages.success(request, _("%(n)s claims of %(sig)s approved.") % {"n": count, "sig": sig.name})
+    return redirect("moondistribution:sigs")
+
+
+@officer_required
+@require_POST
+def sig_save(request):
+    """Officer marks an AA group as SIG (its group leaders may then claim moons)."""
+    group = get_object_or_404(Group, pk=request.POST.get("group_id") or 0)
+    name = (request.POST.get("name") or "").strip()[:100] or group.name
+    sig, created = Sig.objects.get_or_create(group=group, defaults={"name": name})
+    if not created:
+        sig.name, sig.is_active = name, True
+        sig.save()
+    messages.success(request, _("SIG %(sig)s saved.") % {"sig": sig.name})
+    return redirect("moondistribution:sigs")
+
+
+@officer_required
+@require_POST
+def sig_toggle(request, sig_id: int):
+    """Officer switches a SIG on or off (inactive SIGs can't claim; existing claims stay)."""
+    sig = get_object_or_404(Sig, pk=sig_id)
+    sig.is_active = not sig.is_active
+    sig.save(update_fields=["is_active"])
+    messages.info(request, _("SIG %(sig)s is now %(state)s.") % {
+        "sig": sig.name, "state": _("active") if sig.is_active else _("inactive"),
+    })
+    return redirect("moondistribution:sigs")
 

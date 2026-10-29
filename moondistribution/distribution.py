@@ -12,7 +12,7 @@ from django.utils import timezone
 from allianceauth.services.hooks import get_extension_logger
 from allianceauth.notifications import notify
 
-from . import probation, providers
+from . import probation, providers, sigs
 from .models import Allocation, Application, CorporationScore, DistributionSettings, Moon, Round
 
 logger = get_extension_logger(__name__)
@@ -217,6 +217,9 @@ def run_distribution(round_obj: Round) -> None:
     pool_qs = round_obj.moons.all()
     if settings.exclude_r64:
         pool_qs = pool_qs.exclude(rarity=Moon.Rarity.R64)
+    # moons reserved for a SIG (approved claim) are not distributed
+    reserved = sigs.reserved_moon_ids(round_obj)
+    pool_qs = pool_qs.exclude(pk__in=reserved)
     pool_moons = list(pool_qs)
     moon_rarity = {m.pk: m.rarity for m in pool_moons}
     moon_quality = {m.pk: m.rarity_sort for m in pool_moons}
@@ -285,6 +288,7 @@ def run_distribution(round_obj: Round) -> None:
             "bonus_no_r32": settings.bonus_no_r32,
             "probation_months": settings.probation_months,
             "probation_excluded": sorted(a.corporation.corporation_name for a in excluded),
+            "sig_reserved": len(reserved),
         }
         round_obj.save()
 

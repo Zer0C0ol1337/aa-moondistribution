@@ -1,6 +1,6 @@
 # aa-moondistribution
 
-**Version 0.1.12** – see [CHANGELOG](CHANGELOG.md)
+**Version 0.1.13** – see [CHANGELOG](CHANGELOG.md)
 
 Alliance Auth plugin for the periodic **moon distribution** of an alliance (e.g. every 6 months).
 
@@ -17,6 +17,8 @@ UI languages: English, German. The "How it works" guide for the corps is availab
   - **region tabs** everywhere moons are listed – the region comes from the EVE map data (Corptools' eve_sde, eveuniverse as fallback)
   - filter, search, bulk edit; pools with thousands of moons are supported
 - **Probation**: corps can only apply after N months in the alliance (setting, default 3, 0 = off), counted from their last join according to the EVE alliance history; officers can make an exception per corp (page *Corps*)
+- **SIG reservations**: SIGs (AA groups, e.g. G-4) claim moons for a round, a Mining Officer approves them; approved moons are not distributed (tab *SIGs*)
+- **Monthly rental** per moon from the owner sheet (`… | Corp | Tax Rate 20 %`), shown next to the moons
 - **Applications** by the corp CEO or directors (Corptools role data) – tick the wanted moons (no ranking, all count the same), changeable until the deadline
 - **Excel template for corps without Auth access** (e.g. behind the Chinese firewall): officers export the round's moons with all details (English/Chinese), the CEO marks the wanted moons and sends the file back, the officer imports it (several files at once); such corps are rated by PvP and fleets only
 - **"How it works" guide** for the corps in all Alliance Auth languages, always showing the current settings
@@ -102,11 +104,14 @@ CELERYBEAT_SCHEDULE["moondistribution_process_rounds"] = {
 
 Superusers have all permissions and act as officers.
 
+SIG leaders need no extra permission: the group leaders of an AA group that an officer added as SIG get the *SIGs* tab automatically (they still need `basic_access`, usually via the member state).
+
 ## First steps
 
 1. **Settings** → alliance ID, probation, weights, limits and fairness rules
    **Corps** → check join dates (*Update join dates from ESI*) and set exceptions if needed
 2. **Moons** → *Add moons / rarity from scans*: paste your moon sheets (all rows incl. header – several sheets one after another are fine), keep *Create missing moons* ticked; an owner sheet (`System | Planet | Moon | Type | Corp`) sets the current owners. The import runs in the background, you get a notification with the result.
+   **SIGs** → add the AA groups that are SIGs; their **group leaders** (AA Group Management) can then claim moons for each round
 3. **New round** → activity period + moon pool (per region) → optional manual bonus points → *Open for applications*
 4. When the week is over, `process_rounds` closes the round and distributes it once
 

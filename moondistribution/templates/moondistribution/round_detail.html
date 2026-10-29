@@ -205,6 +205,20 @@
         {% endif %}
     {% endif %}
 
+    {% if sig_reserved or sig_pending %}
+        {# moons reserved for SIGs – not part of the distribution #}
+        <div class="card mb-4">
+            <div class="card-header fw-bold"><i class="fas fa-flag me-1"></i>{% translate "Reserved for SIGs" %} ({{ sig_reserved|length }})
+                {% if sig_pending %}<span class="badge text-bg-warning ms-2">{% blocktranslate count n=sig_pending|length %}{{ n }} claim waiting for approval{% plural %}{{ n }} claims waiting for approval{% endblocktranslate %}</span>{% endif %}
+                {% if show_sig_tab %}<a class="small ms-2" href="{% url 'moondistribution:sigs' %}">{% translate "SIG page" %}</a>{% endif %}
+            </div>
+            <div class="card-body py-2 small">
+                {% for c in sig_reserved %}<span class="me-3 text-nowrap">{% include "moondistribution/_rarity_badge.html" with rarity=c.moon.rarity %} {{ c.moon.name }} → <strong>{{ c.sig.name }}</strong></span>{% empty %}<span class="text-muted">{% translate "None approved yet." %}</span>{% endfor %}
+                {% if sig_pending %}<div class="text-muted mt-1">{% translate "Waiting claims count only after approval – unapproved claims are distributed normally." %}</div>{% endif %}
+            </div>
+        </div>
+    {% endif %}
+
     <h4 class="mb-3">{% translate "Moons" %} <span class="text-muted small">({{ moons|length }})</span></h4>
     {% include "moondistribution/_region_tabs_nav.html" with groups=moon_regions prefix="moons" %}
     <div class="tab-content">
@@ -217,6 +231,7 @@
                                 <th class="md-narrow" data-sort="text">{% translate "Moon" %}</th>
                                 <th class="md-narrow" data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
                                 <th class="md-narrow text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
+                                {% if has_rental %}<th class="md-narrow text-end" data-sort="num" title="{% translate 'Monthly rental (owner sheet)' %}">{% translate "Rental / month" %}</th>{% endif %}
                                 <th>{% translate "Composition" %}</th>
                                 {% if has_owner %}<th class="md-narrow" data-sort="text">{% translate "Current owner" %}</th>{% endif %}
                                 {% if is_officer %}<th class="md-narrow text-end" data-sort="num" title="{% translate 'Number of corps that have this moon on their wishlist' %}">{% translate "Applications" %}</th>{% endif %}
@@ -226,9 +241,14 @@
                         <tbody>
                             {% for row in g.items %}
                                 <tr>
-                                    <td class="md-name" data-value="{{ row.moon.name }}">{{ row.moon.name }}</td>
+                                    <td class="md-name" data-value="{{ row.moon.name }}">
+                                        {{ row.moon.name }}
+                                        {% if row.sig.status == "approved" %}<span class="badge text-bg-info ms-1" title="{% translate 'Reserved for a SIG – not distributed' %}"><i class="fas fa-flag"></i> {{ row.sig.sig.name }}</span>
+                                        {% elif row.sig and is_officer %}<span class="badge text-bg-warning ms-1" title="{% translate 'SIG claim waiting for approval' %}"><i class="fas fa-flag"></i> {{ row.sig.sig.name }}?</span>{% endif %}
+                                    </td>
                                     <td data-value="{{ row.moon.rarity_sort|stringformat:'.1f' }}">{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
                                     <td class="text-end" data-value="{% if row.moon.best_share is not None %}{{ row.moon.best_share|stringformat:'.1f' }}{% endif %}">{% if row.moon.best_share is not None %}{{ row.moon.best_share|floatformat:"-1" }}%{% else %}<span class="text-muted">–</span>{% endif %}</td>
+                                    {% if has_rental %}<td class="text-end text-nowrap" data-value="{{ row.moon.rental_isk|default:'' }}">{{ row.moon.rental_display|default:"–" }}</td>{% endif %}
                                     <td>{% include "moondistribution/_composition.html" with moon=row.moon %} {% if row.moon.notes and row.moon.notes|last != "%" %}<span class="small text-muted">{{ row.moon.notes }}</span>{% endif %}</td>
                                     {% if has_owner %}<td class="small md-name" data-value="{{ row.moon.owner_display }}">{{ row.moon.owner_display|default:"–" }}</td>{% endif %}
                                     {% if is_officer %}
@@ -237,7 +257,7 @@
                                         </td>
                                     {% endif %}
                                     {% if round.status == "done" %}
-                                        <td class="fw-bold" data-value="{{ row.allocation.corporation.corporation_name|default:'' }}">{{ row.allocation.corporation.corporation_name|default:"–" }}</td>
+                                        <td class="fw-bold" data-value="{{ row.allocation.corporation.corporation_name|default:'' }}">{% if row.allocation %}{{ row.allocation.corporation.corporation_name }}{% elif row.sig.status == "approved" %}<span class="text-info">{{ row.sig.sig.name }}</span>{% else %}–{% endif %}</td>
                                     {% endif %}
                                 </tr>
                             {% endfor %}
@@ -261,7 +281,8 @@
                     </span>
                     <span class="small text-muted">
                         {% if app.entered_by_officer %}<span class="badge text-bg-info me-1" title="{% translate 'Entered by a Mining Officer (Excel template or apply for corp)' %}"><i class="fas fa-user-pen"></i> {% translate "entered by officer" %}</span>{% endif %}
-                        {% translate "by" %} {{ app.submitted_by.profile.main_character.character_name|default:app.submitted_by.username }},
+                        {# submitted_by can be empty (user deleted, or created by script) #}
+                        {% if app.submitted_by %}{% translate "by" %} {{ app.submitted_by.profile.main_character.character_name|default:app.submitted_by.username }},{% endif %}
                         {{ app.updated_at|date:"Y-m-d H:i" }}
                     </span>
                 </div>

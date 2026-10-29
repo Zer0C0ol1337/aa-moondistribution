@@ -90,7 +90,8 @@ T["en"] = dict(
          <p>Limits per corp and round:
          {{% if s.max_r32_per_corp is not None %}}max. <strong>{V['r32']}</strong> × {chip(32)}{{% endif %}}
          {{% if s.max_r16_per_corp is not None %}}, max. <strong>{V['r16']}</strong> × {chip(16)}{{% endif %}}
-         – if your corp reached a limit, the next free moon of a different class is taken instead.</p>"""),
+         – if your corp reached a limit, the next free moon of a different class is taken instead.</p>
+         <p>Moons reserved for alliance SIGs (approved by the Mining Officers) are marked on the round page and are not distributed. Where known, the monthly rental of a moon is shown next to it.</p>"""),
         ("8. Tips",
          """<ul>
          <li>Tick enough moons – if all of your moons are taken before it is your turn, your corp gets nothing.</li>
@@ -157,7 +158,8 @@ T["de"] = dict(
          <p>Limits pro Corp und Runde:
          {{% if s.max_r32_per_corp is not None %}}max. <strong>{V['r32']}</strong> × {chip(32)}{{% endif %}}
          {{% if s.max_r16_per_corp is not None %}}, max. <strong>{V['r16']}</strong> × {chip(16)}{{% endif %}}
-         – ist ein Limit erreicht, bekommt eure Corp stattdessen den nächsten freien Mond einer anderen Klasse.</p>"""),
+         – ist ein Limit erreicht, bekommt eure Corp stattdessen den nächsten freien Mond einer anderen Klasse.</p>
+         <p>Monde, die für Allianz-SIGs reserviert sind (von den Mining Officern bestätigt), sind auf der Rundenseite markiert und werden nicht verteilt. Wo bekannt, steht die monatliche Rental beim Mond.</p>"""),
         ("8. Tipps",
          """<ul>
          <li>Hakt genug Monde an – sind alle eure Monde vergeben, bevor ihr dran seid, geht eure Corp leer aus.</li>
@@ -197,7 +199,8 @@ def build(lang, title, footer, h, t):
          <p>{t['lim']}
          {{% if s.max_r32_per_corp is not None %}}max. <strong>{V['r32']}</strong> × {chip(32)}{{% endif %}}
          {{% if s.max_r16_per_corp is not None %}}, max. <strong>{V['r16']}</strong> × {chip(16)}{{% endif %}}
-         – {t['lim2']}</p>"""),
+         – {t['lim2']}</p>
+         <p>{t['sig']}</p>"""),
         (h[7], f"""<ul><li>{t['tip1']}</li><li>{t['tip2']}</li><li>{t['tip3']}</li></ul>"""),
     ])
 
@@ -237,6 +240,7 @@ build("es", "Cómo funciona el reparto de lunas", "Esta página muestra siempre 
           d2="Por turnos, cada corp recibe <strong>una</strong> luna: la mejor de sus lunas marcadas que siga libre (primero la rareza, luego el porcentaje del mineral valioso).",
           d3=f"Después empieza la siguiente vuelta otra vez con la mejor corp, hasta que cada corp tenga <strong>{V['maxm']}</strong> lunas o ya no quede libre ninguna de sus lunas.",
           lim="Límites por corp y ronda:", lim2="si vuestra corp alcanza un límite, recibe en su lugar la siguiente luna libre de otra clase.",
+          sig="Las lunas reservadas para los SIG de la alianza (aprobadas por los Mining Officers) aparecen marcadas en la página de la ronda y no se reparten. Si se conoce, el alquiler mensual se muestra junto a la luna.",
           tip1="Marcad suficientes lunas: si todas vuestras lunas están asignadas antes de vuestro turno, vuestra corp se queda sin nada.",
           tip2="Aseguraos de que todos los miembros han registrado sus personajes en el Auth: solo los jugadores registrados cuentan como miembros activos.",
           tip3="Volad en flotas con enlaces FAT y combatid: eso es lo que más cuenta.",
@@ -277,6 +281,7 @@ build("it", "Come funziona la distribuzione delle lune", "Questa pagina mostra s
           d2="A turno ogni corp riceve <strong>una</strong> luna: la migliore tra le sue lune spuntate ancora libere (prima la rarità, poi la quota del minerale prezioso).",
           d3=f"Poi inizia il giro successivo, di nuovo dalla corp migliore – finché ogni corp ha <strong>{V['maxm']}</strong> lune o nessuna delle sue lune è più libera.",
           lim="Limiti per corp e round:", lim2="se la vostra corp raggiunge un limite, riceve invece la prossima luna libera di un'altra classe.",
+          sig="Le lune riservate ai SIG dell'alleanza (approvate dai Mining Officer) sono segnate nella pagina del round e non vengono distribuite. Se noto, l'affitto mensile è indicato accanto alla luna.",
           tip1="Spuntate abbastanza lune: se tutte le vostre lune vengono assegnate prima del vostro turno, la vostra corp resta a mani vuote.",
           tip2="Assicuratevi che tutti i membri abbiano registrato i loro personaggi nell'Auth: solo i giocatori registrati contano come membri attivi.",
           tip3="Volate in flotta con i link FAT e combattete: è ciò che conta di più.",
@@ -317,6 +322,7 @@ build("fr", "Comment fonctionne la distribution des lunes", "Cette page affiche 
           d2="Chacune son tour, chaque corp reçoit <strong>une</strong> lune : la meilleure de ses lunes cochées encore libre (d'abord la rareté, puis la part du minerai précieux).",
           d3=f"Puis le tour suivant recommence avec la meilleure corp – jusqu'à ce que chaque corp ait <strong>{V['maxm']}</strong> lunes ou qu'aucune de ses lunes ne soit encore libre.",
           lim="Limites par corp et par tour :", lim2="si votre corp atteint une limite, elle reçoit à la place la prochaine lune libre d'une autre classe.",
+          sig="Les lunes réservées aux SIG de l'alliance (approuvées par les Mining Officers) sont signalées sur la page de la manche et ne sont pas distribuées. Si elle est connue, la location mensuelle est indiquée à côté de la lune.",
           tip1="Cochez assez de lunes : si toutes vos lunes sont attribuées avant votre tour, votre corp n'obtient rien.",
           tip2="Veillez à ce que tous les membres aient enregistré leurs personnages dans l'Auth : seuls les joueurs enregistrés comptent comme membres actifs.",
           tip3="Volez en flotte avec des liens FAT et combattez – c'est ce qui compte le plus.",
@@ -357,6 +363,7 @@ build("nl", "Zo werkt de maanverdeling", "Deze pagina toont altijd de actuele in
           d2="Om de beurt krijgt elke corp <strong>één</strong> maan: de beste van haar aangevinkte manen die nog vrij is (eerst zeldzaamheid, dan aandeel van het waardevolle erts).",
           d3=f"Daarna begint de volgende ronde weer bij de beste corp – tot elke corp <strong>{V['maxm']}</strong> manen heeft of geen van haar manen nog vrij is.",
           lim="Limieten per corp en ronde:", lim2="bereikt jullie corp een limiet, dan krijgt ze in plaats daarvan de volgende vrije maan van een andere klasse.",
+          sig="Manen die voor SIG's van de alliantie gereserveerd zijn (goedgekeurd door de Mining Officers) zijn op de rondepagina gemarkeerd en worden niet verdeeld. Waar bekend staat de maandelijkse huur bij de maan.",
           tip1="Vink genoeg manen aan – zijn al jullie manen weg voordat jullie aan de beurt zijn, dan krijgt jullie corp niets.",
           tip2="Zorg dat alle leden hun personages in de Auth hebben geregistreerd – alleen geregistreerde spelers tellen als actieve leden.",
           tip3="Vlieg fleets met FAT-links en vecht – dat telt het zwaarst.",
@@ -397,6 +404,7 @@ build("pl", "Jak działa podział księżyców", "Ta strona zawsze pokazuje aktu
           d2="Po kolei każda corp dostaje <strong>jeden</strong> księżyc: najlepszy z zaznaczonych, który jest jeszcze wolny (najpierw rzadkość, potem udział cennej rudy).",
           d3=f"Potem zaczyna się kolejna tura, znowu od najlepszej corp – aż każda corp ma <strong>{V['maxm']}</strong> księżyce albo żaden z jej księżyców nie jest już wolny.",
           lim="Limity na corp i rundę:", lim2="jeśli wasza corp osiągnie limit, dostaje zamiast tego następny wolny księżyc innej klasy.",
+          sig="Księżyce zarezerwowane dla SIG sojuszu (zatwierdzone przez Mining Officerów) są oznaczone na stronie rundy i nie są rozdzielane. Jeśli jest znany, miesięczny czynsz jest podany przy księżycu.",
           tip1="Zaznaczcie wystarczająco dużo księżyców – jeśli wszystkie zostaną rozdane przed waszą kolejką, corp nic nie dostanie.",
           tip2="Upewnijcie się, że wszyscy członkowie zarejestrowali swoje postacie w Auth – tylko zarejestrowani gracze liczą się jako aktywni członkowie.",
           tip3="Latajcie we flotach z linkami FAT i walczcie – to liczy się najbardziej.",
@@ -437,6 +445,7 @@ build("ru", "Как работает распределение лун", "На �
           d2="По очереди каждая корпорация получает <strong>одну</strong> луну: лучшую из отмеченных, которая ещё свободна (сначала редкость, затем доля ценной руды).",
           d3=f"Затем начинается следующий круг, снова с лучшей корпорации – пока у каждой корпорации не будет <strong>{V['maxm']}</strong> лун или пока ни одна из её лун не останется свободной.",
           lim="Лимиты на корпорацию за раунд:", lim2="если ваша корпорация достигла лимита, она получает следующую свободную луну другого класса.",
+          sig="Луны, зарезервированные для SIG альянса (одобренные Mining Officer'ами), отмечены на странице раунда и не распределяются. Если известна, рядом с луной указана ежемесячная аренда.",
           tip1="Отмечайте достаточно лун – если все ваши луны разберут до вашей очереди, корпорация ничего не получит.",
           tip2="Убедитесь, что все участники зарегистрировали своих персонажей в Auth – только зарегистрированные игроки считаются активными участниками.",
           tip3="Летайте во флотах с FAT-ссылками и сражайтесь – это важнее всего.",
@@ -477,6 +486,7 @@ build("uk", "Як працює розподіл місяців", "Ця стор�
           d2="По черзі кожна корпорація отримує <strong>один</strong> місяць: найкращий із позначених, який ще вільний (спочатку рідкість, потім частка цінної руди).",
           d3=f"Потім починається наступне коло, знову з найкращої корпорації – доки кожна корпорація не матиме <strong>{V['maxm']}</strong> місяців або жоден із її місяців не залишиться вільним.",
           lim="Ліміти на корпорацію за раунд:", lim2="якщо ваша корпорація досягла ліміту, вона отримує наступний вільний місяць іншого класу.",
+          sig="Місяці, зарезервовані для SIG альянсу (схвалені Mining Officer'ами), позначені на сторінці раунду й не розподіляються. Якщо відома, біля місяця вказано щомісячну оренду.",
           tip1="Позначайте достатньо місяців – якщо всі ваші місяці розберуть до вашої черги, корпорація нічого не отримає.",
           tip2="Переконайтеся, що всі учасники зареєстрували своїх персонажів в Auth – лише зареєстровані гравці вважаються активними учасниками.",
           tip3="Літайте у флотах із FAT-посиланнями та бийтеся – це важить найбільше.",
@@ -517,6 +527,7 @@ build("ja", "ムーン分配の仕組み", "このページには常にマイニ
           d2="順番に各コーポが<strong>1つ</strong>のムーンを受け取ります。チェックしたムーンのうち、まだ空いている最良のもの（まずレア度、次に高価値鉱石の割合）です。",
           d3=f"その後、再び最上位のコーポから次の周回が始まり、各コーポが<strong>{V['maxm']}</strong>個のムーンを得るか、希望ムーンがすべて埋まるまで続きます。",
           lim="1コーポ・1ラウンドあたりの上限：", lim2="上限に達した場合は、代わりに別クラスの次の空いているムーンが割り当てられます。",
+          sig="同盟の SIG 用に予約されたムーン（マイニングオフィサーが承認）はラウンドページに表示され、分配されません。わかっている場合は、月額レンタル料がムーンの横に表示されます。",
           tip1="十分な数のムーンをチェックしてください。自分の番の前に希望ムーンがすべて埋まると、コーポは何も得られません。",
           tip2="全メンバーがキャラクターを Auth に登録しているか確認してください。登録済みのプレイヤーだけがアクティブメンバーとして数えられます。",
           tip3="FATリンク付きのフリートに参加して戦いましょう。それが最も重要です。",
@@ -557,6 +568,7 @@ build("ko", "위성 분배 방식 안내", "이 페이지에는 항상 마이닝
           d2="차례대로 각 코퍼레이션이 <strong>하나</strong>의 위성을 받습니다: 체크한 위성 중 아직 남아 있는 가장 좋은 위성(먼저 희귀도, 그다음 고가치 광석 비율).",
           d3=f"그다음 다시 최고 코퍼레이션부터 다음 바퀴가 시작되며, 각 코퍼레이션이 <strong>{V['maxm']}</strong>개의 위성을 받거나 원하는 위성이 모두 소진될 때까지 계속됩니다.",
           lim="코퍼레이션·라운드당 한도:", lim2="한도에 도달하면 대신 다른 등급의 다음 남은 위성이 배정됩니다.",
+          sig="얼라이언스 SIG용으로 예약된 위성(마이닝 오피서 승인)은 라운드 페이지에 표시되며 분배되지 않습니다. 알려진 경우 위성 옆에 월 임대료가 표시됩니다.",
           tip1="위성을 충분히 체크하세요. 내 차례 전에 원하는 위성이 모두 배정되면 코퍼레이션은 아무것도 받지 못합니다.",
           tip2="모든 멤버가 Auth에 캐릭터를 등록했는지 확인하세요. 등록된 플레이어만 활동 멤버로 계산됩니다.",
           tip3="FAT 링크가 있는 함대에 참여하고 싸우세요. 그것이 가장 중요합니다.",
@@ -597,6 +609,7 @@ build("zh_hans", "卫星分配说明", "本页面始终显示 Mining Officer 的
           d2="各军团依次获得<strong>一个</strong>卫星：在其勾选的卫星中仍空闲的最好的一个（先看稀有度，再看高价值矿石占比）。",
           d3=f"然后从最高分军团开始下一轮，直到每个军团获得 <strong>{V['maxm']}</strong> 个卫星，或其想要的卫星都已被分走。",
           lim="每个军团每轮的上限：", lim2="达到上限后，将改为分配另一等级的下一个空闲卫星。",
+          sig="为联盟 SIG 预留的卫星（经 Mining Officer 批准）会在本轮页面上标出，不参与分配。如已知，卫星旁会显示每月租金。",
           tip1="勾选足够多的卫星——如果在轮到你之前你想要的卫星都被分走，你的军团将一无所获。",
           tip2="确保所有成员都已在 Auth 中注册角色——只有注册的玩家才算活跃成员。",
           tip3="参加带 FAT 链接的舰队并积极战斗——这最重要。",

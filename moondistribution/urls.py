@@ -43,6 +43,13 @@ urlpatterns = [
     # officer: Excel template for corps without Auth access
     path("round/<int:round_id>/export/", views.round_export, name="round_export"),
     path("round/<int:round_id>/import/", views.round_import, name="round_import"),
+    # SIGs: leaders claim moons per round, officers approve and manage SIGs
+    path("sigs/", views.sigs, name="sigs"),
+    path("sigs/save/", views.sig_save, name="sig_save"),
+    path("sigs/<int:sig_id>/toggle/", views.sig_toggle, name="sig_toggle"),
+    path("sigs/claim/<int:claim_id>/decide/", views.sig_claim_decide, name="sig_claim_decide"),
+    path("round/<int:round_id>/sig/<int:sig_id>/", views.sig_claim, name="sig_claim"),
+    path("round/<int:round_id>/sig/<int:sig_id>/approve-all/", views.sig_claims_approve_all, name="sig_claims_approve_all"),
     path("corps/", views.corps, name="corps"),
     path("corps/refresh/", views.corps_refresh, name="corps_refresh"),
     path("corps/<int:corporation_id>/exempt/", views.corp_exempt, name="corp_exempt"),

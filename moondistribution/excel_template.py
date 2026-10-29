@@ -28,12 +28,12 @@ META_SHEET = "meta"
 TICKER_CELL = "B3"
 HEADER_ROW = 6
 FIRST_MOON_ROW = 7
-ID_COLUMN = 8  # column H
+ID_COLUMN = 9  # column I (templates of v0.1.12 had it in column H – the reader looks for the "ID" header)
 MARK_EMPTY = {"", "0", "-", "no", "nein", "否", "n"}
 
 HEADERS = [
     "Wanted (x) / 想要 (x)", "Region / 星域", "Moon / 卫星", "Rarity / 稀有度", "Best % / 最佳 %",
-    "Composition / 成分", "Current owner / 当前所有者", "ID",
+    "Composition / 成分", "Current owner / 当前所有者", "Rental / month (ISK) / 月租 (ISK)", "ID",
 ]
 RARITY_FILL = {"R64": "F28B82", "R32": "FFA94D", "R16": "69DB7C", "R8": "74A9F7", "R4": "FFFFFF"}
 
@@ -43,6 +43,9 @@ def _pool(round_obj):
     qs = round_obj.moons.select_related("owner_corporation")
     if DistributionSettings.get_solo().exclude_r64:
         qs = qs.exclude(rarity=Moon.Rarity.R64)
+    from .sigs import reserved_moon_ids
+
+    qs = qs.exclude(pk__in=reserved_moon_ids(round_obj))  # reserved for a SIG
     moons = list(qs)
     moons.sort(key=lambda m: (m.region_name or "~", -m.rarity_sort, m.name))
     return moons
@@ -71,7 +74,7 @@ def export_round(round_obj) -> bytes:
         f"然后把文件发回给你的 Mining Officer。"
     )
     ws["A4"].alignment = Alignment(wrap_text=True, vertical="top")
-    ws.merge_cells("A4:H4")
+    ws.merge_cells("A4:I4")
     ws.row_dimensions[4].height = 48
 
     for col, title in enumerate(HEADERS, start=1):
@@ -92,12 +95,14 @@ def export_round(round_obj) -> bytes:
             for c in moon.composition_display
         ))
         ws.cell(row=row, column=7, value=moon.owner_display or "")
+        rental = ws.cell(row=row, column=8, value=moon.rental_isk)
+        rental.number_format = "#,##0"
         ws.cell(row=row, column=ID_COLUMN, value=moon.pk).font = Font(color="999999")
 
-    for col, width in enumerate((16, 14, 30, 12, 12, 60, 28, 8), start=1):
+    for col, width in enumerate((16, 14, 30, 12, 12, 60, 28, 18, 8), start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
     ws.freeze_panes = ws.cell(row=FIRST_MOON_ROW, column=1)
-    ws.auto_filter.ref = f"A{HEADER_ROW}:H{max(HEADER_ROW, ws.max_row)}"
+    ws.auto_filter.ref = f"A{HEADER_ROW}:I{max(HEADER_ROW, ws.max_row)}"
 
     meta = wb.create_sheet(META_SHEET)
     meta["A1"], meta["B1"] = "app", "aa-moondistribution"
@@ -129,15 +134,18 @@ def read_template(uploaded, round_obj) -> dict:
         return {"error": _("template of another round – please use the template of this round")}
     ws = wb.worksheets[0]
     ticker = _ticker(ws[TICKER_CELL].value)
+    # the ID column is found by its header, so templates of older versions (ID in column H) still work
+    header = next(ws.iter_rows(min_row=HEADER_ROW, max_row=HEADER_ROW, values_only=True), ())
+    id_index = next((i for i, h in enumerate(header) if str(h or "").strip() == "ID"), ID_COLUMN - 1)
     moon_ids = []
     for row in ws.iter_rows(min_row=FIRST_MOON_ROW, values_only=True):
-        if not row or len(row) < ID_COLUMN:
+        if not row or len(row) <= id_index:
             continue
         mark = str(row[0] if row[0] is not None else "").strip().lower()
         if mark in MARK_EMPTY:
             continue
         try:
-            moon_ids.append(int(row[ID_COLUMN - 1]))
+            moon_ids.append(int(row[id_index]))
         except (TypeError, ValueError):
             continue
     wb.close()

@@ -115,6 +115,7 @@ R-ARKN I - Moon 1
                         <th class="md-narrow" data-sort="num" title="{% translate 'Rarity, then best share' %}">{% translate "Rarity" %}</th>
                         <th class="md-narrow text-end" data-sort="num" title="{% translate 'Share of the valuable ore' %}">{% translate "Best %" %}</th>
                         <th>{% translate "Composition" %}</th>
+                        <th class="md-narrow text-end" data-sort="num" title="{% translate 'Monthly rental (owner sheet)' %}">{% translate "Rental / month" %}</th>
                         <th class="md-narrow" data-sort="text">{% translate "Owner" %}</th>
                         <th class="md-narrow" data-sort="text">{% translate "Last assigned" %}</th>
                         <th class="md-narrow" data-sort="text">{% translate "Source" %}</th>
@@ -133,6 +134,7 @@ R-ARKN I - Moon 1
                                 {% include "moondistribution/_composition.html" with moon=moon %}
                                 {% if moon.notes and moon.notes|last != "%" %}<span class="small text-muted">{{ moon.notes }}</span>{% endif %}
                             </td>
+                            <td class="text-end text-nowrap" data-value="{{ moon.rental_isk|default:'' }}">{{ moon.rental_display|default:"–" }}</td>
                             <td class="small md-name" data-value="{{ moon.owner_display }}">{{ moon.owner_display|default:"–" }}</td>
                             <td class="small" data-value="{% with last=moon.allocations.all|first %}{{ last.corporation.corporation_name|default:'' }}{% endwith %}">
                                 {% with last=moon.allocations.all|first %}
@@ -146,7 +148,7 @@ R-ARKN I - Moon 1
                             <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_edit' moon.pk %}"><i class="fas fa-pen"></i></a></td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="10" class="text-muted">{% translate "No moons found." %}</td></tr>
+                        <tr><td colspan="11" class="text-muted">{% translate "No moons found." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
