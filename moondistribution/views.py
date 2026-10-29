@@ -39,6 +39,29 @@ def _ctx(request, **extra) -> dict:
     }
 
 
+def ids_from_csv(value: str) -> list:
+    """'12,15,99' → [12, 15, 99] – large selections are sent as ONE field to stay below
+    Django's DATA_UPLOAD_MAX_NUMBER_FIELDS (1000) even with thousands of moons."""
+    return [int(v) for v in (value or "").split(",") if v.strip().isdigit()]
+
+
+def round_form_data(post):
+    """POST data for RoundForm with the moon selection taken from the single 'moon_ids' field."""
+    data = post.copy()
+    data.setlist("moons", [str(i) for i in ids_from_csv(post.get("moon_ids", ""))])
+    return data
+
+
+def wishlist_from_post(post) -> dict:
+    """{'prio_<moon id>': '<priority>'} from the single 'wishlist' field ('12:1,15:2,…')."""
+    result = {}
+    for pair in (post.get("wishlist") or "").split(","):
+        moon_id, _sep, prio = pair.partition(":")
+        if moon_id.strip().isdigit():
+            result[f"prio_{int(moon_id)}"] = prio.strip()
+    return result
+
+
 def group_by_region(items, moon_of=lambda item: item) -> list:
     """Group moons (or rows containing a moon) by region for the region tabs.
 
@@ -160,12 +183,13 @@ def apply(request, round_id: int, corporation_id: int):
     comment = application.comment if application else ""
 
     if request.method == "POST":
-        wishes, errors = parse_wishlist(request.POST, moons, settings.max_wishes)
+        posted = wishlist_from_post(request.POST)
+        wishes, errors = parse_wishlist(posted, moons, settings.max_wishes)
         comment = (request.POST.get("comment") or "").strip()[:2000]
         if errors:
             for err in errors:
                 messages.error(request, err)
-            current = {m.pk: request.POST.get(f"prio_{m.pk}", "") for m in moons}
+            current = {m.pk: posted.get(f"prio_{m.pk}", "") for m in moons}
         else:
             with transaction.atomic():
                 if application is None:
@@ -222,7 +246,7 @@ def round_create(request):
     """Create a new round (draft). The application week starts only when the round is opened."""
     settings = DistributionSettings.get_solo()
     if request.method == "POST":
-        form = RoundForm(request.POST)
+        form = RoundForm(round_form_data(request.POST))
         if form.is_valid():
             round_obj = form.save(commit=False)
             round_obj.created_by = request.user
@@ -247,7 +271,7 @@ def round_edit(request, round_id: int):
     if round_obj.status == Round.Status.DONE:
         messages.error(request, _("A distributed round can't be edited anymore."))
         return redirect("moondistribution:round_detail", round_id=round_obj.pk)
-    form = RoundForm(request.POST or None, instance=round_obj)
+    form = RoundForm(round_form_data(request.POST) if request.method == "POST" else None, instance=round_obj)
     if request.method == "POST" and form.is_valid():
         form.save()
         # Remove wishes for moons that are no longer in the pool
@@ -397,7 +421,9 @@ def moons(request):
 @require_POST
 def moon_bulk(request):
     """Set rarity / active flag for all ticked moons at once."""
-    ids = [int(i) for i in request.POST.getlist("moon_ids") if i.isdigit()]
+    ids = ids_from_csv(request.POST.get("moon_ids_csv", "")) or [
+        int(i) for i in request.POST.getlist("moon_ids") if i.isdigit()
+    ]
     action = request.POST.get("action", "")
     qs = Moon.objects.filter(pk__in=ids)
     if not ids:

@@ -10,8 +10,9 @@
         {% blocktranslate %}Enter a priority for every moon you want (1 = most wanted). Leave the field empty for moons you don't want. You can choose up to {{ max_wishes }} moons and change your wishlist until applications close.{% endblocktranslate %}
     </div>
 
-    <form method="post">
+    <form method="post" id="apply-form">
         {% csrf_token %}
+        <input type="hidden" name="wishlist" id="wishlist">
         {% include "moondistribution/_region_tabs_nav.html" with groups=row_regions prefix="apply" %}
         <div class="tab-content">
             {% for g in row_regions %}
@@ -31,8 +32,8 @@
                                 {% for row in g.items %}
                                     <tr>
                                         <td>
-                                            <input type="number" min="1" max="{{ max_wishes }}" class="form-control form-control-sm"
-                                                   name="prio_{{ row.moon.pk }}" value="{{ row.priority|default_if_none:'' }}">
+                                            <input type="number" min="1" max="{{ max_wishes }}" class="form-control form-control-sm md-prio"
+                                                   data-moon="{{ row.moon.pk }}" value="{{ row.priority|default_if_none:'' }}">
                                         </td>
                                         <td>
                                             {{ row.moon.name }}
@@ -62,3 +63,13 @@
         </div>
     </form>
 {% endblock moondist_content %}
+
+{% block extra_script %}
+    // Send only the filled priorities as one field "moon:prio,…" (one input per moon would exceed Django's field limit)
+    document.getElementById("apply-form").addEventListener("submit", function () {
+        const pairs = Array.from(document.querySelectorAll(".md-prio"))
+            .filter(i => i.value.trim() !== "")
+            .map(i => i.dataset.moon + ":" + i.value.trim());
+        document.getElementById("wishlist").value = pairs.join(",");
+    });
+{% endblock extra_script %}

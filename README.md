@@ -1,6 +1,6 @@
 # aa-moondistribution
 
-**Version 0.1.4** – see [CHANGELOG](CHANGELOG.md)
+**Version 0.1.5** – see [CHANGELOG](CHANGELOG.md)
 
 Alliance Auth plugin for the periodic **moon distribution** of an alliance (e.g. every 6 months).
 
@@ -107,6 +107,7 @@ Restart supervisor (gunicorn, worker, beat).
 - If zKillboard is down, PvP counts as 0 for the affected corps and the round shows a warning – use *Re-run distribution* later.
 - A failed distribution is not retried automatically; the round shows the error and an officer can start it again with *Re-run distribution*.
 - *Close now & distribute* ends the application phase early.
+- Large moon pools (1000+) work without raising `DATA_UPLOAD_MAX_NUMBER_FIELDS`: selections are submitted as one field; the pages need JavaScript (as Alliance Auth itself).
 
 ## License
 

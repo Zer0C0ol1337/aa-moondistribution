@@ -158,7 +158,7 @@ class DistributionIntegrationTest(IntegrationBase):
         self.client.force_login(self.ceo_a)
         url = reverse("moondistribution:apply", args=[r.pk, self.corp_a.corporation_id])
         self.assertEqual(self.client.get(url).status_code, 200)
-        resp = self.client.post(url, {f"prio_{self.moon2.pk}": "5", f"prio_{self.moon1.pk}": "9", "comment": "pls"})
+        resp = self.client.post(url, {"wishlist": f"{self.moon2.pk}:5,{self.moon1.pk}:9", "comment": "pls"})
         self.assertEqual(resp.status_code, 302)
         wishes = list(Application.objects.get(round=r).wishes.values_list("moon_id", "priority"))
         self.assertEqual(wishes, [(self.moon2.pk, 1), (self.moon1.pk, 2)])
@@ -189,7 +189,7 @@ class DistributionIntegrationTest(IntegrationBase):
         resp = self.client.post(reverse("moondistribution:round_create"), {
             "name": "H2", "description": "",
             "evaluation_start": "2026-05-01", "evaluation_end": "2026-10-31",
-            "moons": [self.moon1.pk],
+            "moon_ids": f"{self.moon1.pk}",
         })
         self.assertEqual(resp.status_code, 302)
         r = Round.objects.get(name="H2")
@@ -442,3 +442,39 @@ class RegionTest(IntegrationBase):
             self.assertContains(resp, "Feythabolis")
         self.assertContains(self.client.get(reverse("moondistribution:moons"), {"region": "Esoteria"}), a.name)
         self.assertNotContains(self.client.get(reverse("moondistribution:moons"), {"region": "Esoteria"}), b.name)
+
+
+
+class LargePoolTest(IntegrationBase):
+    """1000+ moons: forms must stay below Django's DATA_UPLOAD_MAX_NUMBER_FIELDS, R64 never in a round."""
+
+    @classmethod
+    def setUpTestData(cls):
+        """1500 extra R8 moons."""
+        super().setUpTestData()
+        Moon.objects.bulk_create([Moon(name=f"BIG I - Moon {i}", system_name="BIG", rarity="R8") for i in range(1500)])
+
+    def test_round_with_1500_moons(self):
+        """Creating a round with all moons and applying for 1200 of them works."""
+        self.client.force_login(self.officer)
+        ids = list(Moon.objects.exclude(rarity="R64").values_list("pk", flat=True))
+        resp = self.client.post(reverse("moondistribution:round_create"), {
+            "name": "Big", "description": "", "evaluation_start": "2026-05-01", "evaluation_end": "2026-10-31",
+            "moon_ids": ",".join(map(str, ids)),
+        })
+        self.assertEqual(resp.status_code, 302)
+        r = Round.objects.get(name="Big")
+        self.assertEqual(r.moons.count(), len(ids))
+        self.assertFalse(r.moons.filter(rarity="R64").exists())
+
+    def test_r64_is_rejected_in_round(self):
+        """Even if an R64 id is posted, the round is not saved with it."""
+        self.client.force_login(self.officer)
+        resp = self.client.post(reverse("moondistribution:round_create"), {
+            "name": "Sneaky", "description": "", "evaluation_start": "2026-05-01", "evaluation_end": "2026-10-31",
+            "moon_ids": f"{self.moon_r64.pk},{self.moon1.pk}",
+        })
+        self.assertEqual(resp.status_code, 200)  # form error, nothing saved
+        self.assertFalse(Round.objects.filter(name="Sneaky").exists())
+        # and the R64 moon is not even offered
+        self.assertNotContains(self.client.get(reverse("moondistribution:round_create")), self.moon_r64.name)

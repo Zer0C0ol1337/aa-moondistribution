@@ -91,8 +91,9 @@ R-ARKN I - Moon 1
     </form>
 
     {# --- List with bulk edit --- #}
-    <form method="post" action="{% url 'moondistribution:moon_bulk' %}">
+    <form method="post" action="{% url 'moondistribution:moon_bulk' %}" id="bulk-form">
         {% csrf_token %}
+        <input type="hidden" name="moon_ids_csv" id="moon-ids-csv">
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
             <span class="small text-muted">{% translate "Selected moons" %}:</span>
@@ -109,7 +110,7 @@ R-ARKN I - Moon 1
             <table class="table table-sm table-hover align-middle">
                 <thead>
                     <tr>
-                        <th style="width: 2rem;"><input type="checkbox" class="form-check-input" onclick="document.querySelectorAll('input[name=moon_ids]').forEach(c => c.checked = this.checked)"></th>
+                        <th style="width: 2rem;"><input type="checkbox" class="form-check-input" onclick="document.querySelectorAll('.md-bulk').forEach(c => c.checked = this.checked)"></th>
                         <th>{% translate "Moon" %}</th>
                         <th>{% translate "Rarity" %}</th>
                         <th>{% translate "Refinery / owner" %}</th>
@@ -122,7 +123,7 @@ R-ARKN I - Moon 1
                 <tbody>
                     {% for moon in moons %}
                         <tr class="{% if not moon.is_active %}text-muted{% endif %}">
-                            <td><input type="checkbox" class="form-check-input" name="moon_ids" value="{{ moon.pk }}"></td>
+                            <td><input type="checkbox" class="form-check-input md-bulk" value="{{ moon.pk }}"></td>
                             <td>
                                 {{ moon.name }}
                                 {% if moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=moon %}</div>{% endif %}
@@ -147,3 +148,11 @@ R-ARKN I - Moon 1
         </div>
     </form>
 {% endblock moondist_content %}
+
+{% block extra_script %}
+    // Ticked moons are sent as one comma-separated field (Django's field limit)
+    document.getElementById("bulk-form").addEventListener("submit", function () {
+        const ids = Array.from(document.querySelectorAll(".md-bulk:checked")).map(c => c.value);
+        document.getElementById("moon-ids-csv").value = ids.join(",");
+    });
+{% endblock extra_script %}

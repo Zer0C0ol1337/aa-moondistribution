@@ -5,8 +5,9 @@
 {% block moondist_content %}
     <h3 class="mb-3">{% if round %}{% translate "Edit round" %}: {{ round.name }}{% else %}{% translate "New round" %}{% endif %}</h3>
 
-    <form method="post">
+    <form method="post" id="round-form">
         {% csrf_token %}
+        <input type="hidden" name="moon_ids" id="moon-ids">
         {{ form.non_field_errors }}
         <div class="row g-3">
             <div class="col-12">
@@ -34,21 +35,23 @@
             <div class="col-12">
                 <label class="form-label">{% translate "Moons in this round" %}</label>
                 <div class="mb-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('input[name=moons]').forEach(c => c.checked = true)">{% translate "All regions" %}</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('input[name=moons]').forEach(c => c.checked = false)">{% translate "None" %}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('.md-moon-pick').forEach(c => c.checked = true)">{% translate "All regions" %}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('.md-moon-pick').forEach(c => c.checked = false)">{% translate "None" %}</button>
                 </div>
                 {% include "moondistribution/_region_tabs_nav.html" with groups=moon_regions prefix="pick" %}
                 <div class="tab-content">
                     {% for g in moon_regions %}
                         <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="pick-{{ g.slug }}" role="tabpanel">
                             <div class="mb-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('#pick-{{ g.slug }} input[name=moons]').forEach(c => c.checked = true)">{% blocktranslate with region=g.region %}All in {{ region }}{% endblocktranslate %}</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('#pick-{{ g.slug }} input[name=moons]').forEach(c => c.checked = false)">{% blocktranslate with region=g.region %}None in {{ region }}{% endblocktranslate %}</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('#pick-{{ g.slug }} .md-moon-pick').forEach(c => c.checked = true)">{% blocktranslate with region=g.region %}All in {{ region }}{% endblocktranslate %}</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('#pick-{{ g.slug }} .md-moon-pick').forEach(c => c.checked = false)">{% blocktranslate with region=g.region %}None in {{ region }}{% endblocktranslate %}</button>
                             </div>
                             <div class="border rounded p-2" style="max-height: 24rem; overflow-y: auto;">
                                 {% for checkbox in g.items %}
                                     <div class="form-check">
-                                        {{ checkbox.tag }}
+                                        {# no name attribute: the selection is sent as one field (moon_ids), see script below #}
+                                        <input type="checkbox" class="form-check-input md-moon-pick" id="{{ checkbox.id_for_label }}"
+                                               value="{{ checkbox.data.value }}" {% if checkbox.data.selected %}checked{% endif %}>
                                         <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label>
                                     </div>
                                 {% endfor %}
@@ -71,3 +74,11 @@
         </div>
     </form>
 {% endblock moondist_content %}
+
+{% block extra_script %}
+    // Send the moon selection as one comma-separated field (thousands of checkboxes would exceed Django's field limit)
+    document.getElementById("round-form").addEventListener("submit", function () {
+        const ids = Array.from(document.querySelectorAll(".md-moon-pick:checked")).map(c => c.value);
+        document.getElementById("moon-ids").value = ids.join(",");
+    });
+{% endblock extra_script %}

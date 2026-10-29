@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.5] - 2026-10-29
+
+### Fixed
+
+- `TooManyFieldsSent` when creating a round with 1000+ moons: the moon selection of the round form, the wishlist on the application page and the bulk selection on the moon list are now sent as one field each, so pools of any size stay below Django's `DATA_UPLOAD_MAX_NUMBER_FIELDS`
+
+### Changed
+
+- R64 moons are not offered in the round form and a posted R64 is rejected (covered by tests)
+
 ## [0.1.4] - 2026-10-29
 
 ### Added
