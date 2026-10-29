@@ -1,0 +1,4 @@
+{% if r.status == "draft" %}<span class="badge text-bg-secondary">{{ r.get_status_display }}</span>
+{% elif r.status == "open" %}<span class="badge text-bg-success">{{ r.get_status_display }}</span>
+{% elif r.status == "closed" %}<span class="badge text-bg-warning">{{ r.get_status_display }}</span>
+{% else %}<span class="badge text-bg-primary">{{ r.get_status_display }}</span>{% endif %}

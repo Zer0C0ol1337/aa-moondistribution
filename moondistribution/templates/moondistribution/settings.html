@@ -1,0 +1,86 @@
+{% extends "moondistribution/base.html" %}
+
+{% load i18n %}
+
+{% block moondist_content %}
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <h3 class="mb-3">{% translate "Settings" %}</h3>
+            <form method="post">
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+                <div class="card mb-3">
+                    <div class="card-header fw-bold">{% translate "Alliance" %}</div>
+                    <div class="card-body">
+                        <label class="form-label" for="{{ form.alliance_id.id_for_label }}">{% translate "Alliance ID" %}</label>
+                        {{ form.alliance_id }}{{ form.alliance_id.errors }}
+                        <div class="form-text">
+                            {% if alliance %}{{ alliance.alliance_name }} – {{ alliance_corp_count }} {% translate "corps known in AA" %}
+                            {% else %}{{ form.alliance_id.help_text }}{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header fw-bold">{% translate "Weights" %}</div>
+                    <div class="card-body">
+                        <p class="small text-muted">
+                            {% translate "Each criterion is scaled 0–100 against the best applicant, then the weighted average gives the score. Weight 0 = criterion ignored." %}
+                        </p>
+                        <div class="row g-3">
+                            <div class="col-6 col-md-3">
+                                <label class="form-label" for="{{ form.weight_mining.id_for_label }}">Mining</label>
+                                {{ form.weight_mining }}{{ form.weight_mining.errors }}
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label" for="{{ form.weight_pvp.id_for_label }}">PvP (zKill)</label>
+                                {{ form.weight_pvp }}{{ form.weight_pvp.errors }}
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label" for="{{ form.weight_members.id_for_label }}">{% translate "Active members" %}</label>
+                                {{ form.weight_members }}{{ form.weight_members.errors }}
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label" for="{{ form.weight_fleet.id_for_label }}">{% translate "Fleets" %}</label>
+                                {{ form.weight_fleet }}{{ form.weight_fleet.errors }}
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            {{ form.per_member }}
+                            <label class="form-check-label" for="{{ form.per_member.id_for_label }}">{% translate "Per active member" %}</label>
+                            <div class="form-text">{{ form.per_member.help_text }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header fw-bold">{% translate "Rules" %}</div>
+                    <div class="card-body row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.max_moons_per_corp.id_for_label }}">{% translate "Max. moons per corp" %}</label>
+                            {{ form.max_moons_per_corp }}{{ form.max_moons_per_corp.errors }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.max_wishes.id_for_label }}">{% translate "Max. wishes per application" %}</label>
+                            {{ form.max_wishes }}{{ form.max_wishes.errors }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.active_days.id_for_label }}">{% translate "Active = login within days" %}</label>
+                            {{ form.active_days }}{{ form.active_days.errors }}
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                {{ form.allow_directors }}
+                                <label class="form-check-label" for="{{ form.allow_directors.id_for_label }}">{% translate "Directors may apply too" %}</label>
+                                <div class="form-text">{{ form.allow_directors.help_text }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">{% translate "Save settings" %}</button>
+            </form>
+        </div>
+    </div>
+{% endblock moondist_content %}

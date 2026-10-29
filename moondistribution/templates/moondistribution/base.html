@@ -1,0 +1,43 @@
+{% extends "allianceauth/base-bs5.html" %}
+
+{% load i18n %}
+
+{% block page_title %}{% translate "Moon Distribution" %}{% endblock page_title %}
+
+{% block header_nav_brand %}
+    <i class="fas fa-moon me-1"></i>{% translate "Moon Distribution" %}
+{% endblock header_nav_brand %}
+
+{% block header_nav_collapse_left %}
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}" href="{% url 'moondistribution:index' %}">
+            {% translate "Rounds" %}
+        </a>
+    </li>
+    {% if is_officer %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'round_create' %}active{% endif %}" href="{% url 'moondistribution:round_create' %}">
+                {% translate "New round" %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if 'moon' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'moondistribution:moons' %}">
+                {% translate "Moons" %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" href="{% url 'moondistribution:settings' %}">
+                {% translate "Settings" %}
+            </a>
+        </li>
+    {% endif %}
+{% endblock header_nav_collapse_left %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-10">
+            {% block moondist_content %}{% endblock moondist_content %}
+            <p class="text-end text-muted small mt-4">aa-moondistribution v{{ app_version }}</p>
+        </div>
+    </div>
+{% endblock content %}

@@ -1,0 +1,53 @@
+{% extends "moondistribution/base.html" %}
+
+{% load i18n %}
+
+{% block moondist_content %}
+    <h3 class="mb-1">{% translate "Application" %}: {{ corporation.corporation_name }}</h3>
+    <p class="text-muted">{{ round.name }} · {% translate "Applications until" %} {{ round.application_end|date:"d.m.Y H:i" }} EVE</p>
+
+    <div class="alert alert-info small">
+        {% blocktranslate %}Enter a priority for every moon you want (1 = most wanted). Leave the field empty for moons you don't want. You can choose up to {{ max_wishes }} moons and change your wishlist until applications close.{% endblocktranslate %}
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 7rem;">{% translate "Priority" %}</th>
+                        <th>{% translate "Moon" %}</th>
+                        <th>{% translate "Rarity" %}</th>
+                        <th>{% translate "Current owner" %}</th>
+                        <th>{% translate "Notes" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td>
+                                <input type="number" min="1" max="{{ max_wishes }}" class="form-control form-control-sm"
+                                       name="prio_{{ row.moon.pk }}" value="{{ row.priority|default_if_none:'' }}">
+                            </td>
+                            <td>{{ row.moon.name }}</td>
+                            <td>{% if row.moon.rarity %}<span class="badge text-bg-info">{{ row.moon.rarity }}</span>{% endif %}</td>
+                            <td class="small">{{ row.moon.owner_corporation.corporation_name|default:"–" }}</td>
+                            <td class="small text-muted">{{ row.moon.notes }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mb-3">
+            <label for="comment" class="form-label">{% translate "Comment (optional)" %}</label>
+            <textarea id="comment" name="comment" class="form-control" rows="3">{{ comment }}</textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">{% translate "Save application" %}</button>
+            <a href="{% url 'moondistribution:round_detail' round.pk %}" class="btn btn-outline-secondary">{% translate "Cancel" %}</a>
+        </div>
+    </form>
+{% endblock moondist_content %}

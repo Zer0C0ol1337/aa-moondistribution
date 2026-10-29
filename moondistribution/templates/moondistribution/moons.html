@@ -1,0 +1,53 @@
+{% extends "moondistribution/base.html" %}
+
+{% load i18n %}
+
+{% block moondist_content %}
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h3 class="mb-0">{% translate "Moons" %}</h3>
+        <div class="d-flex gap-2">
+            <form method="post" action="{% url 'moondistribution:moon_sync' %}">{% csrf_token %}
+                <button class="btn btn-sm btn-primary"><i class="fas fa-rotate me-1"></i>{% translate "Import from Corptools" %}</button>
+            </form>
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_add' %}">{% translate "Add manually" %}</a>
+        </div>
+    </div>
+    <p class="small text-muted">
+        {% translate "The import takes all Athanors and Tataras of the alliance corps from Corptools (runs daily). Set the rarity by hand – it helps the corps choose." %}
+    </p>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>{% translate "Moon" %}</th>
+                    <th>{% translate "Rarity" %}</th>
+                    <th>{% translate "Refinery / owner" %}</th>
+                    <th>{% translate "Last assigned" %}</th>
+                    <th>{% translate "Last seen" %}</th>
+                    <th>{% translate "Active" %}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for moon in moons %}
+                    <tr class="{% if not moon.is_active %}text-muted{% endif %}">
+                        <td>{{ moon.name }}{% if moon.notes %}<div class="small text-muted">{{ moon.notes }}</div>{% endif %}</td>
+                        <td>{% if moon.rarity %}<span class="badge text-bg-info">{{ moon.rarity }}</span>{% endif %}</td>
+                        <td class="small">{{ moon.structure_name|default:"–" }}<br>{{ moon.owner_corporation.corporation_name|default:"" }}</td>
+                        <td class="small">
+                            {% with last=moon.allocations.all|first %}
+                                {% if last %}{{ last.corporation.corporation_name }}<br><span class="text-muted">{{ last.round.name }}</span>{% else %}–{% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="small">{{ moon.last_seen|date:"d.m.Y"|default:"manual" }}</td>
+                        <td>{% if moon.is_active %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-xmark"></i>{% endif %}</td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:moon_edit' moon.pk %}">{% translate "Edit" %}</a></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" class="text-muted">{% translate "No moons yet – run the import or add them manually." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock moondist_content %}

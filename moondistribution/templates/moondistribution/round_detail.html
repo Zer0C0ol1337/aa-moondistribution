@@ -1,0 +1,169 @@
+{% extends "moondistribution/base.html" %}
+
+{% load i18n humanize %}
+
+{% block moondist_content %}
+    <div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+        <div>
+            <h3 class="mb-1">{{ round.name }} {% include "moondistribution/_status_badge.html" with r=round %}</h3>
+            <div class="text-muted small">
+                {% translate "Applications" %}: {{ round.application_start|date:"d.m.Y H:i" }} – {{ round.application_end|date:"d.m.Y H:i" }} EVE ·
+                {% translate "Activity checked" %}: {{ round.evaluation_start|date:"d.m.Y" }} – {{ round.evaluation_end|date:"d.m.Y" }}
+                {% if round.distributed_at %} · {% translate "Distributed" %}: {{ round.distributed_at|date:"d.m.Y H:i" }}{% endif %}
+            </div>
+        </div>
+
+        {% if is_officer %}
+            <div class="d-flex flex-wrap gap-2">
+                {% if round.status != "done" %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'moondistribution:round_edit' round.pk %}">{% translate "Edit" %}</a>
+                {% endif %}
+                {% if round.status == "draft" %}
+                    <form method="post" action="{% url 'moondistribution:round_open' round.pk %}">{% csrf_token %}
+                        <button class="btn btn-sm btn-success">{% translate "Open for applications" %}</button>
+                    </form>
+                    <form method="post" action="{% url 'moondistribution:round_delete' round.pk %}"
+                          onsubmit="return confirm('{% translate "Delete this draft?" %}');">{% csrf_token %}
+                        <button class="btn btn-sm btn-outline-danger">{% translate "Delete" %}</button>
+                    </form>
+                {% elif round.status == "open" %}
+                    <form method="post" action="{% url 'moondistribution:round_close_now' round.pk %}"
+                          onsubmit="return confirm('{% translate "Close applications now and distribute?" %}');">{% csrf_token %}
+                        <button class="btn btn-sm btn-warning">{% translate "Close now & distribute" %}</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="{% url 'moondistribution:round_redistribute' round.pk %}"
+                          onsubmit="return confirm('{% translate "Re-run evaluation and distribution? The current result will be replaced." %}');">{% csrf_token %}
+                        <button class="btn btn-sm btn-outline-warning">{% translate "Re-run distribution" %}</button>
+                    </form>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    {% if round.description %}<p>{{ round.description|linebreaksbr }}</p>{% endif %}
+
+    {% if round.last_error and is_officer %}
+        <div class="alert alert-warning small">{{ round.last_error }}</div>
+    {% endif %}
+    {% if round.status == "closed" %}
+        <div class="alert alert-info">{% translate "Applications are closed – the distribution runs automatically." %}</div>
+    {% endif %}
+
+    {% if round.is_open and eligible %}
+        <div class="card mb-4">
+            <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+                <span class="me-2">{% translate "Apply / change wishlist for" %}:</span>
+                {% for corp in eligible %}
+                    {% if forloop.counter <= 6 %}
+                        <a class="btn btn-sm btn-primary" href="{% url 'moondistribution:apply' round.pk corp.corporation_id %}">{{ corp.corporation_name }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if eligible|length > 6 %}<a href="{% url 'moondistribution:index' %}" class="small">{% translate "more…" %}</a>{% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if round.status == "done" %}
+        <h4 class="mb-3">{% translate "Ranking" %}</h4>
+        <p class="small text-muted">
+            {% translate "Weights" %}: Mining {{ snapshot.weights.mining }} · PvP {{ snapshot.weights.pvp }} ·
+            {% translate "Members" %} {{ snapshot.weights.members }} · Fleets {{ snapshot.weights.fleet }}
+            {% if snapshot.per_member %} · {% translate "values per active member" %}{% endif %}
+            · {% translate "max. moons per corp" %}: {{ snapshot.max_moons_per_corp }}.
+            {% translate "Each criterion is scaled 0–100 against the best applicant." %}
+        </p>
+        <div class="table-responsive mb-4">
+            <table class="table table-sm table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>{% translate "Corporation" %}</th>
+                        <th class="text-end">{% translate "Mining (m³)" %}</th>
+                        <th class="text-end">{% translate "Kills" %}</th>
+                        <th class="text-end">{% translate "Active / members" %}</th>
+                        <th class="text-end">{% translate "Fleets" %}</th>
+                        <th class="text-end">{% translate "Score" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in scores %}
+                        <tr>
+                            <td>{{ s.rank }}</td>
+                            <td>{{ s.corporation.corporation_name }}</td>
+                            <td class="text-end">{{ s.mining_volume|floatformat:0|intcomma }} <span class="text-muted small">({{ s.score_mining|floatformat:0 }})</span></td>
+                            <td class="text-end">
+                                {{ s.pvp_kills|intcomma }} <span class="text-muted small">({{ s.score_pvp|floatformat:0 }})</span>
+                                {% if s.pvp_error %}<i class="fas fa-triangle-exclamation text-warning" title="{% translate 'zKillboard not reachable' %}"></i>{% endif %}
+                            </td>
+                            <td class="text-end">{{ s.members_active }} / {{ s.members_total }} <span class="text-muted small">({{ s.score_members|floatformat:0 }})</span></td>
+                            <td class="text-end">{{ s.fleet_participations|intcomma }} <span class="text-muted small">({{ s.score_fleet|floatformat:0 }})</span></td>
+                            <td class="text-end fw-bold">{{ s.total_score|floatformat:1 }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="7" class="text-muted">{% translate "No applications." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    <h4 class="mb-3">{% translate "Moons" %} <span class="text-muted small">({{ moons|length }})</span></h4>
+    <div class="table-responsive mb-4">
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>{% translate "Moon" %}</th>
+                    <th>{% translate "Rarity" %}</th>
+                    <th>{% translate "Current owner" %}</th>
+                    {% if round.status == "done" %}<th>{% translate "Assigned to" %}</th><th class="text-end">{% translate "Wish #" %}</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in moons %}
+                    <tr>
+                        <td>{{ row.moon.name }}</td>
+                        <td>{% if row.moon.rarity %}<span class="badge text-bg-info">{{ row.moon.rarity }}</span>{% endif %}</td>
+                        <td class="small">{{ row.moon.owner_corporation.corporation_name|default:"–" }}</td>
+                        {% if round.status == "done" %}
+                            <td class="fw-bold">{{ row.allocation.corporation.corporation_name|default:"–" }}</td>
+                            <td class="text-end">{{ row.allocation.wish_priority|default:"" }}</td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="text-muted">{% translate "No moons in this round." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if applications %}
+        <h4 class="mb-3">{% if is_officer %}{% translate "Applications" %}{% else %}{% translate "Your applications" %}{% endif %}</h4>
+        {% for app in applications %}
+            <div class="card mb-2">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">{{ app.corporation.corporation_name }}</span>
+                    <span class="small text-muted">
+                        {% translate "by" %} {{ app.submitted_by.profile.main_character.character_name|default:app.submitted_by.username }},
+                        {{ app.updated_at|date:"d.m.Y H:i" }}
+                    </span>
+                </div>
+                <div class="card-body py-2">
+                    <ol class="mb-1 small">
+                        {% for w in app.wishes.all %}<li>{{ w.moon.name }}</li>{% endfor %}
+                    </ol>
+                    {% if app.comment %}<p class="small text-muted mb-1">{{ app.comment|linebreaksbr }}</p>{% endif %}
+                    {% if round.is_open and app.corporation in eligible %}
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'moondistribution:apply' round.pk app.corporation.corporation_id %}">{% translate "Change" %}</a>
+                            <form method="post" action="{% url 'moondistribution:withdraw' round.pk app.corporation.corporation_id %}"
+                                  onsubmit="return confirm('{% translate "Withdraw this application?" %}');">{% csrf_token %}
+                                <button class="btn btn-sm btn-outline-danger">{% translate "Withdraw" %}</button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endblock moondist_content %}

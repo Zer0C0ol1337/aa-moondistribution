@@ -1,0 +1,93 @@
+{% extends "moondistribution/base.html" %}
+
+{% load i18n %}
+
+{% block moondist_content %}
+    {% if no_alliance and is_officer %}
+        <div class="alert alert-warning">
+            {% translate "No alliance configured yet." %}
+            <a href="{% url 'moondistribution:settings' %}" class="alert-link">{% translate "Open settings" %}</a>
+        </div>
+    {% endif %}
+
+    <h4 class="mb-3">{% translate "Open rounds" %}</h4>
+    {% for info in open_info %}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <a href="{% url 'moondistribution:round_detail' info.round.pk %}" class="fw-bold">{{ info.round.name }}</a>
+                <span class="text-muted small">
+                    {% translate "Applications until" %} {{ info.round.application_end|date:"d.m.Y H:i" }} EVE
+                </span>
+            </div>
+            <div class="card-body">
+                {% if info.round.description %}<p>{{ info.round.description|linebreaksbr }}</p>{% endif %}
+                <p class="small text-muted mb-2">
+                    {{ info.round.n_moons }} {% translate "moons in the pool" %} ·
+                    {{ info.round.n_apps }} {% translate "applications" %} ·
+                    {% translate "activity checked" %} {{ info.round.evaluation_start|date:"d.m.Y" }} – {{ info.round.evaluation_end|date:"d.m.Y" }}
+                </p>
+                {% if not info.round.is_open %}
+                    <p class="mb-0 text-muted">{% translate "Applications open on" %} {{ info.round.application_start|date:"d.m.Y H:i" }} EVE.</p>
+                {% elif info.corps %}
+                    <ul class="list-group">
+                        {% for c in info.corps %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>
+                                    {{ c.corp.corporation_name }}
+                                    {% if c.application %}<span class="badge text-bg-success ms-2">{% translate "applied" %}</span>{% endif %}
+                                </span>
+                                <a class="btn btn-sm {% if c.application %}btn-outline-primary{% else %}btn-primary{% endif %}"
+                                   href="{% url 'moondistribution:apply' info.round.pk c.corp.corporation_id %}">
+                                    {% if c.application %}{% translate "Change wishlist" %}{% else %}{% translate "Apply" %}{% endif %}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="mb-0 text-muted">{% translate "Only the CEO or a director of a corp can apply." %}</p>
+                {% endif %}
+                {% if is_officer and info.round.is_open %}
+                    <form class="row g-2 mt-3" method="get" action="{% url 'moondistribution:officer_apply' info.round.pk %}">
+                        <div class="col-auto"><label class="col-form-label small text-muted">{% translate "Officer: apply for" %}</label></div>
+                        <div class="col">
+                            <select name="corporation_id" class="form-select form-select-sm">
+                                {% for corp in alliance_corps %}<option value="{{ corp.corporation_id }}">{{ corp.corporation_name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">{% translate "Open" %}</button></div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-muted">{% translate "There is no open round at the moment." %}</p>
+    {% endfor %}
+
+    <h4 class="mt-4 mb-3">{% translate "All rounds" %}</h4>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>{% translate "Round" %}</th>
+                    <th>{% translate "Status" %}</th>
+                    <th>{% translate "Applications" %}</th>
+                    <th>{% translate "Moons" %}</th>
+                    <th>{% translate "Application end" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in past_rounds %}
+                    <tr>
+                        <td><a href="{% url 'moondistribution:round_detail' r.pk %}">{{ r.name }}</a></td>
+                        <td>{% include "moondistribution/_status_badge.html" with r=r %}</td>
+                        <td>{{ r.n_apps }}</td>
+                        <td>{{ r.n_moons }}</td>
+                        <td>{{ r.application_end|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="text-muted">{% translate "No rounds yet." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock moondist_content %}

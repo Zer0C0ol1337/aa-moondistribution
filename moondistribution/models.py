@@ -1,0 +1,267 @@
+"""Database models for Moon Distribution."""
+
+from datetime import timedelta
+
+from django.contrib.auth.models import User
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+
+from allianceauth.eveonline.models import EveCorporationInfo
+
+
+class General(models.Model):
+    """Unmanaged model that only carries the app permissions."""
+
+    class Meta:
+        managed = False
+        default_permissions = ()
+        permissions = (
+            ("basic_access", "Can access Moon Distribution (view rounds, apply as CEO/Director)"),
+            ("mining_officer", "Can manage rounds, moons and settings"),
+        )
+
+
+class DistributionSettings(models.Model):
+    """Singleton with all settings that the Mining Officer can change in the UI."""
+
+    alliance_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=_("EVE alliance ID whose corps may apply and whose refineries are imported."),
+    )
+
+    # Weights of the four criteria – 0 disables a criterion completely
+    weight_mining = models.PositiveSmallIntegerField(default=40, validators=[MaxValueValidator(100)])
+    weight_pvp = models.PositiveSmallIntegerField(default=30, validators=[MaxValueValidator(100)])
+    weight_members = models.PositiveSmallIntegerField(default=15, validators=[MaxValueValidator(100)])
+    weight_fleet = models.PositiveSmallIntegerField(default=15, validators=[MaxValueValidator(100)])
+
+    per_member = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Divide mining, PvP and fleet values by the active members, "
+            "so small but very active corps are not outranked by size alone."
+        ),
+    )
+    max_moons_per_corp = models.PositiveSmallIntegerField(
+        default=3, validators=[MinValueValidator(1)],
+        help_text=_("Maximum number of moons a single corp can receive per round."),
+    )
+    max_wishes = models.PositiveSmallIntegerField(
+        default=10, validators=[MinValueValidator(1)],
+        help_text=_("Maximum number of moons a corp can put on its wishlist."),
+    )
+    active_days = models.PositiveSmallIntegerField(
+        default=30, validators=[MinValueValidator(1)],
+        help_text=_("A player counts as active if one of his characters logged in within this many days."),
+    )
+    allow_directors = models.BooleanField(
+        default=True,
+        help_text=_("Besides the CEO, also directors (Corptools role data) may apply for their corp."),
+    )
+
+    class Meta:
+        default_permissions = ()
+        verbose_name = _("settings")
+        verbose_name_plural = _("settings")
+
+    def __str__(self):
+        return "Moon Distribution Settings"
+
+    @classmethod
+    def get_solo(cls) -> "DistributionSettings":
+        """Return the single settings row, create it on first access."""
+        obj, _created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def weights(self) -> dict:
+        """Weights as dict, keyed like the score fields."""
+        return {
+            "mining": self.weight_mining,
+            "pvp": self.weight_pvp,
+            "members": self.weight_members,
+            "fleet": self.weight_fleet,
+        }
+
+
+class Moon(models.Model):
+    """A moon with an alliance refinery – imported from Corptools or added manually."""
+
+    class Rarity(models.TextChoices):
+        UNKNOWN = "", _("unknown")
+        R4 = "R4", "R4"
+        R8 = "R8", "R8"
+        R16 = "R16", "R16"
+        R32 = "R32", "R32"
+        R64 = "R64", "R64"
+
+    name = models.CharField(max_length=150, help_text=_("Moon name, e.g. 'R-ARKN VII - Moon 3'"))
+    system_name = models.CharField(max_length=100, blank=True, default="")
+    structure_id = models.BigIntegerField(
+        null=True, blank=True, unique=True,
+        help_text=_("Refinery structure ID (set automatically by the Corptools import)."),
+    )
+    structure_name = models.CharField(max_length=150, blank=True, default="")
+    owner_corporation = models.ForeignKey(
+        EveCorporationInfo, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        help_text=_("Corp that currently owns the refinery."),
+    )
+    rarity = models.CharField(max_length=3, choices=Rarity.choices, blank=True, default="")
+    notes = models.CharField(max_length=255, blank=True, default="")
+    is_active = models.BooleanField(
+        default=True, help_text=_("Inactive moons are not added to new rounds."),
+    )
+    last_seen = models.DateTimeField(null=True, blank=True, help_text=_("Last seen in Corptools import."))
+
+    class Meta:
+        default_permissions = ()
+        ordering = ["system_name", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Round(models.Model):
+    """One distribution round (usually every 6 months)."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", _("Draft")
+        OPEN = "open", _("Applications open")
+        CLOSED = "closed", _("Closed – waiting for evaluation")
+        DONE = "done", _("Distributed")
+
+    name = models.CharField(max_length=100, help_text=_("e.g. 'Moon Distribution H1/2027'"))
+    description = models.TextField(blank=True, default="")
+    application_start = models.DateTimeField()
+    application_end = models.DateTimeField(
+        help_text=_("When applications close the round is evaluated and distributed automatically."),
+    )
+    evaluation_start = models.DateField(help_text=_("Start of the activity period that is checked."))
+    evaluation_end = models.DateField(help_text=_("End of the activity period that is checked."))
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    moons = models.ManyToManyField(Moon, related_name="rounds", blank=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    distributed_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+
+    # Snapshot of the settings used for the evaluation, so later changes don't alter old results
+    settings_snapshot = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        default_permissions = ()
+        ordering = ["-application_end"]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_open(self) -> bool:
+        """True while corps may submit or change applications."""
+        now = timezone.now()
+        return self.status == self.Status.OPEN and self.application_start <= now < self.application_end
+
+    @staticmethod
+    def default_evaluation_window(application_end) -> tuple:
+        """Default activity window: the 6 months before applications close."""
+        end = application_end.date()
+        start = end - timedelta(days=182)
+        return start, end
+
+
+class Application(models.Model):
+    """Application of one corp for one round."""
+
+    round = models.ForeignKey(Round, on_delete=models.CASCADE, related_name="applications")
+    corporation = models.ForeignKey(EveCorporationInfo, on_delete=models.CASCADE, related_name="+")
+    submitted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="+")
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    comment = models.TextField(blank=True, default="")
+
+    class Meta:
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=["round", "corporation"], name="moondist_one_application_per_corp"),
+        ]
+        ordering = ["submitted_at"]
+
+    def __str__(self):
+        return f"{self.corporation} – {self.round}"
+
+
+class ApplicationWish(models.Model):
+    """One moon on the wishlist of an application. Priority 1 = most wanted."""
+
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="wishes")
+    moon = models.ForeignKey(Moon, on_delete=models.CASCADE, related_name="+")
+    priority = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+
+    class Meta:
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=["application", "moon"], name="moondist_wish_unique_moon"),
+            models.UniqueConstraint(fields=["application", "priority"], name="moondist_wish_unique_priority"),
+        ]
+        ordering = ["priority"]
+
+    def __str__(self):
+        return f"{self.application.corporation} #{self.priority}: {self.moon}"
+
+
+class CorporationScore(models.Model):
+    """Collected activity and calculated score of an applying corp in a round."""
+
+    round = models.ForeignKey(Round, on_delete=models.CASCADE, related_name="scores")
+    corporation = models.ForeignKey(EveCorporationInfo, on_delete=models.CASCADE, related_name="+")
+
+    # Raw values
+    mining_volume = models.FloatField(default=0, help_text=_("Mined volume in m³"))
+    pvp_kills = models.PositiveIntegerField(default=0)
+    members_total = models.PositiveIntegerField(default=0)
+    members_active = models.PositiveIntegerField(default=0)
+    fleet_participations = models.PositiveIntegerField(default=0)
+
+    # Normalised sub-scores 0–100
+    score_mining = models.FloatField(default=0)
+    score_pvp = models.FloatField(default=0)
+    score_members = models.FloatField(default=0)
+    score_fleet = models.FloatField(default=0)
+
+    total_score = models.FloatField(default=0)
+    rank = models.PositiveSmallIntegerField(default=0)
+    pvp_error = models.BooleanField(default=False, help_text=_("zKillboard could not be reached."))
+
+    class Meta:
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=["round", "corporation"], name="moondist_one_score_per_corp"),
+        ]
+        ordering = ["rank"]
+
+    def __str__(self):
+        return f"{self.corporation}: {self.total_score:.1f}"
+
+
+class Allocation(models.Model):
+    """Result: which corp got which moon in a round."""
+
+    round = models.ForeignKey(Round, on_delete=models.CASCADE, related_name="allocations")
+    moon = models.ForeignKey(Moon, on_delete=models.CASCADE, related_name="allocations")
+    corporation = models.ForeignKey(EveCorporationInfo, on_delete=models.CASCADE, related_name="+")
+    wish_priority = models.PositiveSmallIntegerField(help_text=_("Which wish of the corp this was."))
+    pick_number = models.PositiveSmallIntegerField(help_text=_("Order in which the moon was assigned."))
+
+    class Meta:
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=["round", "moon"], name="moondist_moon_once_per_round"),
+        ]
+        ordering = ["pick_number"]
+
+    def __str__(self):
+        return f"{self.moon} → {self.corporation}"

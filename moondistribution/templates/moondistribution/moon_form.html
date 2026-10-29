@@ -1,0 +1,35 @@
+{% extends "moondistribution/base.html" %}
+
+{% load i18n %}
+
+{% block moondist_content %}
+    <h3 class="mb-3">{% if moon %}{{ moon.name }}{% else %}{% translate "Add moon" %}{% endif %}</h3>
+    <form method="post" style="max-width: 40rem;">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="mb-3">
+            <label class="form-label" for="{{ form.name.id_for_label }}">{% translate "Moon name" %}</label>
+            {{ form.name }}{{ form.name.errors }}
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="{{ form.system_name.id_for_label }}">{% translate "System" %}</label>
+            {{ form.system_name }}{{ form.system_name.errors }}
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="{{ form.rarity.id_for_label }}">{% translate "Rarity" %}</label>
+            {{ form.rarity }}{{ form.rarity.errors }}
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="{{ form.notes.id_for_label }}">{% translate "Notes (shown to applicants)" %}</label>
+            {{ form.notes }}{{ form.notes.errors }}
+        </div>
+        <div class="form-check mb-3">
+            {{ form.is_active }}
+            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">{% translate "Active (added to new rounds)" %}</label>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
+            <a href="{% url 'moondistribution:moons' %}" class="btn btn-outline-secondary">{% translate "Cancel" %}</a>
+        </div>
+    </form>
+{% endblock moondist_content %}

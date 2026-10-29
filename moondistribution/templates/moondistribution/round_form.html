@@ -1,0 +1,66 @@
+{% extends "moondistribution/base.html" %}
+
+{% load i18n %}
+
+{% block moondist_content %}
+    <h3 class="mb-3">{% if round %}{% translate "Edit round" %}: {{ round.name }}{% else %}{% translate "New round" %}{% endif %}</h3>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label" for="{{ form.name.id_for_label }}">{% translate "Name" %}</label>
+                {{ form.name }}{{ form.name.errors }}
+            </div>
+            <div class="col-12">
+                <label class="form-label" for="{{ form.description.id_for_label }}">{% translate "Description (shown to the corps)" %}</label>
+                {{ form.description }}{{ form.description.errors }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.application_start.id_for_label }}">{% translate "Applications open (EVE time)" %}</label>
+                {{ form.application_start }}{{ form.application_start.errors }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.application_end.id_for_label }}">{% translate "Applications close (EVE time)" %}</label>
+                {{ form.application_end }}{{ form.application_end.errors }}
+                <div class="form-text">{% translate "The round is evaluated and distributed automatically after this time." %}</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.evaluation_start.id_for_label }}">{% translate "Activity period from" %}</label>
+                {{ form.evaluation_start }}{{ form.evaluation_start.errors }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.evaluation_end.id_for_label }}">{% translate "Activity period to" %}</label>
+                {{ form.evaluation_end }}{{ form.evaluation_end.errors }}
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">{% translate "Moons in this round" %}</label>
+                <div class="mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('input[name=moons]').forEach(c => c.checked = true)">{% translate "All" %}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('input[name=moons]').forEach(c => c.checked = false)">{% translate "None" %}</button>
+                </div>
+                <div class="border rounded p-2" style="max-height: 24rem; overflow-y: auto;">
+                    {% for checkbox in form.moons %}
+                        <div class="form-check">
+                            {{ checkbox.tag }}
+                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label>
+                        </div>
+                    {% empty %}
+                        <p class="text-muted mb-0">
+                            {% translate "No active moons yet." %}
+                            <a href="{% url 'moondistribution:moons' %}">{% translate "Import or add moons" %}</a>
+                        </p>
+                    {% endfor %}
+                </div>
+                {{ form.moons.errors }}
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
+            <a href="{% if round %}{% url 'moondistribution:round_detail' round.pk %}{% else %}{% url 'moondistribution:index' %}{% endif %}" class="btn btn-outline-secondary">{% translate "Cancel" %}</a>
+        </div>
+    </form>
+{% endblock moondist_content %}
