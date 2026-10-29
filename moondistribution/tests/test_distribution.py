@@ -187,3 +187,83 @@ class TestRarityPaste(SimpleTestCase):
         self.assertEqual(ore_rarity("Glistening Zircon"), "R32")
         self.assertEqual(ore_rarity("Brimful Bitumens"), "R4")
         self.assertEqual(ore_rarity("Veldspar"), "")
+
+
+class TestSheetFormat(SimpleTestCase):
+    """Rows copied from the alliance Google Sheet (system | planet | moon | type | % | sum)."""
+
+    sheet = (
+        "system\tPlant\tMoon\tType\t%\tsum\n"
+        "29YH-V\t8\t2\tR64\t18\t1\n"
+        "02V-BK\t6\t15\tR32\t28\t1\n"
+        "P9F-ZG\t9\t20\tR32\t28\t0\n"
+        "7P-J38\t10\t4\tR16\t35\t1\n"
+        "A5MT-B\t7\t11\tR16\t0\t\n"
+    )
+
+    def test_names_and_rarity(self):
+        """Planet number becomes a roman numeral like in EVE; 'sum' is ignored."""
+        from moondistribution.rarity import parse_rarity_paste
+
+        self.assertEqual(parse_rarity_paste(self.sheet), {
+            "29YH-V VIII - Moon 2": "R64",
+            "02V-BK VI - Moon 15": "R32",
+            "P9F-ZG IX - Moon 20": "R32",
+            "7P-J38 X - Moon 4": "R16",
+            "A5MT-B VII - Moon 11": "R16",
+        })
+
+    def test_percent_as_note(self):
+        """The % column is used as moon note."""
+        from moondistribution.rarity import parse_paste
+
+        entries = parse_paste(self.sheet)
+        self.assertEqual(entries["02V-BK VI - Moon 15"]["note"], "28 %")
+        self.assertEqual(entries["A5MT-B VII - Moon 11"]["note"], "0 %")
+
+    def test_fey_layout(self):
+        """Fey sheet: Category | System | Planet | Moon | Mineral/% × 4 | SUM."""
+        from moondistribution.rarity import parse_paste
+
+        text = (
+            "Category\tSystem\tPlanet\tMoon\tMineral 1\t% 1\tMineral 2\t% 2\tMineral 3\t% 3\tMineral 4\t% 4\tSUM\n"
+            "R64\tM-PGT0\t2\t4\tMonazite\t24.5%\tLoparite\t19.8%\tZircon\t24.5%\tChromite\t31.3%\t44,30%\n"
+            "R16\tR97-CI\t6\t8\tSperrylite\t25.4%\tBitumens\t54.6%\t\t\t\t\t25,40%\n"
+        )
+        entries = parse_paste(text)
+        moon = entries["M-PGT0 II - Moon 4"]
+        self.assertEqual(moon["rarity"], "R64")
+        self.assertEqual([c["ore"] for c in moon["composition"]], ["Monazite", "Loparite", "Zircon", "Chromite"])
+        self.assertEqual(moon["composition"][3]["percent"], 31.3)
+        self.assertEqual(entries["R97-CI VI - Moon 8"]["composition"],
+                         [{"ore": "Sperrylite", "percent": 25.4}, {"ore": "Bitumens", "percent": 54.6}])
+
+    def test_eso_layout(self):
+        """ESO sheet: key | System | P | M | Ore/Density × 4 | Class – rarity from the best ore."""
+        from moondistribution.rarity import parse_paste
+
+        text = (
+            "\tSystem\tP\tM\tOre 1\tDensity 1\tOre 2\tDensity 2\tOre 3\tDensity 3\tOre 4\tDensity 4\tClass\n"
+            "29YH-V82\t29YH-V\t8\t2\tCoesite\t23%\tXenotime\t18%\tCobaltite\t9%\t\t\t64\tok\n"
+            "G-JC9R417\tG-JC9R\t4\t17\tCinnabar\t23%\tcoesite\t28%\tBitumens\t8%\tSperrylite\t41%\t32\tok\n"
+        )
+        entries = parse_paste(text)
+        self.assertEqual(entries["29YH-V VIII - Moon 2"]["rarity"], "R64")
+        g = entries["G-JC9R IV - Moon 17"]
+        self.assertEqual(g["rarity"], "R32")
+        self.assertIn({"ore": "Coesite", "percent": 28.0}, g["composition"])
+
+    def test_eve_scan_composition(self):
+        """EVE scan copy: fractions become percent."""
+        from moondistribution.rarity import parse_paste
+
+        text = "R-ARKN I - Moon 1\n\tZircon\t0.31\t45503\n\tBitumens\t0.69\t45492\n"
+        entry = parse_paste(text)["R-ARKN I - Moon 1"]
+        self.assertEqual(entry["rarity"], "R32")
+        self.assertEqual(entry["composition"], [{"ore": "Zircon", "percent": 31.0}, {"ore": "Bitumens", "percent": 69.0}])
+
+    def test_roman(self):
+        """Roman numerals for EVE planet numbers."""
+        from moondistribution.rarity import to_roman
+
+        self.assertEqual([to_roman(n) for n in (1, 4, 6, 9, 11, 14, 19)], ["I", "IV", "VI", "IX", "XI", "XIV", "XIX"])

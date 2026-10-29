@@ -4,6 +4,19 @@
 
 {% block page_title %}{% translate "Moon Distribution" %}{% endblock page_title %}
 
+{% block extra_css %}
+    <style>
+        /* Rarity colours like in the alliance sheet: R64 red, R32 orange, R16 green, R8 blue, R4 white */
+        .md-rarity { border: 1px solid rgba(0, 0, 0, .15); color: #212529; }
+        .md-r64 { background-color: #f28b82; }
+        .md-r32 { background-color: #ffa94d; }
+        .md-r16 { background-color: #69db7c; }
+        .md-r8 { background-color: #74a9f7; }
+        .md-r4 { background-color: #ffffff; }
+        .md-none { background-color: #ffe066; }
+    </style>
+{% endblock extra_css %}
+
 {% block header_nav_brand %}
     <i class="fas fa-moon me-1"></i>{% translate "Moon Distribution" %}
 {% endblock header_nav_brand %}

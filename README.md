@@ -1,6 +1,6 @@
 # aa-moondistribution
 
-**Version 0.1.2** – see [CHANGELOG](CHANGELOG.md)
+**Version 0.1.3** – see [CHANGELOG](CHANGELOG.md)
 
 Alliance Auth plugin for the periodic **moon distribution** of an alliance (e.g. every 6 months).
 
@@ -10,7 +10,7 @@ Corps apply with a moon wishlist, the plugin checks their activity and assigns t
 
 - **Rounds**: when the Mining Officer opens a round, applications run for **one week** (configurable), then the round is evaluated and distributed **exactly once**; activity period defaults to the 6 months before applications close
 - **Moon pool** imported automatically from Corptools (all Athanors/Tataras of the alliance corps), plus manual moons; rarity (R4–R64) and notes per moon
-- **Moons and rarity without manual work**: paste in-game moon scans (any number at once) or a "moon; R32" list – missing moons are created, existing ones get their rarity – or take it from [aa-moonmining](https://gitlab.com/ErikKalkoken/aa-moonmining) if installed; bulk edit and "no rarity" filter for the rest
+- **Moons and rarity without manual work**: paste in-game moon scans (any number at once), a "moon; R32" list or rows from your moon sheets (`system | planet | moon` + category and/or ores with share) – missing moons are created with rarity and **ore composition**, existing ones are completed – or take it from [aa-moonmining](https://gitlab.com/ErikKalkoken/aa-moonmining) if installed; bulk edit and "no rarity" filter for the rest
 - **Applications** by the corp CEO or directors (Corptools role data) – wishlist with priorities, changeable until the deadline
 - **Scoring** per corp, every criterion scaled 0–100 against the best applicant, weighted average:
   - **Mining** – mined m³ from the Corptools mining ledger
@@ -24,6 +24,7 @@ Corps apply with a moon wishlist, the plugin checks their activity and assigns t
   - automatic **compensation bonus** for corps that applied last round and got no moon (+15) or no R32 (+8)
   - **manual bonus/malus** per corp and round with a reason that everyone can see
 - **Automatic allocation** (draft style): best corp gets its top wish, then the next corp, … then the next pass, until every corp reached the max. moons per corp or no wish can be served
+- Officers see live how many corps want each moon during the application week
 - Results page with ranking, raw values and who got which moon; AA notification to every applicant
 - Officer tools: create/open/close rounds, re-run distribution, apply on behalf of a corp, settings page
 

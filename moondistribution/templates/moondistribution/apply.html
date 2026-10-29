@@ -30,8 +30,11 @@
                                 <input type="number" min="1" max="{{ max_wishes }}" class="form-control form-control-sm"
                                        name="prio_{{ row.moon.pk }}" value="{{ row.priority|default_if_none:'' }}">
                             </td>
-                            <td>{{ row.moon.name }}</td>
-                            <td>{% if row.moon.rarity %}<span class="badge text-bg-info">{{ row.moon.rarity }}</span>{% endif %}</td>
+                            <td>
+                                {{ row.moon.name }}
+                                {% if row.moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=row.moon %}</div>{% endif %}
+                            </td>
+                            <td>{% include "moondistribution/_rarity_badge.html" with rarity=row.moon.rarity %}</td>
                             <td class="small">{{ row.moon.owner_corporation.corporation_name|default:"–" }}</td>
                             <td class="small text-muted">{{ row.moon.notes }}</td>
                         </tr>

@@ -353,3 +353,38 @@ class RarityIntegrationTest(IntegrationBase):
         self.client.post(reverse("moondistribution:moon_rarity_import"),
                          {"paste": paste, "source": "paste", "create": "on"})
         self.assertEqual(Moon.objects.filter(name="J5A-IX II - Moon 1").count(), 1)
+
+    def test_sheet_paste_creates_moons_with_note(self):
+        """Pasting sheet rows creates the moons with EVE name, system, rarity and % note."""
+        self.client.force_login(self.officer)
+        paste = "system\tPlant\tMoon\tType\t%\tsum\n02V-BK\t6\t15\tR32\t28\t1\n"
+        self.client.post(reverse("moondistribution:moon_rarity_import"),
+                         {"paste": paste, "source": "paste", "create": "on"})
+        moon = Moon.objects.get(name="02V-BK VI - Moon 15")
+        self.assertEqual((moon.system_name, moon.rarity, moon.notes), ("02V-BK", "R32", "28 %"))
+
+    def test_composition_is_stored_and_shown(self):
+        """Fey-style row stores the ores; moons page and apply page show them."""
+        self.client.force_login(self.officer)
+        paste = "R32\tD6SK-L\t4\t1\tZircon\t17.5%\tBitumens\t41.5%\n"
+        self.client.post(reverse("moondistribution:moon_rarity_import"),
+                         {"paste": paste, "source": "paste", "create": "on"})
+        moon = Moon.objects.get(name="D6SK-L IV - Moon 1")
+        self.assertEqual(moon.composition, [{"ore": "Zircon", "percent": 17.5}, {"ore": "Bitumens", "percent": 41.5}])
+        self.assertContains(self.client.get(reverse("moondistribution:moons")), "Zircon 17.5%")
+
+    def test_wish_counts_for_officer(self):
+        """Officers see how many corps want each moon."""
+        now = timezone.now()
+        r = Round.objects.create(
+            name="H9", application_start=now - timedelta(days=1), application_end=now + timedelta(days=6),
+            evaluation_start=date.today() - timedelta(days=182), evaluation_end=date.today(), status=Round.Status.OPEN,
+        )
+        r.moons.set([self.moon1, self.moon2])
+        for corp, user in ((self.corp_a, self.ceo_a), (self.corp_b, self.ceo_b)):
+            app = Application.objects.create(round=r, corporation=corp, submitted_by=user)
+            ApplicationWish.objects.create(application=app, moon=self.moon1, priority=1)
+        self.client.force_login(self.officer)
+        resp = self.client.get(reverse("moondistribution:round_detail", args=[r.pk]))
+        rows = {row["moon"].pk: row["wishes"] for row in resp.context["moons"]}
+        self.assertEqual(rows, {self.moon1.pk: 2, self.moon2.pk: 0})

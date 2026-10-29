@@ -145,6 +145,10 @@ class Moon(models.Model):
         help_text=_("Corp that currently owns the refinery."),
     )
     rarity = models.CharField(max_length=3, choices=Rarity.choices, blank=True, default="")
+    composition = models.JSONField(
+        default=list, blank=True,
+        help_text=_("Ore composition, e.g. [{'ore': 'Zircon', 'percent': 24.5}, ...] – filled by the scan/sheet import."),
+    )
     notes = models.CharField(max_length=255, blank=True, default="")
     is_active = models.BooleanField(
         default=True, help_text=_("Inactive moons are not added to new rounds."),
@@ -157,6 +161,14 @@ class Moon(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def composition_display(self) -> list:
+        """Composition with rarity per ore, best ore first – used by the templates."""
+        from .rarity import RARITY_ORDER, ore_rarity
+
+        rows = [{**c, "rarity": ore_rarity(c.get("ore", ""))} for c in (self.composition or [])]
+        return sorted(rows, key=lambda r: (-RARITY_ORDER.get(r["rarity"], 0), -(r.get("percent") or 0)))
 
 
 class Round(models.Model):

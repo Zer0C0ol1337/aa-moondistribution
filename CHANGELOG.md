@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.3] - 2026-10-29
+
+### Added
+
+- Sheet import: rows copied from Google Sheets/Excel are recognised directly – any layout with `system | planet | moon` plus category and/or ores with their share (alliance sheet, Fey sheet, ESO sheet); the planet number becomes the EVE roman numeral ("02V-BK VI - Moon 15")
+- **Moon composition**: ores and their share are stored per moon (from sheets and in-game scans) and shown on the moons page, the round page and when applying; without a category column the rarity is taken from the best ore
+- Rarity colours like in the alliance sheets: R64 red, R32 orange, R16 green, R8 blue, R4 white
+- Migration `0002_moon_composition`
+- Round page (officers): number of applications per moon, live during the application week, most wanted moons first
+- Moon note shown next to the owner on the round page
+
 ## [0.1.2] - 2026-10-29
 
 ### Added

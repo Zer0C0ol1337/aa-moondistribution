@@ -1,4 +1,9 @@
-"""Moon rarity: detect it from moon scans or take it from aa-moonmining, so nobody has to set 1000 moons by hand."""
+"""Moon data import: name, rarity and ore composition from pasted sheets / moon scans, or from aa-moonmining.
+
+Nobody should have to enter 1000+ moons by hand, so the paste parser is deliberately flexible:
+it works row by row and looks for "system | planet | moon" followed by ores and their share,
+no matter which columns come before or after.
+"""
 
 import logging
 import re
@@ -20,7 +25,12 @@ ORE_RARITY = {
 }
 RARITY_ORDER = {"R4": 4, "R8": 8, "R16": 16, "R32": 32, "R64": 64}
 _RARITY_TOKEN = re.compile(r"^R ?(4|8|16|32|64)$", re.IGNORECASE)
+_NUMBER = re.compile(r"^-?\d+(?:[.,]\d+)?$")
 
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
 
 def ore_rarity(ore_name: str) -> str:
     """Rarity of a moon ore by name ('' if it is no moon ore). 'Glistening Zircon' → 'R32'."""
@@ -33,47 +43,39 @@ def higher_rarity(a: str, b: str) -> str:
     return a if RARITY_ORDER.get(a, 0) >= RARITY_ORDER.get(b, 0) else b
 
 
-def parse_rarity_paste(text: str) -> dict:
-    """Read pasted moon data and return {moon name: rarity}.
+def rarity_token(cell: str) -> str:
+    """'R32' / 'r 32' → 'R32', anything else → ''."""
+    match = _RARITY_TOKEN.match(cell.replace(" ", ""))
+    return "R" + match.group(1) if match else ""
 
-    Understands two formats, mixed in one paste:
-    1. EVE moon scan copy (moon name line, then tab-indented ore lines):
-           R-ARKN I - Moon 1
-               Bitumens    0.30    45492   30000001   40000001   40000002
-    2. Simple list, one moon per line: 'R-ARKN I - Moon 1<TAB or ; or ,>R32'
-    """
-    result, current = {}, None
-    for raw in text.splitlines():
-        if not raw.strip():
-            continue
-        fields = [f.strip() for f in re.split(r"\t|;", raw) if f.strip()]
-        if not fields:
-            continue
-        # Header line of the EVE scan copy
-        if fields[0].lower() == "moon" and any("product" in f.lower() for f in fields):
-            continue
-        # Format 2: "<moon name> <sep> R32"
-        if len(fields) >= 2 and _RARITY_TOKEN.match(fields[-1].replace(" ", "")):
-            name = fields[0]
-            result[name] = "R" + _RARITY_TOKEN.match(fields[-1].replace(" ", "")).group(1)
-            current = None
-            continue
-        if "," in raw and len(fields) == 1:
-            parts = [p.strip() for p in raw.rsplit(",", 1)]
-            if len(parts) == 2 and _RARITY_TOKEN.match(parts[1].replace(" ", "")):
-                result[parts[0]] = "R" + _RARITY_TOKEN.match(parts[1].replace(" ", "")).group(1)
-                current = None
-                continue
-        # Format 1: ore line (indented or first field is a moon ore) belongs to the current moon
-        rarity = ore_rarity(fields[0])
-        if rarity and current:
-            result[current] = higher_rarity(result.get(current, ""), rarity)
-            continue
-        # Anything else that looks like a moon name starts a new moon block
-        if " - moon " in raw.lower():
-            current = fields[0]
-            result.setdefault(current, "")
-    return {name: rarity for name, rarity in result.items() if rarity}
+
+def to_roman(number: int) -> str:
+    """Planet number as roman numeral like in EVE moon names (6 → 'VI')."""
+    values = [(10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")]
+    result = ""
+    for value, numeral in values:
+        while number >= value:
+            result += numeral
+            number -= value
+    return result
+
+
+def parse_percent(cell: str):
+    """'24.5%' / '24,5 %' / '0.245' (scan fraction) → 24.5; None if it is no number."""
+    raw = cell.strip().replace(" ", "")
+    has_percent = raw.endswith("%")
+    raw = raw.rstrip("%").replace(",", ".")
+    if not _NUMBER.match(raw):
+        return None
+    value = float(raw)
+    if not has_percent and 0 < value <= 1:
+        value *= 100  # EVE scan copy gives fractions (0.30 = 30 %)
+    return round(value, 1)
+
+
+def canonical_ore(name: str) -> str:
+    """Normalise spelling: 'coesite' → 'Coesite', 'glistening zircon' → 'Glistening Zircon'."""
+    return " ".join(word.capitalize() for word in name.split())
 
 
 def system_from_moon_name(name: str) -> str:
@@ -82,35 +84,168 @@ def system_from_moon_name(name: str) -> str:
     return head.rsplit(" ", 1)[0] if " " in head else head
 
 
-def apply_rarities(mapping: dict, overwrite: bool = False, create_missing: bool = False) -> dict:
-    """Set the rarity of known moons by (case-insensitive) name.
+def ores_from_cells(cells: list) -> list:
+    """All '<ore> | <share>' pairs in a row → [{'ore': 'Zircon', 'percent': 24.5}, ...]."""
+    composition = []
+    for i, cell in enumerate(cells):
+        if not ore_rarity(cell):
+            continue
+        percent = parse_percent(cells[i + 1]) if i + 1 < len(cells) else None
+        composition.append({"ore": canonical_ore(cell), "percent": percent})
+    return composition
 
-    overwrite=False only fills moons that have no rarity yet, so manual corrections survive.
-    create_missing=True adds moons that are not in the list yet (name, system and rarity from the paste) –
-    needed when the refineries are not visible in Corptools.
+
+# ---------------------------------------------------------------------------
+# Parsing
+# ---------------------------------------------------------------------------
+
+def parse_sheet_row(cells: list):
+    """One sheet row → (moon name, entry) or None.
+
+    Looks for the first 'system | planet | moon' triple (planet and moon as numbers) anywhere in the row,
+    so leading key columns (ESO: '29YH-V82') or a category column (Fey: 'R64') don't matter.
+    entry = {'rarity': 'R32', 'composition': [...], 'note': '28 %'}
+    """
+    for i in range(len(cells) - 2):
+        system, planet, moon = cells[i].strip(), cells[i + 1].strip(), cells[i + 2].strip()
+        if not system or _NUMBER.match(system.rstrip("%")) or rarity_token(system):
+            continue
+        if not (planet.isdigit() and moon.isdigit()) or int(planet) < 1 or int(moon) < 1:
+            continue
+        name = f"{system} {to_roman(int(planet))} - Moon {int(moon)}"
+        rest = cells[i + 3:]
+        composition = ores_from_cells(rest)
+
+        # Rarity: explicit category cell (R32) anywhere in the row, otherwise the best ore
+        rarity = next((rarity_token(c) for c in cells if rarity_token(c)), "")
+        if not rarity:
+            for ore in composition:
+                rarity = higher_rarity(rarity, ore_rarity(ore["ore"]))
+
+        # Simple sheet without ores: the number right after the category is the share of the rare ore
+        note = ""
+        if not composition:
+            for j, cell in enumerate(rest):
+                if rarity_token(cell) and j + 1 < len(rest):
+                    share = parse_percent(rest[j + 1] + ("%" if "%" not in rest[j + 1] else ""))
+                    if share is not None:
+                        note = f"{share:g} %"
+                    break
+        if not rarity:
+            return None
+        return name, {"rarity": rarity, "composition": composition, "note": note}
+    return None
+
+
+def parse_paste(text: str) -> dict:
+    """Read pasted moon data → {moon name: {'rarity', 'composition', 'note'}}.
+
+    Understands, mixed in one paste:
+    1. Sheet rows copied from Google Sheets/Excel – any layout with 'system | planet | moon' and
+       optionally category, ores and shares (alliance sheet, Fey sheet, ESO sheet)
+    2. EVE moon scan copy (moon name line, then tab-indented ore lines with share)
+    3. Simple list, one moon per line: 'R-ARKN I - Moon 1; R32' (tab, ; or , as separator)
+    """
+    result, current = {}, None
+    for raw in text.splitlines():
+        if not raw.strip():
+            continue
+        cells = [c.strip() for c in raw.split("\t")]
+        fields = [f.strip() for f in re.split(r"\t|;", raw) if f.strip()]
+
+        # EVE scan header
+        if fields and fields[0].lower() == "moon" and any("product" in f.lower() for f in fields):
+            continue
+
+        # 1) sheet row
+        row = parse_sheet_row(cells)
+        if row:
+            result[row[0]] = row[1]
+            current = None
+            continue
+
+        # 2) EVE scan: ore line belongs to the current moon
+        if fields and ore_rarity(fields[0]) and current:
+            entry = result[current]
+            percent = parse_percent(fields[1]) if len(fields) > 1 else None
+            entry["composition"].append({"ore": canonical_ore(fields[0]), "percent": percent})
+            entry["rarity"] = higher_rarity(entry["rarity"], ore_rarity(fields[0]))
+            continue
+
+        # 3) simple list "moon name ; R32" / "moon name, R32"
+        parts = fields if len(fields) >= 2 else [p.strip() for p in raw.rsplit(",", 1)]
+        if len(parts) >= 2 and rarity_token(parts[-1]) and " - moon " in parts[0].lower():
+            result[parts[0]] = {"rarity": rarity_token(parts[-1]), "composition": [], "note": ""}
+            current = None
+            continue
+
+        # 2) EVE scan: a moon name line starts a new block
+        if " - moon " in raw.lower():
+            current = fields[0]
+            result.setdefault(current, {"rarity": "", "composition": [], "note": ""})
+
+    return {name: entry for name, entry in result.items() if entry["rarity"]}
+
+
+def parse_rarity_paste(text: str) -> dict:
+    """{moon name: rarity} – short form of parse_paste()."""
+    return {name: entry["rarity"] for name, entry in parse_paste(text).items()}
+
+
+# ---------------------------------------------------------------------------
+# Writing
+# ---------------------------------------------------------------------------
+
+def apply_moon_data(entries: dict, overwrite: bool = False, create_missing: bool = False) -> dict:
+    """Write rarity, composition and note to the moons (matched by case-insensitive name).
+
+    entries: {moon name: {'rarity': 'R32', 'composition': [...], 'note': ''}} (or {name: 'R32'})
+    overwrite=False only fills empty fields, so manual corrections survive.
+    create_missing=True adds moons that are not in the list yet – needed when the refineries
+    are not visible in Corptools.
     """
     stats = {"created": 0, "updated": 0, "unchanged": 0, "unknown": 0}
     moons = {m.name.lower(): m for m in Moon.objects.all()}
     changed, new = [], {}
-    for name, rarity in mapping.items():
+    for name, entry in entries.items():
+        if isinstance(entry, str):
+            entry = {"rarity": entry, "composition": [], "note": ""}
         clean = " ".join(name.split())
+        rarity, composition, note = entry["rarity"], entry.get("composition") or [], entry.get("note") or ""
         moon = moons.get(clean.lower())
+
         if moon is None:
             if create_missing and clean.lower() not in new:
-                new[clean.lower()] = Moon(name=clean, system_name=system_from_moon_name(clean), rarity=rarity)
+                new[clean.lower()] = Moon(
+                    name=clean, system_name=system_from_moon_name(clean),
+                    rarity=rarity, composition=composition, notes=note,
+                )
             elif not create_missing:
                 stats["unknown"] += 1
             continue
-        if moon.rarity == rarity or (moon.rarity and not overwrite):
+
+        dirty = False
+        if rarity and moon.rarity != rarity and (not moon.rarity or overwrite):
+            moon.rarity, dirty = rarity, True
+        if composition and moon.composition != composition and (not moon.composition or overwrite):
+            moon.composition, dirty = composition, True
+        if note and moon.notes != note and (not moon.notes or overwrite):
+            moon.notes, dirty = note, True
+        if dirty:
+            changed.append(moon)
+        else:
             stats["unchanged"] += 1
-            continue
-        moon.rarity = rarity
-        changed.append(moon)
-    Moon.objects.bulk_update(changed, ["rarity"], batch_size=500)
+
+    Moon.objects.bulk_update(changed, ["rarity", "composition", "notes"], batch_size=500)
     Moon.objects.bulk_create(new.values(), batch_size=500)
     stats["updated"] = len(changed)
     stats["created"] = len(new)
     return stats
+
+
+def apply_rarities(mapping: dict, overwrite: bool = False, create_missing: bool = False) -> dict:
+    """Backwards compatible wrapper: {moon name: rarity} → apply_moon_data()."""
+    return apply_moon_data(mapping, overwrite=overwrite, create_missing=create_missing)
 
 
 def rarities_from_moonmining() -> dict:

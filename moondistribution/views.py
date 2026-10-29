@@ -22,7 +22,7 @@ from .distribution import application_summary
 from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_wishlist
 from .models import Allocation, Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
 from .providers import alliance_corporations, eligible_corporations_for, sync_moons_from_corptools
-from .rarity import apply_rarities, parse_rarity_paste, rarities_from_moonmining
+from .rarity import apply_moon_data, parse_paste, rarities_from_moonmining
 from .tasks import distribute_round
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,19 @@ def round_detail(request, round_id: int):
 
     allocations = list(round_obj.allocations.select_related("moon", "corporation"))
     moon_owner = {a.moon_id: a for a in allocations}
-    moons = [{"moon": m, "allocation": moon_owner.get(m.pk)} for m in round_obj.moons.select_related("owner_corporation")]
+    # Officers: how many corps have each moon on their wishlist (live during the application week)
+    wish_counts = {}
+    if is_officer:
+        wish_counts = dict(
+            ApplicationWish.objects.filter(application__round=round_obj)
+            .values_list("moon_id").annotate(n=Count("id"))
+        )
+    moons = [
+        {"moon": m, "allocation": moon_owner.get(m.pk), "wishes": wish_counts.get(m.pk, 0)}
+        for m in round_obj.moons.select_related("owner_corporation")
+    ]
+    if is_officer:
+        moons.sort(key=lambda row: (-row["wishes"], row["moon"].name))
 
     if is_officer:
         applications = application_summary(round_obj)
@@ -369,27 +381,27 @@ def moon_bulk(request):
 @officer_required
 @require_POST
 def moon_rarity_import(request):
-    """Set rarities from pasted moon scans / a 'moon name; R32' list, or from aa-moonmining.
+    """Add / update moons from pasted sheet rows, moon scans or a 'moon; R32' list, or from aa-moonmining.
 
-    With 'create' ticked, moons that are not in the list yet are created (name, system, rarity).
+    Sets rarity, ore composition and note. With 'create' ticked, missing moons are created.
     """
     overwrite = request.POST.get("overwrite") == "on"
     create_missing = request.POST.get("create") == "on"
     if request.POST.get("source") == "moonmining":
-        mapping = rarities_from_moonmining()
-        if not mapping:
+        entries = rarities_from_moonmining()
+        if not entries:
             messages.error(request, _("aa-moonmining is not installed or has no scanned moons."))
             return redirect("moondistribution:moons")
     else:
-        mapping = parse_rarity_paste(request.POST.get("paste", ""))
-        if not mapping:
-            messages.error(request, _("No moons with moon ore found in the pasted text."))
+        entries = parse_paste(request.POST.get("paste", ""))
+        if not entries:
+            messages.error(request, _("No moons recognised in the pasted text."))
             return redirect("moondistribution:moons")
-    stats = apply_rarities(mapping, overwrite=overwrite, create_missing=create_missing)
+    stats = apply_moon_data(entries, overwrite=overwrite, create_missing=create_missing)
     messages.success(request, _(
         "%(found)s moons recognised: %(created)s created, %(updated)s updated, %(unchanged)s unchanged, "
         "%(unknown)s not in the moon list (tick 'Create missing moons' to add them)."
-    ) % {"found": len(mapping), **stats})
+    ) % {"found": len(entries), **stats})
     return redirect("moondistribution:moons")
 
 

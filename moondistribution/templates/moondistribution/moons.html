@@ -29,7 +29,8 @@
                 <label class="form-label fw-bold" for="paste">{% translate "Paste moon scans or a moon list" %}</label>
                 <p class="small text-muted mb-2">
                     {% translate "Paste the copied results of the in-game moon scan (any number of moons at once) – the rarity is taken from the best ore. A simple list with one moon per line also works:" %}
-                    <code>R-ARKN I - Moon 1; R32</code>
+                    <code>R-ARKN I - Moon 1; R32</code>.
+                    {% translate "Rows copied from your moon sheets work directly (system | planet | moon, with category and/or ores and shares in any of the usual layouts) – ores and shares are stored as the moon's composition." %}
                 </p>
                 <textarea id="paste" name="paste" class="form-control font-monospace small mb-2" rows="8"
                           placeholder="Moon	Moon Product	Quantity	Ore TypeID	SolarSystemID	PlanetID	MoonID
@@ -104,8 +105,12 @@ R-ARKN I - Moon 1
                     {% for moon in moons %}
                         <tr class="{% if not moon.is_active %}text-muted{% endif %}">
                             <td><input type="checkbox" class="form-check-input" name="moon_ids" value="{{ moon.pk }}"></td>
-                            <td>{{ moon.name }}{% if moon.notes %}<div class="small text-muted">{{ moon.notes }}</div>{% endif %}</td>
-                            <td>{% if moon.rarity %}<span class="badge text-bg-info">{{ moon.rarity }}</span>{% else %}<span class="badge text-bg-warning">?</span>{% endif %}</td>
+                            <td>
+                                {{ moon.name }}
+                                {% if moon.composition %}<div class="small mt-1">{% include "moondistribution/_composition.html" with moon=moon %}</div>{% endif %}
+                                {% if moon.notes %}<div class="small text-muted">{{ moon.notes }}</div>{% endif %}
+                            </td>
+                            <td>{% include "moondistribution/_rarity_badge.html" with rarity=moon.rarity %}</td>
                             <td class="small">{{ moon.structure_name|default:"–" }}<br>{{ moon.owner_corporation.corporation_name|default:"" }}</td>
                             <td class="small">
                                 {% with last=moon.allocations.all|first %}

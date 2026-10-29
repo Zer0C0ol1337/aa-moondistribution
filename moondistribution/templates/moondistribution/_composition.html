@@ -1,0 +1,1 @@
+{% for c in moon.composition_display %}<span class="badge md-rarity md-{{ c.rarity|lower }} fw-normal me-1">{{ c.ore }}{% if c.percent is not None %} {{ c.percent|floatformat:"-1" }}%{% endif %}</span>{% endfor %}
