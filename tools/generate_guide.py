@@ -22,6 +22,7 @@ V = {
     "br": "{{ s.bonus_no_r32 }}",
     "r32": "{{ s.max_r32_per_corp }}",
     "r16": "{{ s.max_r16_per_corp }}",
+    "prob": "{{ s.probation_months }}",
 }
 
 
@@ -49,7 +50,8 @@ T["en"] = dict(
          </ol>"""),
         ("3. Who can apply?",
          """<p>The <strong>CEO</strong>{% if s.allow_directors %} or a <strong>director</strong>{% endif %} of an alliance corp – one application per corp.
-         {% if s.allow_directors %}Directors are recognised via Corptools, so the character needs an active Corptools audit.{% endif %}</p>"""),
+         {% if s.allow_directors %}Directors are recognised via Corptools, so the character needs an active Corptools audit.{% endif %}</p>
+         {% if s.probation_months %}<p>Your corp must have been in the alliance for at least <strong>{{ s.probation_months }} months</strong> (counted from its last join). Corps that are still in their probation can't apply; the Mining Officers can make an exception.</p>{% endif %}"""),
         ("4. How to apply",
          f"""<ol>
          <li>Open <em>Moon Distribution → Rounds</em> and click <em>Apply</em> next to your corp.</li>
@@ -114,7 +116,8 @@ T["de"] = dict(
          </ol>"""),
         ("3. Wer darf sich bewerben?",
          """<p>Der <strong>CEO</strong>{% if s.allow_directors %} oder ein <strong>Direktor</strong>{% endif %} einer Allianz-Corp – eine Bewerbung pro Corp.
-         {% if s.allow_directors %}Direktoren werden über Corptools erkannt, der Charakter braucht also einen aktiven Corptools-Audit.{% endif %}</p>"""),
+         {% if s.allow_directors %}Direktoren werden über Corptools erkannt, der Charakter braucht also einen aktiven Corptools-Audit.{% endif %}</p>
+         {% if s.probation_months %}<p>Eure Corp muss mindestens <strong>{{ s.probation_months }} Monate</strong> in der Allianz sein (gezählt ab dem letzten Beitritt). Corps in der Probezeit können sich nicht bewerben; die Mining Officer können eine Ausnahme machen.</p>{% endif %}"""),
         ("4. So bewerbt ihr euch",
          f"""<ol>
          <li>Öffnet <em>Moon Distribution → Runden</em> und klickt bei eurer Corp auf <em>Bewerben</em>.</li>
@@ -168,7 +171,8 @@ def build(lang, title, footer, h, t):
     T[lang] = dict(title=title, footer=footer, sections=[
         (h[0], f"""<p>{t['intro']} {{% if s.exclude_r64 %}}{chip(64)} {t['r64']}{{% endif %}}</p>"""),
         (h[1], f"""<ol><li>{t['tl1']}</li><li>{t['tl2']}</li><li>{t['tl3']}</li><li>{t['tl4']}</li></ol>"""),
-        (h[2], f"""<p>{t['who']}{{% if s.allow_directors %}} {t['who_dir']}{{% endif %}}</p>"""),
+        (h[2], f"""<p>{t['who']}{{% if s.allow_directors %}} {t['who_dir']}{{% endif %}}</p>
+         {{% if s.probation_months %}}<p>{t['prob']}</p>{{% endif %}}"""),
         (h[3], f"""<ol><li>{t['ap1']}</li><li>{t['ap2']}</li><li>{t['ap3']}</li><li>{t['ap4']}</li></ol>
          <p>{t['colors']} {chip(32)} {chip(16)} {chip(8)} {chip(4)}. {t['chips']}</p>"""),
         (h[4], f"""<p>{t['rate']}</p>
@@ -208,6 +212,7 @@ build("es", "Cómo funciona el reparto de lunas", "Esta página muestra siempre 
           tl4="Todos los solicitantes reciben una notificación del Auth con el resultado. La clasificación completa está en la página de la ronda.",
           who="El <strong>CEO</strong> de una corp de la alianza – una solicitud por corp.",
           who_dir="También pueden solicitar los <strong>directores</strong>; se reconocen a través de Corptools, por lo que el personaje necesita una auditoría de Corptools activa.",
+          prob=f"Vuestra corp debe llevar al menos <strong>{V['prob']} meses</strong> en la alianza (contados desde su último ingreso). Las corps en periodo de prueba no pueden solicitar; los Mining Officers pueden hacer una excepción.",
           ap1="Abrid <em>Moon Distribution → Rondas</em> y haced clic en <em>Solicitar</em> junto a vuestra corp.",
           ap2=f"Marcad todas las lunas que quiere vuestra corp – hasta <strong>{V['wishes']}</strong>. Las lunas están agrupadas en pestañas por región; la selección cuenta en todas las pestañas.",
           ap3="Haced clic en un encabezado de columna para ordenar (p. ej. por rareza o por el porcentaje del mineral valioso); Mayús+clic añade un segundo nivel de orden.",
@@ -246,6 +251,7 @@ build("it", "Come funziona la distribuzione delle lune", "Questa pagina mostra s
           tl4="Tutti i candidati ricevono una notifica dell'Auth con il risultato. La classifica completa è visibile nella pagina del round.",
           who="Il <strong>CEO</strong> di una corp dell'alleanza – una candidatura per corp.",
           who_dir="Possono candidarsi anche i <strong>direttori</strong>; vengono riconosciuti tramite Corptools, quindi il personaggio deve avere un audit Corptools attivo.",
+          prob=f"La vostra corp deve far parte dell'alleanza da almeno <strong>{V['prob']} mesi</strong> (contati dall'ultimo ingresso). Le corp ancora in periodo di prova non possono candidarsi; i Mining Officer possono fare un'eccezione.",
           ap1="Aprite <em>Moon Distribution → Round</em> e cliccate su <em>Candidati</em> accanto alla vostra corp.",
           ap2=f"Spuntate tutte le lune che la vostra corp desidera – fino a <strong>{V['wishes']}</strong>. Le lune sono raggruppate in schede per regione; la selezione vale per tutte le schede.",
           ap3="Cliccate sull'intestazione di una colonna per ordinare (ad es. per rarità o per la quota del minerale prezioso); Maiusc+clic aggiunge un secondo livello di ordinamento.",
@@ -284,6 +290,7 @@ build("fr", "Comment fonctionne la distribution des lunes", "Cette page affiche 
           tl4="Tous les candidats reçoivent une notification de l'Auth avec le résultat. Le classement complet est visible sur la page du tour.",
           who="Le <strong>CEO</strong> d'une corp de l'alliance – une candidature par corp.",
           who_dir="Les <strong>directeurs</strong> peuvent aussi postuler ; ils sont reconnus via Corptools, le personnage doit donc avoir un audit Corptools actif.",
+          prob=f"Votre corp doit faire partie de l'alliance depuis au moins <strong>{V['prob']} mois</strong> (à compter de sa dernière adhésion). Les corps encore en période d'essai ne peuvent pas postuler ; les Mining Officers peuvent faire une exception.",
           ap1="Ouvrez <em>Moon Distribution → Tours</em> et cliquez sur <em>Postuler</em> à côté de votre corp.",
           ap2=f"Cochez toutes les lunes que votre corp souhaite – jusqu'à <strong>{V['wishes']}</strong>. Les lunes sont regroupées par région dans des onglets ; votre sélection vaut pour tous les onglets.",
           ap3="Cliquez sur un en-tête de colonne pour trier (par ex. par rareté ou par la part du minerai précieux) ; Maj+clic ajoute un second niveau de tri.",
@@ -322,6 +329,7 @@ build("nl", "Zo werkt de maanverdeling", "Deze pagina toont altijd de actuele in
           tl4="Iedereen die zich heeft aangemeld krijgt een Auth-melding met het resultaat. De volledige ranglijst staat op de rondepagina.",
           who="De <strong>CEO</strong> van een alliantie-corp – één aanmelding per corp.",
           who_dir="Ook <strong>directors</strong> mogen zich aanmelden; zij worden via Corptools herkend, dus het personage heeft een actieve Corptools-audit nodig.",
+          prob=f"Jullie corp moet minstens <strong>{V['prob']} maanden</strong> in de alliantie zitten (gerekend vanaf de laatste toetreding). Corps die nog in hun proeftijd zitten, kunnen zich niet aanmelden; de Mining Officers kunnen een uitzondering maken.",
           ap1="Open <em>Moon Distribution → Rondes</em> en klik naast je corp op <em>Aanmelden</em>.",
           ap2=f"Vink alle manen aan die je corp wil – tot <strong>{V['wishes']}</strong>. De manen staan per regio in tabbladen; je selectie geldt voor alle tabbladen.",
           ap3="Klik op een kolomkop om te sorteren (bijv. op zeldzaamheid of op het aandeel van het waardevolle erts); Shift+klik voegt een tweede sorteerniveau toe.",
@@ -360,6 +368,7 @@ build("pl", "Jak działa podział księżyców", "Ta strona zawsze pokazuje aktu
           tl4="Wszyscy zgłaszający dostają powiadomienie w Auth z wynikiem. Pełny ranking jest widoczny na stronie rundy.",
           who="<strong>CEO</strong> korporacji z sojuszu – jedno zgłoszenie na corp.",
           who_dir="Zgłaszać się mogą też <strong>dyrektorzy</strong>; są rozpoznawani przez Corptools, więc postać potrzebuje aktywnego audytu Corptools.",
+          prob=f"Wasza corp musi być w sojuszu co najmniej <strong>{V['prob']} mies.</strong> (licząc od ostatniego dołączenia). Corp w okresie próbnym nie mogą składać zgłoszeń; Mining Officerowie mogą zrobić wyjątek.",
           ap1="Otwórzcie <em>Moon Distribution → Rundy</em> i kliknijcie <em>Zgłoś się</em> przy swojej corp.",
           ap2=f"Zaznaczcie wszystkie księżyce, które chce wasza corp – maksymalnie <strong>{V['wishes']}</strong>. Księżyce są pogrupowane w zakładki według regionu; wybór obowiązuje we wszystkich zakładkach.",
           ap3="Kliknięcie nagłówka kolumny sortuje (np. według rzadkości lub udziału cennej rudy); Shift+klik dodaje drugi poziom sortowania.",
@@ -398,6 +407,7 @@ build("ru", "Как работает распределение лун", "На �
           tl4="Все подавшие заявку получают уведомление в Auth с результатом. Полный рейтинг виден на странице раунда.",
           who="<strong>CEO</strong> корпорации альянса – одна заявка на корпорацию.",
           who_dir="Подавать заявку могут и <strong>директора</strong>; они определяются через Corptools, поэтому у персонажа должен быть активный аудит Corptools.",
+          prob=f"Ваша корпорация должна состоять в альянсе не менее <strong>{V['prob']} мес.</strong> (считая с последнего вступления). Корпорации на испытательном сроке не могут подавать заявки; Mining Officer'ы могут сделать исключение.",
           ap1="Откройте <em>Moon Distribution → Раунды</em> и нажмите <em>Подать заявку</em> рядом со своей корпорацией.",
           ap2=f"Отметьте все луны, которые нужны вашей корпорации – до <strong>{V['wishes']}</strong>. Луны сгруппированы по регионам во вкладках; выбор действует во всех вкладках.",
           ap3="Нажмите на заголовок столбца для сортировки (например, по редкости или по доле ценной руды); Shift+клик добавляет второй уровень сортировки.",
@@ -436,6 +446,7 @@ build("uk", "Як працює розподіл місяців", "Ця стор�
           tl4="Усі, хто подав заявку, отримують сповіщення в Auth із результатом. Повний рейтинг видно на сторінці раунду.",
           who="<strong>CEO</strong> корпорації альянсу – одна заявка на корпорацію.",
           who_dir="Подавати заявку можуть і <strong>директори</strong>; їх визначають через Corptools, тому персонаж має мати активний аудит Corptools.",
+          prob=f"Ваша корпорація має бути в альянсі щонайменше <strong>{V['prob']} міс.</strong> (рахуючи від останнього вступу). Корпорації на випробувальному терміні не можуть подавати заявки; Mining Officer'и можуть зробити виняток.",
           ap1="Відкрийте <em>Moon Distribution → Раунди</em> і натисніть <em>Подати заявку</em> біля своєї корпорації.",
           ap2=f"Позначте всі місяці, які потрібні вашій корпорації – до <strong>{V['wishes']}</strong>. Місяці згруповані за регіонами у вкладках; вибір діє в усіх вкладках.",
           ap3="Натисніть на заголовок стовпця, щоб відсортувати (наприклад, за рідкістю або часткою цінної руди); Shift+клік додає другий рівень сортування.",
@@ -474,6 +485,7 @@ build("ja", "ムーン分配の仕組み", "このページには常にマイニ
           tl4="申請した全員に結果が Auth の通知で届きます。ランキング全体はラウンドのページで確認できます。",
           who="アライアンス所属コーポの<strong>CEO</strong> – 1コーポにつき1件の申請です。",
           who_dir="<strong>ディレクター</strong>も申請できます。ディレクターは Corptools で判定されるため、キャラクターに有効な Corptools 監査が必要です。",
+          prob=f"コーポは同盟に少なくとも<strong>{V['prob']}か月</strong>在籍している必要があります（最後の加入日から数えます）。試用期間中のコーポは申請できません。マイニングオフィサーは例外を認めることができます。",
           ap1="<em>Moon Distribution → ラウンド</em>を開き、自分のコーポの横にある<em>申請</em>をクリックします。",
           ap2=f"コーポが希望するムーンをすべてチェックします（最大<strong>{V['wishes']}</strong>件）。ムーンはリージョンごとのタブに分かれており、選択はすべてのタブで共通です。",
           ap3="列の見出しをクリックすると並べ替えできます（例：レア度や高価値鉱石の割合）。Shift+クリックで2段階目の並べ替えを追加できます。",
@@ -512,6 +524,7 @@ build("ko", "위성 분배 방식 안내", "이 페이지에는 항상 마이닝
           tl4="신청한 모든 사람은 결과가 담긴 Auth 알림을 받습니다. 전체 순위는 라운드 페이지에서 볼 수 있습니다.",
           who="얼라이언스 소속 코퍼레이션의 <strong>CEO</strong> – 코퍼레이션당 신청 1건.",
           who_dir="<strong>디렉터</strong>도 신청할 수 있습니다. 디렉터는 Corptools로 확인하므로 캐릭터에 활성화된 Corptools 감사가 필요합니다.",
+          prob=f"코퍼레이션은 얼라이언스에 최소 <strong>{V['prob']}개월</strong> 이상 소속되어 있어야 합니다(마지막 가입일 기준). 수습 기간 중인 코퍼레이션은 신청할 수 없으며, 마이닝 오피서가 예외를 허용할 수 있습니다.",
           ap1="<em>Moon Distribution → 라운드</em>를 열고 내 코퍼레이션 옆의 <em>신청</em>을 클릭합니다.",
           ap2=f"코퍼레이션이 원하는 위성을 모두 체크합니다 – 최대 <strong>{V['wishes']}</strong>개. 위성은 지역별 탭으로 나뉘어 있으며, 선택은 모든 탭에 걸쳐 적용됩니다.",
           ap3="열 제목을 클릭하면 정렬됩니다(예: 희귀도 또는 고가치 광석 비율). Shift+클릭으로 두 번째 정렬 기준을 추가할 수 있습니다.",
@@ -550,6 +563,7 @@ build("zh_hans", "卫星分配说明", "本页面始终显示 Mining Officer 的
           tl4="所有申请人都会收到包含结果的 Auth 通知。完整排名可在本轮页面查看。",
           who="联盟军团的 <strong>CEO</strong> – 每个军团一份申请。",
           who_dir="<strong>董事</strong>也可以申请；董事通过 Corptools 识别，因此角色需要有效的 Corptools 审计。",
+          prob=f"你的军团必须已加入联盟至少 <strong>{V['prob']} 个月</strong>（从最近一次加入算起）。仍在考察期内的军团不能申请；Mining Officer 可以给予例外。",
           ap1="打开 <em>Moon Distribution → 轮次</em>，点击你军团旁边的<em>申请</em>。",
           ap2=f"勾选你军团想要的所有卫星 – 最多 <strong>{V['wishes']}</strong> 个。卫星按星域分在不同标签页中，选择在所有标签页中通用。",
           ap3="点击列标题即可排序（例如按稀有度或高价值矿石占比）；Shift+点击可添加第二级排序。",

@@ -12,7 +12,7 @@ from django.utils import timezone
 from allianceauth.services.hooks import get_extension_logger
 from allianceauth.notifications import notify
 
-from . import providers
+from . import probation, providers
 from .models import Allocation, Application, CorporationScore, DistributionSettings, Moon, Round
 
 logger = get_extension_logger(__name__)
@@ -154,9 +154,15 @@ def run_distribution(round_obj: Round) -> None:
     Raises on unexpected errors – the caller stores the message in round.last_error.
     """
     settings = DistributionSettings.get_solo()
-    applications = list(
+    all_applications = list(
         round_obj.applications.select_related("corporation", "submitted_by").prefetch_related("wishes")
     )
+    # 0) probation: refresh the join dates of the applicants from ESI, drop corps that are still in probation
+    if settings.probation_months:
+        probation.update_join_dates([a.corporation for a in all_applications])
+    blocked = probation.blocked_corporation_ids([a.corporation for a in all_applications])
+    applications = [a for a in all_applications if a.corporation.corporation_id not in blocked]
+    excluded = [a for a in all_applications if a.corporation.corporation_id in blocked]
     corp_ids = [a.corporation.corporation_id for a in applications]
     start, end = round_obj.evaluation_start, round_obj.evaluation_end
 
@@ -260,10 +266,13 @@ def run_distribution(round_obj: Round) -> None:
             "rarity_limits": settings.rarity_limits,
             "bonus_no_moon": settings.bonus_no_moon,
             "bonus_no_r32": settings.bonus_no_r32,
+            "probation_months": settings.probation_months,
+            "probation_excluded": sorted(a.corporation.corporation_name for a in excluded),
         }
         round_obj.save()
 
     _notify_applicants(round_obj, applications, picks)
+    _notify_excluded(round_obj, excluded, settings.probation_months)
     logger.info("Round %s distributed: %s applicants, %s moons assigned", round_obj.pk, len(applications), len(picks))
 
 
@@ -285,6 +294,21 @@ def _notify_applicants(round_obj: Round, applications: list, picks: list) -> Non
             level = "info"
         try:
             notify(app.submitted_by, f"Moon Distribution: {round_obj.name}", msg, level)
+        except Exception:  # notifications must never break the distribution
+            logger.exception("Could not notify user %s", app.submitted_by_id)
+
+
+def _notify_excluded(round_obj: Round, excluded: list, months: int) -> None:
+    """Tell applicants whose corp was not considered because it is still in its probation."""
+    for app in excluded:
+        if not app.submitted_by:
+            continue
+        msg = (
+            f"{app.corporation.corporation_name} was not considered: corps can take part after "
+            f"{months} months in the alliance."
+        )
+        try:
+            notify(app.submitted_by, f"Moon Distribution: {round_obj.name}", msg, "warning")
         except Exception:  # notifications must never break the distribution
             logger.exception("Could not notify user %s", app.submitted_by_id)
 

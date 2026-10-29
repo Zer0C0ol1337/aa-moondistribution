@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.11] - 2026-10-29
+
+### Added
+
+- **Probation for new corps:** corps can only apply after they have been in the alliance for a number of months set in the settings (default 3, 0 = off), counted from their last join. The join date comes from the public EVE alliance history (ESI, no token) and is refreshed when a round is opened, on an officer button and right before a round is distributed; requests never call ESI.
+- Applications of corps still in their probation are blocked (with the end date of the probation) and dropped at distribution time; the applicant gets a notification, the round page lists the corps that were not considered
+- New officer page **Corps**: alliance corps with EVE member count, join date, end of probation and status; officers can make an **exception** per corp with a reason
+- If ESI is not reachable a corp is never blocked (status "unknown")
+- Guide: probation explained in all 12 languages (only shown when it is switched on)
+- Migration `0008_probation`
+
+### Changed
+
+- Requires `allianceauth>=5.2` and `django-esi>=9.4` (OpenAPI ESI client, part of every AA ≥ 5.2 install)
+
 ## [0.1.10] - 2026-10-29
 
 ### Added

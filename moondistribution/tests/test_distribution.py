@@ -316,3 +316,46 @@ class TestBestShare(SimpleTestCase):
 
         self.assertEqual(Moon(rarity="R16", notes="28 %").best_share, 28.0)
         self.assertIsNone(Moon(rarity="R16").best_share)
+
+
+class TestProbationHelpers(SimpleTestCase):
+    """join_date_from_history() and add_months()"""
+
+    def test_current_membership(self):
+        """The newest record decides; the start of the CURRENT membership is used."""
+        from moondistribution.probation import join_date_from_history
+
+        history = [
+            {"record_id": 1, "alliance_id": 99, "start_date": "2024-01-10T12:00:00Z"},
+            {"record_id": 2, "alliance_id": None, "start_date": "2025-03-01T12:00:00Z"},  # left
+            {"record_id": 3, "alliance_id": 99, "start_date": "2026-09-15T08:00:00Z"},   # rejoined
+        ]
+        self.assertEqual(join_date_from_history(history, 99).date().isoformat(), "2026-09-15")
+
+    def test_not_in_alliance(self):
+        """Corp not (or no longer) in the alliance → no date."""
+        from moondistribution.probation import join_date_from_history
+
+        history = [{"record_id": 5, "alliance_id": 42, "start_date": "2026-01-01T00:00:00Z"}]
+        self.assertIsNone(join_date_from_history(history, 99))
+        self.assertIsNone(join_date_from_history([], 99))
+
+    def test_object_entries(self):
+        """ESI client objects (attributes, datetime) work like dicts."""
+        from datetime import datetime, timezone as tz
+        from types import SimpleNamespace
+
+        from moondistribution.probation import join_date_from_history
+
+        entry = SimpleNamespace(record_id=7, alliance_id=99, start_date=datetime(2026, 8, 1, tzinfo=tz.utc))
+        self.assertEqual(join_date_from_history([entry], 99).month, 8)
+
+    def test_add_months(self):
+        """End-of-month safe month arithmetic."""
+        from datetime import datetime
+
+        from moondistribution.probation import add_months
+
+        self.assertEqual(add_months(datetime(2026, 11, 30), 3), datetime(2027, 2, 28))
+        self.assertEqual(add_months(datetime(2026, 9, 15), 3), datetime(2026, 12, 15))
+

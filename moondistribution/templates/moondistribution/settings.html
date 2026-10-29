@@ -19,6 +19,12 @@
                             {% if alliance %}{{ alliance.alliance_name }} – {{ alliance_corp_count }} {% translate "corps known in AA" %}
                             {% else %}{{ form.alliance_id.help_text }}{% endif %}
                         </div>
+                        <label class="form-label mt-3" for="{{ form.probation_months.id_for_label }}">{% translate "Probation (months)" %}</label>
+                        {{ form.probation_months }}{{ form.probation_months.errors }}
+                        <div class="form-text">
+                            {{ form.probation_months.help_text }}
+                            <a href="{% url 'moondistribution:corps' %}">{% translate "Corps, join dates and exceptions" %}</a>
+                        </div>
                     </div>
                 </div>
 

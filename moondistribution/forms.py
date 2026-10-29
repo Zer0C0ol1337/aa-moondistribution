@@ -82,7 +82,7 @@ class SettingsForm(forms.ModelForm):
 
     class Meta:
         model = DistributionSettings
-        fields = ["alliance_id", "weight_pvp", "weight_fleet", "weight_members", "weight_activity",
+        fields = ["alliance_id", "probation_months", "weight_pvp", "weight_fleet", "weight_members", "weight_activity",
                   "per_member", "application_days", "max_moons_per_corp", "max_wishes", "active_days",
                   "allow_directors", "exclude_r64", "max_r32_per_corp", "max_r16_per_corp",
                   "bonus_no_moon", "bonus_no_r32"]

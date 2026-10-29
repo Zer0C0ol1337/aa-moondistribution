@@ -29,7 +29,8 @@ dynamic = [
     "version",
 ]
 dependencies = [
-    "allianceauth>=5.0,<6",
+    "allianceauth>=5.2,<6",
+    "django-esi>=9.4",
     "allianceauth-corptools>=3.4",
     "requests",
 ]

@@ -1,4 +1,4 @@
-"""Celery tasks: moon import and the one-time automatic distribution of a round."""
+"""Celery tasks: moon import, probation join dates and the one-time automatic distribution of a round."""
 
 
 from celery import shared_task
@@ -12,7 +12,8 @@ from allianceauth.services.tasks import QueueOnce
 
 from .distribution import run_distribution
 from .models import Round
-from .providers import sync_moons_from_corptools
+from .probation import update_join_dates as _update_join_dates
+from .providers import alliance_corporations, sync_moons_from_corptools
 from .rarity import apply_moon_data, fill_missing_regions, parse_paste, rarities_from_moonmining
 from .utils import reset_open_rounds_count
 
@@ -63,6 +64,18 @@ def import_moon_data(paste: str, overwrite: bool, create_missing: bool, user_id:
             found=len(entries), **stats,
         ),
         "success",
+    )
+    return stats
+
+
+@shared_task(base=QueueOnce, once={"graceful": True})
+def update_join_dates(user_id: int | None = None):
+    """Refresh the alliance join date (probation) of all alliance corps from the public ESI alliance history."""
+    stats = _update_join_dates(alliance_corporations())
+    _notify_user(
+        user_id, "Moon Distribution: probation",
+        "Join dates updated for {updated} corps, {failed} not reachable on ESI.".format(**stats),
+        "success" if not stats["failed"] else "warning",
     )
     return stats
 

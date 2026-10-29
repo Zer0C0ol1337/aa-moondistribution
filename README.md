@@ -1,6 +1,6 @@
 # aa-moondistribution
 
-**Version 0.1.10** – see [CHANGELOG](CHANGELOG.md)
+**Version 0.1.11** – see [CHANGELOG](CHANGELOG.md)
 
 Alliance Auth plugin for the periodic **moon distribution** of an alliance (e.g. every 6 months).
 
@@ -16,6 +16,7 @@ UI languages: English, German. The "How it works" guide for the corps is availab
   - optional import of alliance refineries (Athanor/Tatara) from Corptools and of rarities from [aa-moonmining](https://gitlab.com/ErikKalkoken/aa-moonmining)
   - **region tabs** everywhere moons are listed – the region comes from the EVE map data (Corptools' eve_sde, eveuniverse as fallback)
   - filter, search, bulk edit; pools with thousands of moons are supported
+- **Probation**: corps can only apply after N months in the alliance (setting, default 3, 0 = off), counted from their last join according to the EVE alliance history; officers can make an exception per corp (page *Corps*)
 - **Applications** by the corp CEO or directors (Corptools role data) – tick the wanted moons (no ranking, all count the same), changeable until the deadline
 - **"How it works" guide** for the corps in all Alliance Auth languages, always showing the current settings
 - **Scoring** per corp, every criterion scaled 0–100 against the best applicant, weighted average:
@@ -38,7 +39,7 @@ Activity is always attributed via the **main character** of the AA user, so alts
 
 ## Requirements
 
-- Alliance Auth 5.x
+- Alliance Auth 5.2 or newer (5.x)
 - [allianceauth-corptools](https://github.com/pvyParts/allianceauth-corp-tools) ≥ 3.4 (roles, logins, structures, EVE map data)
 - a fleet tracker: [aFAT](https://github.com/ppfeufer/allianceauth-afat) or `allianceauth.fleetactivitytracking` – without one the fleet criterion is 0 for everybody (system check `moondistribution.W002` warns)
 - optional: [aa-moonmining](https://gitlab.com/ErikKalkoken/aa-moonmining) for automatic moon rarity
@@ -102,7 +103,8 @@ Superusers have all permissions and act as officers.
 
 ## First steps
 
-1. **Settings** → alliance ID, weights, limits and fairness rules
+1. **Settings** → alliance ID, probation, weights, limits and fairness rules
+   **Corps** → check join dates (*Update join dates from ESI*) and set exceptions if needed
 2. **Moons** → *Add moons / rarity from scans*: paste your moon sheets (all rows incl. header – several sheets one after another are fine), keep *Create missing moons* ticked; an owner sheet (`System | Planet | Moon | Type | Corp`) sets the current owners. The import runs in the background, you get a notification with the result.
 3. **New round** → activity period + moon pool (per region) → optional manual bonus points → *Open for applications*
 4. When the week is over, `process_rounds` closes the round and distributes it once
@@ -137,7 +139,8 @@ Migrations are additive – `migrate` only applies the missing ones.
 
 ## Notes
 
-- **Outgoing traffic:** during a distribution the plugin calls the public zKillboard stats API once per applying corp (only corporation IDs are sent). No ESI calls.
+- **Outgoing traffic:** during a distribution the plugin calls the public zKillboard stats API once per applying corp (only corporation IDs are sent).
+- **ESI:** only the public endpoint `GET /corporations/{corporation_id}/alliancehistory/` (no token, no scopes) for the probation – for all alliance corps when a round is opened or an officer clicks *Update join dates from ESI*, and for the applicants right before the distribution. The automatic calls are skipped when the probation is 0. If ESI is down the stored date is kept; a corp without any known date is never blocked.
 - zKillboard stats are monthly, so the PvP window is counted in full months. If zKillboard is down, PvP counts as 0 for the affected corps and the round shows a warning – use *Re-run distribution* later.
 - **Active members** and the **activity rate** use the Corptools login data (`last_known_login`); if there is none at all, every registered member counts as active and the activity rate is 0 for everybody. The EVE member count comes from Alliance Auth's corp data (updated daily).
 - **Directors** are taken from the Corptools role data of active Corptools characters; role changes show up after the next Corptools update.

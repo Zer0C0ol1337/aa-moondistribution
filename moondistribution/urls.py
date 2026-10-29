@@ -39,4 +39,8 @@ urlpatterns = [
     path("moons/rarity-import/", views.moon_rarity_import, name="moon_rarity_import"),
     # Officer: settings
     path("settings/", views.settings_view, name="settings"),
+    # officer: alliance corps, probation and exceptions
+    path("corps/", views.corps, name="corps"),
+    path("corps/refresh/", views.corps_refresh, name="corps_refresh"),
+    path("corps/<int:corporation_id>/exempt/", views.corp_exempt, name="corp_exempt"),
 ]

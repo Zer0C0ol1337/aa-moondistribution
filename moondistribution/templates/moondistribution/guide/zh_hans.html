@@ -8,6 +8,7 @@
 <ol><li>Mining Officer 准备并开启一轮分配。</li><li>开启后申请期为 <strong>{{ s.application_days }} 天</strong>。截止前可以随时修改申请。</li><li>时间结束后，本轮会自动评分并<strong>只分配一次</strong>。</li><li>所有申请人都会收到包含结果的 Auth 通知。完整排名可在本轮页面查看。</li></ol>
 <h5 class="mt-3">3. 谁可以申请？</h5>
 <p>联盟军团的 <strong>CEO</strong> – 每个军团一份申请。{% if s.allow_directors %} <strong>董事</strong>也可以申请；董事通过 Corptools 识别，因此角色需要有效的 Corptools 审计。{% endif %}</p>
+         {% if s.probation_months %}<p>你的军团必须已加入联盟至少 <strong>{{ s.probation_months }} 个月</strong>（从最近一次加入算起）。仍在考察期内的军团不能申请；Mining Officer 可以给予例外。</p>{% endif %}
 <h5 class="mt-3">4. 如何申请</h5>
 <ol><li>打开 <em>Moon Distribution → 轮次</em>，点击你军团旁边的<em>申请</em>。</li><li>勾选你军团想要的所有卫星 – 最多 <strong>{{ s.max_wishes }}</strong> 个。卫星按星域分在不同标签页中，选择在所有标签页中通用。</li><li>点击列标题即可排序（例如按稀有度或高价值矿石占比）；Shift+点击可添加第二级排序。</li><li>保存。所有勾选的卫星同等对待 – 没有优先顺序。</li></ol>
          <p>颜色： <span class="md-chip md-r32">R32</span> <span class="md-chip md-r16">R16</span> <span class="md-chip md-r8">R8</span> <span class="md-chip md-r4">R4</span>. 卫星旁的标签显示其矿石及占比；<em>最高 %</em> 是该卫星等级中最有价值矿石的占比。</p>

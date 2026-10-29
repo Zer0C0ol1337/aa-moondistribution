@@ -5,7 +5,8 @@ from solo.admin import SingletonModelAdmin
 from django.contrib import admin
 
 from .models import (
-    Allocation, Application, ApplicationWish, CorporationScore, DistributionSettings, Moon, Round, RoundBonus,
+    Allocation, Application, ApplicationWish, CorporationProbation, CorporationScore, DistributionSettings, Moon,
+    Round, RoundBonus,
 )
 
 
@@ -89,3 +90,13 @@ class AllocationAdmin(ReadOnlyAdmin):
 
     list_display = ("round", "pick_number", "moon", "corporation", "wish_priority")
     list_filter = ("round",)
+
+
+@admin.register(CorporationProbation)
+class CorporationProbationAdmin(admin.ModelAdmin):
+    """Alliance join dates (from ESI) and probation exceptions."""
+
+    list_display = ("corporation", "joined_at", "checked_at", "exempt", "exempt_reason", "exempt_by")
+    list_filter = ("exempt",)
+    readonly_fields = ("joined_at", "checked_at")
+

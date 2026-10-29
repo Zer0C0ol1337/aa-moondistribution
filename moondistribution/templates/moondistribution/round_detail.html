@@ -68,7 +68,11 @@
                 <span class="me-2">{% translate "Apply / change wishlist for" %}:</span>
                 {% for corp in own_corps %}
                     {% if forloop.counter <= 6 %}
-                        <a class="btn btn-sm btn-primary" href="{% url 'moondistribution:apply' round.pk corp.corporation_id %}">{{ corp.corporation_name }}</a>
+                        {% if corp.corporation_id in probation_blocked %}
+                            <span class="btn btn-sm btn-outline-secondary disabled" title="{% translate 'Still in its probation – can apply later' %}">{{ corp.corporation_name }} <i class="fas fa-hourglass-half ms-1"></i></span>
+                        {% else %}
+                            <a class="btn btn-sm btn-primary" href="{% url 'moondistribution:apply' round.pk corp.corporation_id %}">{{ corp.corporation_name }}</a>
+                        {% endif %}
                     {% endif %}
                 {% endfor %}
                 {% if own_corps|length > 6 %}<a href="{% url 'moondistribution:index' %}" class="small">{% translate "more…" %}</a>{% endif %}
@@ -89,6 +93,12 @@
             {% if snapshot.bonus_no_moon or snapshot.bonus_no_r32 %} · {% translate "compensation" %}: +{{ snapshot.bonus_no_moon }} {% translate "no moon" %} / +{{ snapshot.bonus_no_r32 }} {% translate "no R32 last round" %}{% endif %}.
             {% translate "Each criterion is scaled 0–100 against the best applicant." %}
         </p>
+        {% if snapshot.probation_excluded %}
+            <div class="alert alert-warning small py-2">
+                {% blocktranslate with months=snapshot.probation_months %}Not considered – still in the {{ months }}-month probation:{% endblocktranslate %}
+                {{ snapshot.probation_excluded|join:", " }}
+            </div>
+        {% endif %}
         <div class="table-responsive mb-4">
             <table class="table table-sm table-striped align-middle">
                 <thead>
@@ -223,7 +233,10 @@
         {% for app in applications %}
             <div class="card mb-2">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span class="fw-bold">{{ app.corporation.corporation_name }}</span>
+                    <span class="fw-bold">
+                        {{ app.corporation.corporation_name }}
+                        {% if app.corporation.corporation_id in probation_blocked %}<span class="badge text-bg-warning ms-1" title="{% translate 'Applications of corps in their probation are not considered in the distribution.' %}">{% translate "In probation" %}</span>{% endif %}
+                    </span>
                     <span class="small text-muted">
                         {% translate "by" %} {{ app.submitted_by.profile.main_character.character_name|default:app.submitted_by.username }},
                         {{ app.updated_at|date:"Y-m-d H:i" }}

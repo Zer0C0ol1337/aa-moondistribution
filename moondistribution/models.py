@@ -90,6 +90,13 @@ class DistributionSettings(SingletonModel):
         default=7, validators=[MinValueValidator(1)],
         help_text=_("Applications stay open this many days after a round is opened, then it is distributed once."),
     )
+    probation_months = models.PositiveSmallIntegerField(
+        default=3, validators=[MaxValueValidator(60)],
+        help_text=_(
+            "Corps may only apply after they have been in the alliance this many months "
+            "(counted from their last join, EVE alliance history). 0 = off."
+        ),
+    )
     allow_directors = models.BooleanField(
         default=True,
         help_text=_("Besides the CEO, also directors (Corptools role data) may apply for their corp."),
@@ -387,3 +394,27 @@ class Allocation(models.Model):
 
     def __str__(self):
         return f"{self.moon} → {self.corporation}"
+
+
+class CorporationProbation(models.Model):
+    """Alliance join date of a corp (from the EVE alliance history) and a manual exception from the probation."""
+
+    corporation = models.OneToOneField(EveCorporationInfo, on_delete=models.CASCADE, related_name="+")
+    joined_at = models.DateTimeField(
+        null=True, blank=True, help_text=_("Start of the current alliance membership according to ESI."),
+    )
+    checked_at = models.DateTimeField(null=True, blank=True, help_text=_("Last successful ESI check."))
+    exempt = models.BooleanField(
+        default=False, help_text=_("Exception: the corp may apply although it is still in its probation."),
+    )
+    exempt_reason = models.CharField(max_length=255, blank=True, default="")
+    exempt_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    class Meta:
+        default_permissions = ()
+        verbose_name = _("corp probation")
+        verbose_name_plural = _("corp probations")
+
+    def __str__(self):
+        return f"{self.corporation} – joined {self.joined_at:%Y-%m-%d}" if self.joined_at else str(self.corporation)
+

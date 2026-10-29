@@ -11,7 +11,9 @@ from django.utils import timezone
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 
-from moondistribution.models import Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
+from moondistribution.models import (
+    Application, ApplicationWish, CorporationProbation, DistributionSettings, Moon, Round, RoundBonus,
+)
 from moondistribution.providers import collect_fleets, collect_members, eligible_corporations_for
 from moondistribution.tasks import distribute_round, process_rounds
 
@@ -87,10 +89,17 @@ class IntegrationBase(TestCase):
         cls.moon_r64 = Moon.objects.create(name="R-ARKN III - Moon 1", rarity="R64")
 
     def setUp(self):
-        """Run the import tasks synchronously (no Celery worker in tests)."""
-        from moondistribution.tasks import import_moon_data, sync_moons
+        """Run the import tasks synchronously (no Celery worker in tests); no ESI – every corp joined long ago."""
+        from moondistribution.tasks import import_moon_data, sync_moons, update_join_dates
 
-        for task in (import_moon_data, sync_moons):
+        self.join_dates = {}  # corp_id → join date returned by the mocked ESI (default: 2 years ago)
+        esi = mock.patch(
+            "moondistribution.probation.fetch_join_date",
+            side_effect=lambda cid, aid: self.join_dates.get(cid, timezone.now() - timedelta(days=730)),
+        )
+        self.esi_mock = esi.start()
+        self.addCleanup(esi.stop)
+        for task in (import_moon_data, sync_moons, update_join_dates):
             patcher = mock.patch.object(task, "delay", side_effect=task)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -203,7 +212,8 @@ class DistributionIntegrationTest(IntegrationBase):
         r = self._round()
         self.client.force_login(self.officer)
         for name, args in (("index", []), ("round_detail", [r.pk]), ("round_create", []), ("round_edit", [r.pk]),
-                           ("moons", []), ("moon_add", []), ("moon_edit", [self.moon1.pk]), ("settings", [])):
+                           ("moons", []), ("moon_add", []), ("moon_edit", [self.moon1.pk]), ("settings", []),
+                           ("corps", [])):
             resp = self.client.get(reverse(f"moondistribution:{name}", args=args))
             self.assertEqual(resp.status_code, 200, name)
         self.client.force_login(self.member_b)
@@ -641,3 +651,85 @@ class GuideTest(IntegrationBase):
                             "So funktioniert die Moon Distribution")
         self.assertContains(self.client.get(reverse("moondistribution:guide"), {"lang": "xx"}),
                             "How the moon distribution works")
+
+
+class ProbationTest(IntegrationBase):
+    """Corps that joined the alliance less than the probation months ago can't take part."""
+
+    def _recent(self, corp, days=20):
+        """Mocked ESI says: corp joined the alliance `days` ago."""
+        self.join_dates[corp.corporation_id] = timezone.now() - timedelta(days=days)
+
+    def test_new_corp_cannot_apply(self):
+        """A corp in its probation is sent back with the end date of its probation."""
+        self._recent(self.corp_b)
+        from moondistribution.probation import update_join_dates
+
+        update_join_dates([self.corp_b])
+        r = self._round()
+        self.client.force_login(self.ceo_b)
+        resp = self.client.get(reverse("moondistribution:apply", args=[r.pk, 1002]), follow=True)
+        self.assertContains(resp, "corps can apply after 3 months")
+        resp = self.client.post(reverse("moondistribution:apply", args=[r.pk, 1002]), {"moon_ids": str(self.moon1.pk)})
+        self.assertFalse(Application.objects.filter(round=r, corporation=self.corp_b).exists())
+
+    def test_exception_allows_application(self):
+        """An officer exception lets the corp apply despite its probation."""
+        self._recent(self.corp_b)
+        from moondistribution.probation import update_join_dates
+
+        update_join_dates([self.corp_b])
+        self.client.force_login(self.officer)
+        self.client.post(reverse("moondistribution:corp_exempt", args=[1002]), {"exempt": "1", "reason": "returning corp"})
+        record = CorporationProbation.objects.get(corporation=self.corp_b)
+        self.assertTrue(record.exempt)
+        self.assertEqual(record.exempt_by, self.officer)
+        r = self._round()
+        self.client.force_login(self.ceo_b)
+        self.client.post(reverse("moondistribution:apply", args=[r.pk, 1002]), {"moon_ids": str(self.moon1.pk)})
+        self.assertTrue(Application.objects.filter(round=r, corporation=self.corp_b).exists())
+
+    def test_distribution_skips_probation_corps(self):
+        """An application from before the corp's (re)join is dropped at distribution time."""
+        r = self._round(ended=True)
+        for corp, user in ((self.corp_a, self.ceo_a), (self.corp_b, self.ceo_b)):
+            app = Application.objects.create(round=r, corporation=corp, submitted_by=user)
+            ApplicationWish.objects.create(application=app, moon=self.moon1, priority=1)
+        self._recent(self.corp_a)  # ESI: Alpha just (re)joined – checked again right before the distribution
+        with mock.patch.object(distribute_round, "delay", side_effect=distribute_round):
+            process_rounds()
+        r.refresh_from_db()
+        self.assertEqual(r.status, Round.Status.DONE, r.last_error)
+        self.assertEqual(r.allocations.get().corporation, self.corp_b)
+        self.assertEqual(list(r.scores.values_list("corporation_id", flat=True)), [self.corp_b.pk])
+        self.assertEqual(r.settings_snapshot["probation_excluded"], ["Alpha Corp"])
+
+    def test_esi_down_does_not_block(self):
+        """No join date (ESI error) never blocks a corp."""
+        self.esi_mock.side_effect = ConnectionError("ESI down")
+        from moondistribution.probation import blocked_corporation_ids, update_join_dates
+
+        stats = update_join_dates([self.corp_a, self.corp_b])
+        self.assertEqual(stats, {"updated": 0, "failed": 2})
+        self.assertEqual(blocked_corporation_ids([self.corp_a, self.corp_b]), set())
+
+    def test_probation_off(self):
+        """0 months = no probation, even for a corp that joined yesterday."""
+        settings = DistributionSettings.get_solo()
+        settings.probation_months = 0
+        settings.save()
+        CorporationProbation.objects.create(corporation=self.corp_b, joined_at=timezone.now() - timedelta(days=1))
+        from moondistribution.probation import blocked_corporation_ids
+
+        self.assertEqual(blocked_corporation_ids([self.corp_b]), set())
+
+    def test_corps_page(self):
+        """Officer overview shows join date and probation state; members are not allowed."""
+        CorporationProbation.objects.create(corporation=self.corp_b, joined_at=timezone.now() - timedelta(days=10))
+        self.client.force_login(self.officer)
+        resp = self.client.get(reverse("moondistribution:corps"))
+        self.assertContains(resp, "In probation")
+        self.assertContains(resp, "Bravo Corp")
+        self.client.force_login(self.member_b)
+        self.assertEqual(self.client.get(reverse("moondistribution:corps")).status_code, 403)
+

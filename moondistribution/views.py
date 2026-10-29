@@ -20,10 +20,13 @@ from . import __version__
 from .decorators import check_access, officer_required
 from .distribution import application_summary
 from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_selection
-from .models import Allocation, Application, ApplicationWish, DistributionSettings, Moon, Round, RoundBonus
+from .models import (
+    Allocation, Application, ApplicationWish, CorporationProbation, DistributionSettings, Moon, Round, RoundBonus,
+)
+from .probation import blocked_corporation_ids, probation_status
 from .providers import alliance_corporations, collect_members, eligible_corporations_for
 from .rarity import parse_paste
-from .tasks import distribute_round, import_moon_data, sync_moons
+from .tasks import distribute_round, import_moon_data, sync_moons, update_join_dates
 from .utils import reset_open_rounds_count
 
 logger = get_extension_logger(__name__)
@@ -158,6 +161,12 @@ def round_detail(request, round_id: int):
         for app in applications:
             app.member_stats = stats.get(app.corporation.corporation_id)
 
+    # Probation: which of the applying / own corps are still in their probation
+    own_corps = list(eligible_corporations_for(request.user, include_officer=False))
+    probation_blocked = (
+        blocked_corporation_ids([a.corporation for a in applications] + own_corps)
+        if round_obj.status != Round.Status.DONE else set()
+    )
     return render(request, "moondistribution/round_detail.html", _ctx(
         request,
         round=round_obj,
@@ -172,7 +181,8 @@ def round_detail(request, round_id: int):
         bonuses=list(round_obj.bonuses.select_related("corporation", "created_by__profile__main_character")),
         bonus_form=RoundBonusForm(corporations=alliance_corporations()) if is_officer else None,
         alliance_corps=alliance_corporations() if is_officer else [],
-        own_corps=list(eligible_corporations_for(request.user, include_officer=False)),
+        own_corps=own_corps,
+        probation_blocked=probation_blocked,
     ))
 
 
@@ -186,6 +196,19 @@ def apply(request, round_id: int, corporation_id: int):
         return redirect("moondistribution:round_detail", round_id=round_obj.pk)
 
     settings = DistributionSettings.get_solo()
+    # Probation: corps that joined the alliance too recently can't apply (unless an officer made an exception)
+    status = probation_status(corporation, months=settings.probation_months)
+    if status["blocked"]:
+        messages.error(request, _(
+            "%(corp)s has been in the alliance since %(joined)s – corps can apply after %(months)s months, "
+            "i.e. from %(end)s."
+        ) % {
+            "corp": corporation.corporation_name, "joined": status["joined_at"].strftime("%Y-%m-%d"),
+            "months": settings.probation_months, "end": status["ends_at"].strftime("%Y-%m-%d"),
+        })
+        if request.user.has_perm("moondistribution.mining_officer"):
+            messages.info(request, _("Officers can make an exception on the Corps page."))
+        return redirect("moondistribution:round_detail", round_id=round_obj.pk)
     moons_qs = round_obj.moons.select_related("owner_corporation")
     if settings.exclude_r64:
         moons_qs = moons_qs.exclude(rarity=Moon.Rarity.R64)
@@ -339,6 +362,8 @@ def round_open(request, round_id: int):
         round_obj.status = Round.Status.OPEN
         round_obj.save(update_fields=["application_start", "application_end", "status"])
         reset_open_rounds_count()
+        if DistributionSettings.get_solo().probation_months:
+            _queue(request, update_join_dates)  # fresh join dates for the probation check
         messages.success(request, _("Round is open for applications until %(end)s EVE time – then it is distributed automatically.") % {
             "end": round_obj.application_end.strftime("%Y-%m-%d %H:%M"),
         })
@@ -556,3 +581,49 @@ def settings_view(request):
     return render(request, "moondistribution/settings.html", _ctx(
         request, form=form, alliance=alliance, alliance_corp_count=alliance_corp_count,
     ))
+
+
+@officer_required
+def corps(request):
+    """Alliance corps with EVE members, alliance join date and probation state; exceptions per corp."""
+    settings = DistributionSettings.get_solo()
+    corporations = list(alliance_corporations())
+    records = {r.corporation_id: r for r in CorporationProbation.objects.filter(corporation__in=corporations)}
+    now = timezone.now()
+    rows = [
+        {"corp": c, "record": records.get(c.pk),
+         **probation_status(c, records.get(c.pk), settings.probation_months, now)}
+        for c in corporations
+    ]
+    last_check = max((r.checked_at for r in records.values() if r.checked_at), default=None)
+    return render(request, "moondistribution/corps.html", _ctx(
+        request, rows=rows, probation_months=settings.probation_months, last_check=last_check,
+        no_alliance=settings.alliance_id is None,
+    ))
+
+
+@officer_required
+@require_POST
+def corp_exempt(request, corporation_id: int):
+    """Set or remove the probation exception of a corp (with a reason)."""
+    corporation = get_object_or_404(alliance_corporations(), corporation_id=corporation_id)
+    record, _created = CorporationProbation.objects.get_or_create(corporation=corporation)
+    record.exempt = request.POST.get("exempt") == "1"
+    record.exempt_reason = (request.POST.get("reason") or "").strip()[:255] if record.exempt else ""
+    record.exempt_by = request.user if record.exempt else None
+    record.save(update_fields=["exempt", "exempt_reason", "exempt_by"])
+    if record.exempt:
+        messages.success(request, _("%(corp)s may apply despite its probation.") % {"corp": corporation.corporation_name})
+    else:
+        messages.info(request, _("Exception for %(corp)s removed.") % {"corp": corporation.corporation_name})
+    return redirect("moondistribution:corps")
+
+
+@officer_required
+@require_POST
+def corps_refresh(request):
+    """Refresh the alliance join dates of all alliance corps from ESI (background task)."""
+    if _queue(request, update_join_dates, request.user.pk):
+        messages.info(request, _("Join dates are being updated from ESI – you get a notification when done."))
+    return redirect("moondistribution:corps")
+
