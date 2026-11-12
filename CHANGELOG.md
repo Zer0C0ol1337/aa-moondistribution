@@ -1,15 +1,10 @@
 # Changelog
 
-## [0.1.16] - 2026-11-12
-
-### Added
-
-- Retention: the last finished round is kept until the next distribution is finished; then all older finished rounds are deleted (with their applications, allocations and scores)
+## [0.1.17] - 2026-11-12
 
 ### Changed
 
-- Corptools is an optional extra (`pip install "aa-moondistribution[corptools]"`), no longer a hard dependency
-- README: setup notes for the Corptools dependency chain (httpx, django-eveonline-sde 0.2.0, django-eveuniverse 2.2.0, modeltranslation order), trust and permission notes, zKillboard outage behaviour, data protection and retention
+- Permissions: members get no access to Moon Distribution. `moondistribution.basic_access` is meant for the CEO and director group only (not the member state); Mining Officers and Leadership get `mining_officer`. README updated accordingly, including the SIG leader note.
 
 ## [0.1.15] - 2026-11-12
 
@@ -25,6 +20,9 @@
 ### Changed
 
 - `CorporationScore.fleet_participations` is now a decimal number (weighted FATs)
+- Corptools is an optional extra (`pip install "aa-moondistribution[corptools]"`), no longer a hard dependency
+- README: setup notes for the Corptools dependency chain, trust and permission notes, zKillboard outage behaviour, data protection
+- Retention: the last finished round is kept until the next distribution is finished; then all older finished rounds are deleted (with their applications, allocations and scores)
 
 ## [0.1.14] - 2026-10-30
 

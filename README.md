@@ -101,12 +101,14 @@ CELERYBEAT_SCHEDULE["moondistribution_process_rounds"] = {
 
 | Permission | Who | What |
 |---|---|---|
-| `moondistribution.basic_access` | Member state | Menu entry, rounds and results; CEOs/directors can apply for their corp |
+| `moondistribution.basic_access` | CEO / director group only (**not** the member state) | Menu entry, rounds and results; CEOs/directors can apply for their corp |
 | `moondistribution.mining_officer` | Mining Officers | Everything: rounds, moons, settings, bonuses, apply for any corp (no `basic_access` needed in addition) |
 
 Superusers have all permissions and act as officers.
 
-SIG leaders need no extra permission: the group leaders of an AA group that an officer added as SIG get the *SIGs* tab automatically (they still need `basic_access`, usually via the member state).
+SIG leaders need no extra permission: the group leaders of an AA group that an officer added as SIG get the *SIGs* tab automatically. They still need `basic_access`, so they must be in the CEO/director group or get the permission some other way; members are not given it.
+
+Members do not get access to Moon Distribution. Give `basic_access` only to the group of corporation CEOs and directors (for example an AA group that holds the CEO and director characters), never to the member state. Mining Officers and Leadership get `mining_officer`.
 
 ## First steps
 
