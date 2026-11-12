@@ -3,7 +3,7 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from .models import DistributionSettings, Moon, Round, RoundBonus
+from .models import ActivityEntry, ActivityType, DistributionSettings, FleetTypeFactor, Moon, Round, RoundBonus
 
 
 def distributable_moons():
@@ -83,7 +83,7 @@ class SettingsForm(forms.ModelForm):
     class Meta:
         model = DistributionSettings
         fields = ["alliance_id", "probation_months", "weight_pvp", "weight_fleet", "weight_members", "weight_activity",
-                  "per_member", "application_days", "max_moons_per_corp", "max_wishes", "active_days",
+                  "weight_intel", "default_fleet_factor", "per_member", "application_days", "max_moons_per_corp", "max_wishes", "active_days",
                   "allow_directors", "exclude_r64", "max_r32_per_corp", "max_r16_per_corp",
                   "bonus_no_moon", "bonus_no_r32"]
 
@@ -97,7 +97,9 @@ class SettingsForm(forms.ModelForm):
     def clean(self):
         """At least one criterion must have a weight > 0."""
         data = super().clean()
-        weights = [data.get(f) for f in ("weight_pvp", "weight_members", "weight_fleet", "weight_activity")]
+        weights = [data.get(f) for f in (
+            "weight_pvp", "weight_members", "weight_fleet", "weight_activity", "weight_intel",
+        )]
         if all(w is not None for w in weights) and sum(weights) == 0:
             raise forms.ValidationError(_("At least one weight must be greater than 0."))
         return data
@@ -118,6 +120,69 @@ class RoundBonusForm(forms.ModelForm):
         self.fields["corporation"].widget.attrs["class"] = "form-select form-select-sm"
         self.fields["points"].widget.attrs.update({"class": "form-control form-control-sm", "min": -100, "max": 100})
         self.fields["reason"].widget.attrs.update({"class": "form-control form-control-sm"})
+
+
+class FleetTypeFactorForm(forms.ModelForm):
+    """Add a fleet type factor or change the one with the same name (case is ignored)."""
+
+    class Meta:
+        model = FleetTypeFactor
+        fields = ["name", "factor"]
+
+    def __init__(self, *args, **kwargs):
+        """Small inputs for the inline form on the settings page."""
+        super().__init__(*args, **kwargs)
+        self.fields["name"].widget.attrs.update({"class": "form-control form-control-sm", "placeholder": "Mining"})
+        self.fields["factor"].widget.attrs.update({"class": "form-control form-control-sm", "step": "0.05", "min": 0, "max": 10})
+
+    def validate_unique(self):
+        """Uniqueness is handled by the view (upsert by name, case-insensitive)."""
+
+    def clean_name(self):
+        """Trim the name."""
+        return self.cleaned_data["name"].strip()
+
+
+class ActivityTypeForm(forms.ModelForm):
+    """Add an activity type (e.g. wormhole report) or change the points of the one with the same name."""
+
+    class Meta:
+        model = ActivityType
+        fields = ["name", "points"]
+
+    def __init__(self, *args, **kwargs):
+        """Small inputs for the inline form on the settings page."""
+        super().__init__(*args, **kwargs)
+        self.fields["name"].widget.attrs.update({"class": "form-control form-control-sm", "placeholder": "Wormhole report"})
+        self.fields["points"].widget.attrs.update({"class": "form-control form-control-sm", "step": "0.1", "min": 0})
+
+    def validate_unique(self):
+        """Uniqueness is handled by the view (upsert by name, case-insensitive)."""
+
+    def clean_name(self):
+        """Trim the name."""
+        return self.cleaned_data["name"].strip()
+
+
+class ActivityEntryForm(forms.ModelForm):
+    """Enter how many reports of one type a corp has in a round."""
+
+    class Meta:
+        model = ActivityEntry
+        fields = ["corporation", "activity_type", "count", "note"]
+
+    def __init__(self, *args, corporations=None, **kwargs):
+        """Limit the corp choice to the alliance corps."""
+        super().__init__(*args, **kwargs)
+        if corporations is not None:
+            self.fields["corporation"].queryset = corporations
+        self.fields["corporation"].widget.attrs["class"] = "form-select form-select-sm"
+        self.fields["activity_type"].widget.attrs["class"] = "form-select form-select-sm"
+        self.fields["count"].widget.attrs.update({"class": "form-control form-control-sm", "min": 1})
+        self.fields["note"].widget.attrs.update({"class": "form-control form-control-sm"})
+
+    def validate_unique(self):
+        """Uniqueness (round + corp + type) is handled by the view, which replaces an existing entry."""
 
 
 def parse_selection(selected_ids, moons, max_wishes: int):

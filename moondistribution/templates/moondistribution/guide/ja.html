@@ -22,7 +22,10 @@
          {% if s.weight_fleet %}<tr><td>フリート</td><td>フリート参加（FATリンク）</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
          {% if s.weight_members %}<tr><td>アクティブメンバー</td><td>メインキャラクターがコーポに所属し、直近{{ s.active_days }}日以内にログインしたプレイヤー</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
          {% if s.weight_activity %}<tr><td>アクティブ率</td><td>コーポの全キャラクター（EVE上のメンバー数）のうち、直近{{ s.active_days }}日以内にログインした割合 – Authに登録されていないキャラクターは非アクティブとして扱われます</td><td class="text-end">{{ s.weight_activity }}</td></tr>{% endif %}
+         {% if s.weight_intel %}<tr><td>インテル／報告</td><td>ワームホール報告・インテルなど、Mining Officer がラウンドごとに入力する活動へのポイント</td><td class="text-end">{{ s.weight_intel }}</td></tr>{% endif %}
          </tbody></table>
+         {% if fleet_factors or s.default_fleet_factor != 1 %}<p>フリートタイプ別の FAT 1 件の価値：</p><ul>{% for f in fleet_factors %}<li>{{ f.name }}: ×{{ f.factor|floatformat:"-2" }}</li>{% endfor %}<li>その他すべてのフリートタイプ: ×{{ s.default_fleet_factor|floatformat:"-2" }}</li></ul>{% endif %}
+         {% if s.weight_intel and activity_types %}<p>報告 1 件あたりのポイント：</p><ul>{% for t in activity_types %}<li>{{ t.name }}: {{ t.points|floatformat:"-2" }}</li>{% endfor %}</ul>{% endif %}
          {% if s.per_member %}<p>PvP とフリートは<strong>アクティブメンバー1人あたり</strong>で計算されるため、小規模でも活発なコーポが大規模コーポと競えます。</p>{% endif %}
          <p>すべて<strong>メインキャラクター</strong>のコーポに加算されます。他コーポにいるオルトもメインのコーポに加算されます。</p>
 <h5 class="mt-3">6. ボーナスポイント</h5>

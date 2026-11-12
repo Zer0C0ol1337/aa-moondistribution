@@ -12,9 +12,12 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 
 from moondistribution.models import (
-    Application, ApplicationWish, CorporationProbation, DistributionSettings, Moon, Round, RoundBonus, Sig, SigClaim,
+    ActivityEntry, ActivityType, Application, ApplicationWish, CorporationProbation, DistributionSettings,
+    FleetTypeFactor, Moon, Round, RoundBonus, Sig, SigClaim,
 )
-from moondistribution.providers import collect_fleets, collect_members, eligible_corporations_for
+from moondistribution.providers import (
+    _weighted_fat_total, collect_fleets, collect_intel, collect_members, eligible_corporations_for,
+)
 from moondistribution.tasks import distribute_round, process_rounds
 
 ALLIANCE_ID = 99000001
@@ -644,6 +647,25 @@ class GuideTest(IntegrationBase):
                 self.assertContains(resp, value, msg_prefix=code)
             self.assertContains(resp, "md-r16", msg_prefix=code)
 
+    def test_fleet_values_and_report_points_in_every_language(self):
+        """The guide lists the value per fleet type and the report points once the intel criterion is on."""
+        from moondistribution.views import GUIDE_LANGUAGES
+
+        FleetTypeFactor.objects.create(name="Mining", factor=0.5)
+        ActivityType.objects.create(name="Wormhole report", points=2.5)
+        DistributionSettings.objects.update(weight_intel=12, default_fleet_factor=0.75)
+        self.client.force_login(self.ceo_a)
+        for code, _label in GUIDE_LANGUAGES:
+            resp = self.client.get(reverse("moondistribution:guide"), {"lang": code})
+            for text in ("Mining", "0.5", "0.75", "Wormhole report", "2.5", "12"):
+                self.assertContains(resp, text, msg_prefix=code)
+        # switched off and untouched: neither the intel row nor the lists appear
+        FleetTypeFactor.objects.all().delete()
+        DistributionSettings.objects.update(weight_intel=0, default_fleet_factor=1.0)
+        resp = self.client.get(reverse("moondistribution:guide"), {"lang": "en"})
+        self.assertNotContains(resp, "Value of one FAT by fleet type")
+        self.assertNotContains(resp, "Points per report")
+
     def test_language_from_user(self):
         """Without ?lang the AA language of the user is used, unknown languages fall back to English."""
         self.client.force_login(self.ceo_a)
@@ -1045,3 +1067,166 @@ class RentalTest(IntegrationBase):
         self.assertContains(resp, "Rental / month")
         self.assertContains(resp, "180M")
 
+
+
+class FleetFactorAndIntelTest(IntegrationBase):
+    """Value of one FAT per fleet type, point values of reports and the 'Intel / reports' criterion."""
+
+    def _distribute(self, r):
+        """Run the automatic distribution for a round synchronously."""
+        with mock.patch.object(distribute_round, "delay", side_effect=distribute_round), \
+                mock.patch("moondistribution.distribution.notify"):
+            process_rounds()
+        r.refresh_from_db()
+        return r
+
+    def _apply(self, r, corp, user, moons):
+        """Application with the given moons, all wanted equally."""
+        app = Application.objects.create(round=r, corporation=corp, submitted_by=user)
+        for moon in moons:
+            ApplicationWish.objects.create(application=app, moon=moon, priority=1)
+
+    def test_default_factor_applies_to_fats_without_type(self):
+        """The AA built-in FAT has no fleet types: every FAT uses the default factor."""
+        settings = DistributionSettings.get_solo()
+        settings.default_fleet_factor = 0.5
+        settings.save()
+        fleets = collect_fleets([1001, 1002], date.today() - timedelta(days=182), date.today())
+        self.assertEqual(fleets, {1001: 5.0, 1002: 1.0})
+
+    def test_weighted_total_by_fleet_type(self):
+        """Known types use their factor (case and spaces ignored), unknown and empty types the default."""
+        rows = [
+            {"corp": 1, "type": "Mining", "n": 4},
+            {"corp": 1, "type": " mining ", "n": 2},
+            {"corp": 1, "type": "Strategic", "n": 3},
+            {"corp": 1, "type": "", "n": 1},
+            {"corp": 1, "type": None, "n": 1},
+            {"corp": 2, "type": "Strategic", "n": 1},
+        ]
+        table = {"mining": 0.5, "strategic": 2.0}
+        total = _weighted_fat_total(rows, "corp", "type", table, default=1.0)
+        self.assertEqual(total, {1: 4 * 0.5 + 2 * 0.5 + 3 * 2.0 + 1 + 1, 2: 2.0})
+
+    def test_fleet_factor_views(self):
+        """Officers add, replace (same name, any case) and remove factors; others get 403; bad values are refused."""
+        url = reverse("moondistribution:fleet_factor_save")
+        self.client.force_login(self.ceo_a)
+        self.assertEqual(self.client.post(url, {"name": "Mining", "factor": "0.5"}).status_code, 403)
+        self.client.force_login(self.officer)
+        self.client.post(url, {"name": "Mining", "factor": "0.5"})
+        self.client.post(url, {"name": "  mining ", "factor": "0.25"})
+        self.assertEqual(FleetTypeFactor.objects.count(), 1)
+        self.assertEqual(FleetTypeFactor.objects.get().factor, 0.25)
+        self.client.post(url, {"name": "Strategic", "factor": "11"})  # above the maximum of 10
+        self.assertEqual(FleetTypeFactor.objects.count(), 1)
+        factor = FleetTypeFactor.objects.get()
+        self.client.post(reverse("moondistribution:fleet_factor_delete", args=[factor.pk]))
+        self.assertEqual(FleetTypeFactor.objects.count(), 0)
+
+    def test_settings_page_saves_weight_and_default_factor(self):
+        """The settings page shows the new sections and stores the intel weight and the default FAT value."""
+        self.client.force_login(self.officer)
+        resp = self.client.get(reverse("moondistribution:settings"))
+        self.assertContains(resp, "Value of one FAT per fleet type")
+        self.assertContains(resp, "Intel and wormhole reports")
+        settings = DistributionSettings.get_solo()
+        data = {
+            "alliance_id": ALLIANCE_ID, "probation_months": 3, "weight_pvp": 40, "weight_fleet": 35,
+            "weight_members": 10, "weight_activity": 15, "weight_intel": 20, "default_fleet_factor": "0.8",
+            "application_days": 7, "max_moons_per_corp": 3, "max_wishes": 10, "active_days": 30,
+            "allow_directors": "on", "exclude_r64": "on", "max_r32_per_corp": 1, "bonus_no_moon": 15,
+            "bonus_no_r32": 8,
+        }
+        resp = self.client.post(reverse("moondistribution:settings"), data)
+        self.assertEqual(resp.status_code, 302)
+        settings.refresh_from_db()
+        self.assertEqual((settings.weight_intel, settings.default_fleet_factor), (20, 0.8))
+        self.assertEqual(settings.weights["intel"], 20)
+
+    def test_report_types_and_entries(self):
+        """Types are created/replaced by the officer; an entry replaces the one of the same corp and type."""
+        self.client.force_login(self.officer)
+        self.client.post(reverse("moondistribution:activity_type_save"), {"name": "Wormhole report", "points": "2"})
+        self.client.post(reverse("moondistribution:activity_type_save"), {"name": "wormhole REPORT", "points": "3"})
+        self.assertEqual(ActivityType.objects.count(), 1)
+        wh = ActivityType.objects.get()
+        self.assertEqual(wh.points, 3)
+        intel = ActivityType.objects.create(name="Intel", points=0.5)
+
+        r = self._round()
+        url = reverse("moondistribution:activity_save", args=[r.pk])
+        base = {"corporation": self.corp_a.pk, "activity_type": wh.pk, "note": "June scouting"}
+        self.client.post(url, {**base, "count": 4})
+        self.client.post(url, {**base, "count": 6})  # replaces
+        self.client.post(url, {"corporation": self.corp_a.pk, "activity_type": intel.pk, "count": 10})
+        self.assertEqual(ActivityEntry.objects.filter(round=r).count(), 2)
+        self.assertEqual(collect_intel([1001, 1002], r), {1001: 6 * 3 + 10 * 0.5, 1002: 0.0})
+        # the round page lists them for the officer
+        DistributionSettings.objects.update(weight_intel=10)
+        resp = self.client.get(reverse("moondistribution:round_detail", args=[r.pk]))
+        self.assertContains(resp, "Intel and wormhole reports")
+        self.assertContains(resp, "June scouting")
+        # non-officers can't enter or delete
+        self.client.force_login(self.ceo_a)
+        self.assertEqual(self.client.post(url, {**base, "count": 99}).status_code, 403)
+        entry = ActivityEntry.objects.filter(round=r).first()
+        self.assertEqual(
+            self.client.post(reverse("moondistribution:activity_delete", args=[r.pk, entry.pk])).status_code, 403,
+        )
+
+    def test_entries_locked_after_distribution(self):
+        """A distributed round keeps its entries: nothing can be added or removed anymore."""
+        wh = ActivityType.objects.create(name="Wormhole report", points=2)
+        r = self._round(status=Round.Status.DONE)
+        entry = ActivityEntry.objects.create(round=r, corporation=self.corp_a, activity_type=wh, count=1)
+        self.client.force_login(self.officer)
+        self.client.post(reverse("moondistribution:activity_save", args=[r.pk]),
+                         {"corporation": self.corp_b.pk, "activity_type": wh.pk, "count": 5})
+        self.client.post(reverse("moondistribution:activity_delete", args=[r.pk, entry.pk]))
+        self.assertEqual(ActivityEntry.objects.filter(round=r).count(), 1)
+
+    def test_intel_decides_the_ranking(self):
+        """With only the intel weight set, the corp with more report points wins the contested moon."""
+        DistributionSettings.objects.update(
+            weight_pvp=0, weight_fleet=0, weight_members=0, weight_activity=0, weight_intel=100,
+        )
+        wh = ActivityType.objects.create(name="Wormhole report", points=2)
+        r = self._round(ended=True)
+        self._apply(r, self.corp_a, self.ceo_a, [self.moon1])
+        self._apply(r, self.corp_b, self.ceo_b, [self.moon1])
+        ActivityEntry.objects.create(round=r, corporation=self.corp_b, activity_type=wh, count=8)
+        ActivityEntry.objects.create(round=r, corporation=self.corp_a, activity_type=wh, count=2)
+        r = self._distribute(r)
+        self.assertEqual(r.status, Round.Status.DONE, r.last_error)
+        top = r.scores.get(rank=1)
+        self.assertEqual(top.corporation, self.corp_b)
+        self.assertEqual((top.intel_points, top.score_intel, top.total_score), (16.0, 100.0, 100.0))
+        self.assertEqual(r.scores.get(corporation=self.corp_a).score_intel, 25.0)
+        self.assertEqual(r.allocations.get(moon=self.moon1).corporation, self.corp_b)
+        self.assertEqual(r.settings_snapshot["weights"]["intel"], 100)
+        self.assertEqual(r.settings_snapshot["activity_points"], {"Wormhole report": 2.0})
+        # the ranking shows the intel column
+        self.client.force_login(self.officer)
+        self.assertContains(self.client.get(reverse("moondistribution:round_detail", args=[r.pk])), "Intel / reports")
+
+    def test_intel_ignored_with_weight_zero(self):
+        """With the default weight 0 entries don't change anything."""
+        wh = ActivityType.objects.create(name="Wormhole report", points=2)
+        r = self._round(ended=True)
+        self._apply(r, self.corp_a, self.ceo_a, [self.moon1])
+        ActivityEntry.objects.create(round=r, corporation=self.corp_a, activity_type=wh, count=50)
+        r = self._distribute(r)
+        score = r.scores.get()
+        self.assertEqual((score.intel_points, score.score_intel), (0, 0))
+
+    def test_fleet_factor_changes_the_fleet_value_in_the_ranking(self):
+        """The stored fleet value of a corp is the weighted sum, not the plain number of FATs."""
+        settings = DistributionSettings.get_solo()
+        settings.default_fleet_factor = 0.5
+        settings.save()
+        r = self._round(ended=True)
+        self._apply(r, self.corp_a, self.ceo_a, [self.moon1])
+        r = self._distribute(r)
+        self.assertEqual(r.scores.get().fleet_participations, 5.0)
+        self.assertEqual(r.settings_snapshot["default_fleet_factor"], 0.5)

@@ -13,11 +13,13 @@ from allianceauth.services.hooks import get_extension_logger
 from allianceauth.notifications import notify
 
 from . import probation, providers, sigs
-from .models import Allocation, Application, CorporationScore, DistributionSettings, Moon, Round
+from .models import (
+    ActivityType, Allocation, Application, CorporationScore, DistributionSettings, FleetTypeFactor, Moon, Round,
+)
 
 logger = get_extension_logger(__name__)
 
-CRITERIA = ("pvp", "members", "fleet", "activity")
+CRITERIA = ("pvp", "members", "fleet", "activity", "intel")
 # criteria that are never divided by the members in per-member mode
 _NOT_PER_MEMBER = ("members", "activity")
 
@@ -25,7 +27,7 @@ _NOT_PER_MEMBER = ("members", "activity")
 def normalize_scores(raw: dict, weights: dict, per_member: bool = False, skip: dict | None = None) -> dict:
     """Turn raw activity values into sub-scores (0–100) and a weighted total.
 
-    raw:     {corp_id: {"pvp": x, "members": active, "fleet": x, "activity": rate in %}}
+    raw:     {corp_id: {"pvp": x, "members": active, "fleet": x, "activity": rate in %, "intel": points}}
     weights: {"pvp": w, ...} – a weight of 0 removes the criterion.
     skip:    {corp_id: {"members", "activity"}} – criteria that are not rated for this corp
              (no Auth data); its total is the weighted average of its remaining criteria.
@@ -177,6 +179,7 @@ def run_distribution(round_obj: Round) -> None:
     # 1) collect raw activity (zKill first – slowest, done outside the transaction)
     members = providers.collect_members(corp_ids, settings.active_days)
     fleets = providers.collect_fleets(corp_ids, start, end)
+    intel = providers.collect_intel(corp_ids, round_obj) if settings.weight_intel else {}
     pvp, pvp_errors = providers.collect_pvp(corp_ids, start, end) if settings.weight_pvp else ({}, set())
 
     raw = {
@@ -185,6 +188,7 @@ def run_distribution(round_obj: Round) -> None:
             "members": members[cid]["active"],
             "fleet": fleets.get(cid, 0),
             "activity": members[cid]["rate"],
+            "intel": intel.get(cid, 0),
         }
         for cid in corp_ids
     }
@@ -247,10 +251,12 @@ def run_distribution(round_obj: Round) -> None:
                 chars_active=members[cid]["chars_active"],
                 activity_rate=members[cid]["rate"],
                 fleet_participations=raw[cid]["fleet"],
+                intel_points=raw[cid]["intel"],
                 score_pvp=scores[cid]["score_pvp"],
                 score_members=scores[cid]["score_members"],
                 score_fleet=scores[cid]["score_fleet"],
                 score_activity=scores[cid]["score_activity"],
+                score_intel=scores[cid]["score_intel"],
                 base_score=scores[cid]["base"],
                 bonus_auto=scores[cid]["auto"],
                 bonus_manual=scores[cid]["manual"],
@@ -279,6 +285,9 @@ def run_distribution(round_obj: Round) -> None:
         )
         round_obj.settings_snapshot = {
             "weights": settings.weights,
+            "default_fleet_factor": settings.default_fleet_factor,
+            "fleet_factors": {f.name: f.factor for f in FleetTypeFactor.objects.all()},
+            "activity_points": {t.name: t.points for t in ActivityType.objects.all()},
             "per_member": settings.per_member,
             "max_moons_per_corp": settings.max_moons_per_corp,
             "active_days": settings.active_days,

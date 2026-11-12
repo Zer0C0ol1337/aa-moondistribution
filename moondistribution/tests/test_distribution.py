@@ -15,6 +15,15 @@ class _Moon:
 class TestNormalizeScores(SimpleTestCase):
     """normalize_scores()"""
 
+    def test_intel_is_scaled_against_the_best_corp(self):
+        """The intel criterion works like every other one; without a weight it is ignored."""
+        raw = {1: {"pvp": 10, "intel": 40.0}, 2: {"pvp": 10, "intel": 10.0}}
+        res = normalize_scores(raw, {"pvp": 50, "intel": 50})
+        self.assertEqual((res[1]["score_intel"], res[2]["score_intel"]), (100.0, 25.0))
+        self.assertEqual((res[1]["total"], res[2]["total"]), (100.0, 62.5))
+        res = normalize_scores(raw, {"pvp": 50})
+        self.assertEqual(res[1]["total"], res[2]["total"])
+
     weights = {"pvp": 50, "members": 10, "fleet": 40}
 
     def test_best_corp_gets_100(self):

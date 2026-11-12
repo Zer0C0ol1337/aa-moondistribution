@@ -22,7 +22,10 @@
          {% if s.weight_fleet %}<tr><td>舰队</td><td>舰队参与（FAT 链接）</td><td class="text-end">{{ s.weight_fleet }}</td></tr>{% endif %}
          {% if s.weight_members %}<tr><td>活跃成员</td><td>主角色在你军团中、且在最近 {{ s.active_days }} 天内登录过的玩家</td><td class="text-end">{{ s.weight_members }}</td></tr>{% endif %}
          {% if s.weight_activity %}<tr><td>活跃率</td><td>你军团所有角色（EVE 成员数）中最近 {{ s.active_days }} 天内登录过的比例 – 未在 Auth 中注册的角色视为不活跃</td><td class="text-end">{{ s.weight_activity }}</td></tr>{% endif %}
+         {% if s.weight_intel %}<tr><td>情报 / 报告</td><td>Mining Officer 为本轮录入的虫洞报告、情报等工作的得分</td><td class="text-end">{{ s.weight_intel }}</td></tr>{% endif %}
          </tbody></table>
+         {% if fleet_factors or s.default_fleet_factor != 1 %}<p>按舰队类型计算的单次 FAT 价值：</p><ul>{% for f in fleet_factors %}<li>{{ f.name }}: ×{{ f.factor|floatformat:"-2" }}</li>{% endfor %}<li>其他所有舰队类型: ×{{ s.default_fleet_factor|floatformat:"-2" }}</li></ul>{% endif %}
+         {% if s.weight_intel and activity_types %}<p>每份报告的得分：</p><ul>{% for t in activity_types %}<li>{{ t.name }}: {{ t.points|floatformat:"-2" }}</li>{% endfor %}</ul>{% endif %}
          {% if s.per_member %}<p>PvP 和舰队按<strong>每名活跃成员</strong>计算，让规模小但非常活跃的军团也能与大军团竞争。</p>{% endif %}
          <p>所有数据都计入<strong>主角色</strong>所在的军团——在其他军团的小号也计入主号的军团。</p>
 <h5 class="mt-3">6. 加分</h5>

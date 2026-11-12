@@ -22,10 +22,13 @@ from . import __version__
 from .decorators import check_access, officer_required
 from .distribution import application_summary
 from .excel_template import export_round, import_templates
-from .forms import MoonForm, RoundBonusForm, RoundForm, SettingsForm, parse_selection
+from .forms import (
+    ActivityEntryForm, ActivityTypeForm, FleetTypeFactorForm, MoonForm, RoundBonusForm, RoundForm, SettingsForm,
+    parse_selection,
+)
 from .models import (
-    Allocation, Application, ApplicationWish, CorporationProbation, DistributionSettings, Moon, Round, RoundBonus, Sig,
-    SigClaim,
+    ActivityEntry, ActivityType, Allocation, Application, ApplicationWish, CorporationProbation, DistributionSettings,
+    FleetTypeFactor, Moon, Round, RoundBonus, Sig, SigClaim,
 )
 from .probation import blocked_corporation_ids, probation_status
 from .sigs import claimed_moon_ids, notify_officers, notify_user, reserved_moon_ids, sigs_led_by
@@ -192,6 +195,10 @@ def round_detail(request, round_id: int):
         snapshot=round_obj.settings_snapshot or {},
         bonuses=list(round_obj.bonuses.select_related("corporation", "created_by__profile__main_character")),
         bonus_form=RoundBonusForm(corporations=alliance_corporations()) if is_officer else None,
+        activity_entries=list(round_obj.activity_entries.select_related("corporation", "activity_type")),
+        activity_form=ActivityEntryForm(corporations=alliance_corporations()) if is_officer else None,
+        activity_types=list(ActivityType.objects.all()) if is_officer else [],
+        intel_active=DistributionSettings.get_solo().weight_intel > 0,
         alliance_corps=alliance_corporations() if is_officer else [],
         own_corps=own_corps,
         probation_blocked=probation_blocked,
@@ -309,6 +316,8 @@ def guide(request):
     lang = _guide_lang(request.GET.get("lang") or getattr(request, "LANGUAGE_CODE", "en"))
     return render(request, f"moondistribution/guide/{lang}.html", _ctx(
         request, s=DistributionSettings.get_solo(), guide_lang=lang, guide_languages=GUIDE_LANGUAGES,
+        # current value of one FAT per fleet type and the points per intel / wormhole report
+        fleet_factors=FleetTypeFactor.objects.all(), activity_types=ActivityType.objects.all(),
     ))
 
 
@@ -597,7 +606,108 @@ def settings_view(request):
         alliance = corp.alliance if corp else None
     return render(request, "moondistribution/settings.html", _ctx(
         request, form=form, alliance=alliance, alliance_corp_count=alliance_corp_count,
+        fleet_factors=FleetTypeFactor.objects.all(), fleet_factor_form=FleetTypeFactorForm(),
+        activity_types=ActivityType.objects.all(), activity_type_form=ActivityTypeForm(),
     ))
+
+
+def _flash_form_errors(request, form) -> None:
+    """Show every validation error of a form as a message."""
+    for errors in form.errors.values():
+        for err in errors:
+            messages.error(request, err)
+
+
+@officer_required
+@require_POST
+def fleet_factor_save(request):
+    """Add a fleet type factor or replace the one with the same name (case is ignored)."""
+    form = FleetTypeFactorForm(request.POST)
+    if form.is_valid():
+        name, factor = form.cleaned_data["name"], form.cleaned_data["factor"]
+        existing = FleetTypeFactor.objects.filter(name__iexact=name).first()
+        if existing:
+            existing.factor = factor
+            existing.save(update_fields=["factor"])
+        else:
+            FleetTypeFactor.objects.create(name=name, factor=factor)
+        messages.success(request, _("Fleet type factor saved."))
+    else:
+        _flash_form_errors(request, form)
+    return redirect("moondistribution:settings")
+
+
+@officer_required
+@require_POST
+def fleet_factor_delete(request, factor_id: int):
+    """Remove a fleet type factor (its fleets use the default factor again)."""
+    get_object_or_404(FleetTypeFactor, pk=factor_id).delete()
+    messages.info(request, _("Fleet type factor removed."))
+    return redirect("moondistribution:settings")
+
+
+@officer_required
+@require_POST
+def activity_type_save(request):
+    """Add an activity type (e.g. wormhole report) or change the points of the one with the same name."""
+    form = ActivityTypeForm(request.POST)
+    if form.is_valid():
+        name, points = form.cleaned_data["name"], form.cleaned_data["points"]
+        existing = ActivityType.objects.filter(name__iexact=name).first()
+        if existing:
+            existing.points = points
+            existing.save(update_fields=["points"])
+        else:
+            ActivityType.objects.create(name=name, points=points)
+        messages.success(request, _("Report type saved."))
+    else:
+        _flash_form_errors(request, form)
+    return redirect("moondistribution:settings")
+
+
+@officer_required
+@require_POST
+def activity_type_delete(request, type_id: int):
+    """Remove an activity type together with all entries made with it."""
+    get_object_or_404(ActivityType, pk=type_id).delete()
+    messages.info(request, _("Report type removed."))
+    return redirect("moondistribution:settings")
+
+
+@officer_required
+@require_POST
+def activity_save(request, round_id: int):
+    """Enter or replace how many reports of a type a corp has in this round (only before distribution)."""
+    round_obj = get_object_or_404(Round, pk=round_id)
+    if round_obj.status == Round.Status.DONE:
+        messages.error(request, _("The round is already distributed – entries can't be changed anymore."))
+        return redirect("moondistribution:round_detail", round_id=round_obj.pk)
+    existing = ActivityEntry.objects.filter(
+        round=round_obj, corporation_id=request.POST.get("corporation"), activity_type_id=request.POST.get("activity_type"),
+    ).first()
+    form = ActivityEntryForm(request.POST, instance=existing, corporations=alliance_corporations())
+    if form.is_valid():
+        entry = form.save(commit=False)
+        entry.round = round_obj
+        entry.created_by = request.user
+        entry.save()
+        messages.success(request, _("Entry saved."))
+    else:
+        _flash_form_errors(request, form)
+    return redirect("moondistribution:round_detail", round_id=round_obj.pk)
+
+
+@officer_required
+@require_POST
+def activity_delete(request, round_id: int, entry_id: int):
+    """Remove an entry (only before the round is distributed)."""
+    entry = get_object_or_404(ActivityEntry, pk=entry_id, round_id=round_id)
+    if entry.round.status == Round.Status.DONE:
+        messages.error(request, _("The round is already distributed – entries can't be changed anymore."))
+    else:
+        entry.delete()
+        messages.info(request, _("Entry removed."))
+    return redirect("moondistribution:round_detail", round_id=round_id)
 
 
 @officer_required

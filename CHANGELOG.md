@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.15] - 2026-11-12
+
+### Added
+
+- **Value of one FAT per fleet type:** with aFAT every FAT now counts with a factor that depends on the fleet type of its FAT link (e.g. a *Mining* FAT = 0.5, a strategic op = 2). The factors are set on the settings page (type name exactly as in aFAT, case is ignored); fleet types without a factor – and all FATs of the AA built-in fleet activity tracking, which has no fleet types – use the new **default value of one FAT** (default 1, so nothing changes until a factor is set). The fleet value of a corp is the weighted sum and may have decimals.
+- **New criterion "Intel / reports":** points for wormhole reports, intel and similar work. Report types with their points per report (e.g. *Wormhole report* = 2, *Intel* = 0.5) are managed in the settings; the Mining Officers enter the number of reports per corp and round on the round page (one entry per corp and type, replaced when entered again, locked once the round is distributed). Own weight in the settings (default 0 = off, so existing rounds are not affected); the value is scaled against the best corp like every other criterion and divided by the active members in per-member mode.
+- Ranking on the round page shows the intel column (when the criterion was on) and the weighted fleet value; the settings snapshot of a distributed round keeps the weights, the fleet factors and the report points
+- Guide: fleet values per type, the intel criterion and the points per report are shown with the current settings in all 12 languages
+- Admin: fleet type factors, report types and report entries
+- Migration `0011_scoring_fleet_factors_intel`
+
+### Changed
+
+- `CorporationScore.fleet_participations` is now a decimal number (weighted FATs)
+
 ## [0.1.14] - 2026-10-30
 
 ### Changed

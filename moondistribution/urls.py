@@ -39,6 +39,14 @@ urlpatterns = [
     path("moons/rarity-import/", views.moon_rarity_import, name="moon_rarity_import"),
     # Officer: settings
     path("settings/", views.settings_view, name="settings"),
+    # Officer: value of one FAT per fleet type and point values of the manually entered report types
+    path("settings/fleet-factor/", views.fleet_factor_save, name="fleet_factor_save"),
+    path("settings/fleet-factor/<int:factor_id>/delete/", views.fleet_factor_delete, name="fleet_factor_delete"),
+    path("settings/report-type/", views.activity_type_save, name="activity_type_save"),
+    path("settings/report-type/<int:type_id>/delete/", views.activity_type_delete, name="activity_type_delete"),
+    # Officer: intel / wormhole report entries per corp and round
+    path("round/<int:round_id>/reports/", views.activity_save, name="activity_save"),
+    path("round/<int:round_id>/reports/<int:entry_id>/delete/", views.activity_delete, name="activity_delete"),
     # officer: alliance corps, probation and exceptions
     # officer: Excel template for corps without Auth access
     path("round/<int:round_id>/export/", views.round_export, name="round_export"),

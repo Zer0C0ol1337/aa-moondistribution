@@ -18,7 +18,7 @@ from allianceauth.services.hooks import get_extension_logger
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 
 from . import app_settings
-from .models import DistributionSettings, Moon
+from .models import ActivityEntry, DistributionSettings, FleetTypeFactor, Moon
 
 logger = get_extension_logger(__name__)
 
@@ -134,60 +134,98 @@ def collect_members(corp_ids: list, active_days: int) -> dict:
     return result
 
 
-def collect_fleets(corp_ids: list, start: date, end: date) -> dict:
-    """Fleet participations per corp – aFAT if installed, otherwise the AA built-in FAT.
+def fleet_factor_table() -> tuple:
+    """Fleet type factors from the settings: ({lower-case type name: factor}, default factor)."""
+    table = {f.name.strip().lower(): f.factor for f in FleetTypeFactor.objects.all()}
+    return table, DistributionSettings.get_solo().default_fleet_factor
 
+
+def _weighted_fat_total(rows, key: str, type_key: str, table: dict, default: float) -> dict:
+    """Sum FAT counts per corp, every FAT weighted with the factor of its fleet type.
+
+    rows: queryset values with `key` (corp), `type_key` (fleet type text) and `n` (number of FATs).
+    """
+    result = {}
+    for row in rows:
+        factor = table.get((row[type_key] or "").strip().lower(), default)
+        result[row[key]] = result.get(row[key], 0.0) + row["n"] * factor
+    return result
+
+
+def collect_fleets(corp_ids: list, start: date, end: date, table: dict | None = None,
+                   default_factor: float | None = None) -> dict:
+    """Weighted fleet participations per corp – aFAT if installed, otherwise the AA built-in FAT.
+
+    Every FAT counts with the factor of its fleet type (settings, e.g. Mining = 0.5); types without a
+    factor – and all fleets of the AA built-in FAT, which has no fleet types – use the default factor.
     Registered players count for the corp of their main; with aFAT, unregistered fleet members
     count for their current corp.
     """
-    result = {cid: 0 for cid in corp_ids}
+    if table is None or default_factor is None:
+        table, default_factor = fleet_factor_table()
+    result = {cid: 0.0 for cid in corp_ids}
 
     if apps.is_installed("afat"):
         from afat.models import Fat
 
+        key, type_key = f"character__{_MAIN_CORP}", "fatlink__fleet_type"
         rows = (
             Fat.objects.filter(
                 fatlink__created__date__gte=start, fatlink__created__date__lte=end,
                 **{f"character__{_MAIN_CORP}__in": corp_ids},
             )
-            .values(f"character__{_MAIN_CORP}")
+            .values(key, type_key)
             .annotate(n=Count("id"))
         )
-        key = f"character__{_MAIN_CORP}"
     elif apps.is_installed("allianceauth.fleetactivitytracking"):
         from allianceauth.fleetactivitytracking.models import Fat
 
+        key = "user__profile__main_character__corporation_id"
         rows = (
             Fat.objects.filter(
                 fatlink__fatdatetime__date__gte=start, fatlink__fatdatetime__date__lte=end,
                 user__profile__main_character__corporation_id__in=corp_ids,
             )
-            .values("user__profile__main_character__corporation_id")
+            .values(key)
             .annotate(n=Count("id"))
         )
-        key = "user__profile__main_character__corporation_id"
+        # the built-in FAT has no fleet types: every FAT uses the default factor
+        for row in rows:
+            result[row[key]] = row["n"] * default_factor
+        return {cid: round(v, 2) for cid, v in result.items()}
     else:
         logger.warning("Neither aFAT nor the AA fleet activity tracking is installed – fleet score is 0")
         return result
 
-    for row in rows:
-        result[row[key]] = row["n"]
+    for cid, value in _weighted_fat_total(rows, key, type_key, table, default_factor).items():
+        result[cid] = value
 
-    if apps.is_installed("afat"):
-        # Fleet members that are not registered in the Auth (e.g. players behind the Chinese firewall)
-        # count for the corp they are in right now – aFAT knows them from the ESI fleet
-        unregistered = (
-            Fat.objects.filter(
-                fatlink__created__date__gte=start, fatlink__created__date__lte=end,
-                character__character_ownership__isnull=True,
-                character__corporation_id__in=corp_ids,
-            )
-            .values("character__corporation_id")
-            .annotate(n=Count("id"))
+    # Fleet members that are not registered in the Auth (e.g. players behind the Chinese firewall)
+    # count for the corp they are in right now – aFAT knows them from the ESI fleet
+    ukey = "character__corporation_id"
+    unregistered = (
+        Fat.objects.filter(
+            fatlink__created__date__gte=start, fatlink__created__date__lte=end,
+            character__character_ownership__isnull=True,
+            character__corporation_id__in=corp_ids,
         )
-        for row in unregistered:
-            result[row["character__corporation_id"]] += row["n"]
-    return result
+        .values(ukey, type_key)
+        .annotate(n=Count("id"))
+    )
+    for cid, value in _weighted_fat_total(unregistered, ukey, type_key, table, default_factor).items():
+        result[cid] = result.get(cid, 0.0) + value
+    return {cid: round(v, 2) for cid, v in result.items()}
+
+
+def collect_intel(corp_ids: list, round_obj) -> dict:
+    """Intel / wormhole report points per corp: entries of the round (count x points of the type)."""
+    result = {cid: 0.0 for cid in corp_ids}
+    entries = ActivityEntry.objects.filter(
+        round=round_obj, corporation__corporation_id__in=corp_ids,
+    ).select_related("activity_type", "corporation")
+    for entry in entries:
+        result[entry.corporation.corporation_id] += entry.points
+    return {cid: round(v, 2) for cid, v in result.items()}
 
 
 def fetch_zkill_kills(corporation_id: int, start: date, end: date) -> int:

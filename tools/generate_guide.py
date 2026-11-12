@@ -616,6 +616,59 @@ build("zh_hans", "卫星分配说明", "本页面始终显示 Mining Officer 的
       ))
 
 
+# ---------------------------------------------------------------- fleet values and intel (all languages)
+# n_intel / src_intel: row of the criteria table, fleet_values / other_fleets: value of one FAT per fleet type,
+# report_values: points per intel / wormhole report. The lists are filled from the current settings.
+EXTRA = {
+    "en": ("Intel / reports", "Points for wormhole reports, intel and similar work that the Mining Officers enter for the round",
+           "Value of one FAT by fleet type:", "all other fleet types", "Points per report:"),
+    "de": ("Intel / Meldungen", "Punkte für Wormhole-Meldungen, Intel und Ähnliches, die die Mining Officer für die Runde eintragen",
+           "Wert einer FAT je Fleet-Typ:", "alle anderen Fleet-Typen", "Punkte pro Meldung:"),
+    "es": ("Intel / informes", "Puntos por informes de wormholes, intel y trabajos similares que los Mining Officers registran para la ronda",
+           "Valor de una FAT según el tipo de flota:", "todos los demás tipos de flota", "Puntos por informe:"),
+    "fr": ("Intel / rapports", "Points pour les rapports de wormholes, l’intel et les tâches similaires que les Mining Officers saisissent pour le round",
+           "Valeur d’une FAT selon le type de flotte :", "tous les autres types de flotte", "Points par rapport :"),
+    "it": ("Intel / segnalazioni", "Punti per segnalazioni di wormhole, intel e attività simili che i Mining Officer inseriscono per il round",
+           "Valore di una FAT in base al tipo di flotta:", "tutti gli altri tipi di flotta", "Punti per segnalazione:"),
+    "nl": ("Intel / meldingen", "Punten voor wormhole-meldingen, intel en vergelijkbaar werk dat de Mining Officers voor de ronde invoeren",
+           "Waarde van één FAT per fleettype:", "alle andere fleettypes", "Punten per melding:"),
+    "pl": ("Intel / zgłoszenia", "Punkty za zgłoszenia wormholi, intel i podobne działania, które Mining Officerowie wpisują dla rundy",
+           "Wartość jednego FAT-a według typu floty:", "wszystkie pozostałe typy flot", "Punkty za zgłoszenie:"),
+    "ru": ("Разведка / отчёты", "Очки за отчёты о червоточинах, разведку и подобную работу, которые Mining Officers вносят для раунда",
+           "Ценность одного FAT по типу флота:", "все остальные типы флотов", "Очки за один отчёт:"),
+    "uk": ("Розвідка / звіти", "Бали за звіти про червоточини, розвідку та подібну роботу, які Mining Officers вносять для раунду",
+           "Цінність одного FAT за типом флоту:", "усі інші типи флотів", "Бали за один звіт:"),
+    "ja": ("インテル／報告", "ワームホール報告・インテルなど、Mining Officer がラウンドごとに入力する活動へのポイント",
+           "フリートタイプ別の FAT 1 件の価値：", "その他すべてのフリートタイプ", "報告 1 件あたりのポイント："),
+    "ko": ("인텔 / 보고", "Mining Officer가 라운드별로 입력하는 웜홀 보고, 인텔 등에 대한 점수",
+           "함대 유형별 FAT 1건의 가치:", "그 외 모든 함대 유형", "보고 1건당 점수:"),
+    "zh_hans": ("情报 / 报告", "Mining Officer 为本轮录入的虫洞报告、情报等工作的得分",
+                "按舰队类型计算的单次 FAT 价值：", "其他所有舰队类型", "每份报告的得分："),
+}
+
+
+def add_extras(lang: str) -> None:
+    """Add the intel row to the criteria table and the fleet value / report point lists below it (section 5)."""
+    n_intel, src_intel, fleet_values, other_fleets, report_values = EXTRA[lang]
+    heading, html = T[lang]["sections"][4]
+    row = ("{% if s.weight_intel %}<tr><td>" + n_intel + "</td><td>" + src_intel
+           + '</td><td class="text-end">{{ s.weight_intel }}</td></tr>{% endif %}\n         ')
+    lists = (
+        "\n         {% if fleet_factors or s.default_fleet_factor != 1 %}<p>" + fleet_values + "</p><ul>"
+        '{% for f in fleet_factors %}<li>{{ f.name }}: ×{{ f.factor|floatformat:"-2" }}</li>{% endfor %}'
+        "<li>" + other_fleets + ': ×{{ s.default_fleet_factor|floatformat:"-2" }}</li></ul>{% endif %}'
+        "\n         {% if s.weight_intel and activity_types %}<p>" + report_values + "</p><ul>"
+        '{% for t in activity_types %}<li>{{ t.name }}: {{ t.points|floatformat:"-2" }}</li>{% endfor %}</ul>{% endif %}'
+    )
+    assert html.count("</tbody></table>") == 1, lang
+    html = html.replace("</tbody></table>", row + "</tbody></table>" + lists)
+    T[lang]["sections"][4] = (heading, html)
+
+
+for _lang in T:
+    add_extras(_lang)
+
+
 TEMPLATE = """{{% extends "moondistribution/guide/_layout.html" %}}
 {{# Generated guide for language "{lang}" – edit the generator or this file #}}
 {{% block guide_title %}}{title}{{% endblock guide_title %}}

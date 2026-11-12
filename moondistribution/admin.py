@@ -5,8 +5,8 @@ from solo.admin import SingletonModelAdmin
 from django.contrib import admin
 
 from .models import (
-    Allocation, Application, ApplicationWish, CorporationProbation, CorporationScore,
-    DistributionSettings, Moon, Round, RoundBonus, Sig, SigClaim,
+    ActivityEntry, ActivityType, Allocation, Application, ApplicationWish, CorporationProbation, CorporationScore,
+    DistributionSettings, FleetTypeFactor, Moon, Round, RoundBonus, Sig, SigClaim,
 )
 
 
@@ -80,7 +80,7 @@ class CorporationScoreAdmin(ReadOnlyAdmin):
 
     list_display = ("round", "rank", "corporation", "total_score", "base_score", "bonus_auto", "bonus_manual",
                     "pvp_kills",
-                    "members_ingame", "members_active", "activity_rate", "fleet_participations")
+                    "members_ingame", "members_active", "activity_rate", "fleet_participations", "intel_points")
     list_filter = ("round",)
 
 
@@ -116,3 +116,25 @@ class SigClaimAdmin(admin.ModelAdmin):
     list_filter = ("round", "sig", "status")
     raw_id_fields = ("moon",)
 
+
+
+@admin.register(FleetTypeFactor)
+class FleetTypeFactorAdmin(admin.ModelAdmin):
+    """Value of one FAT per fleet type (normally edited on the settings page)."""
+
+    list_display = ("name", "factor")
+
+
+@admin.register(ActivityType)
+class ActivityTypeAdmin(admin.ModelAdmin):
+    """Report types with their point value (normally edited on the settings page)."""
+
+    list_display = ("name", "points")
+
+
+@admin.register(ActivityEntry)
+class ActivityEntryAdmin(admin.ModelAdmin):
+    """Intel / wormhole report entries per corp and round (normally entered on the round page)."""
+
+    list_display = ("round", "corporation", "activity_type", "count", "note", "created_by")
+    list_filter = ("round", "activity_type")

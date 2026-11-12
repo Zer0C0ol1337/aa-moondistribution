@@ -24,9 +24,11 @@ UI languages: English, German. The "How it works" guide for the corps is availab
 - **"How it works" guide** for the corps in all Alliance Auth languages, always showing the current settings
 - **Scoring** per corp, every criterion scaled 0–100 against the best applicant, weighted average:
   - **PvP** – ships destroyed according to zKillboard (default weight 40)
-  - **Fleets** – fleet participations from aFAT or the AA built-in fleet activity tracking (default weight 35)
+  - **Fleets** – fleet participations from aFAT or the AA built-in fleet activity tracking (default weight 35); with aFAT every FAT counts with a **factor per fleet type** (e.g. *Mining* = 0.5), set in the settings; types without a factor use the default value (1)
   - **Active members** – AA users whose main is in the corp and who logged in recently (default weight 10)
   - **Activity rate** – share of all characters in the corp (EVE member count) that logged in recently; unregistered characters count as inactive (default weight 15)
+  - **Intel / reports** – points for wormhole reports, intel and similar work that the officers enter per corp and round; the report types and their points are set in the settings (default weight 0 = off)
+  - all weights, the value of one FAT per fleet type and the points per report type are adjustable in the settings
   - optional: values per active member, so small active corps can compete with big ones
 - **Fairness**
   - R64 moons are never distributed (setting, on by default)
@@ -108,7 +110,7 @@ SIG leaders need no extra permission: the group leaders of an AA group that an o
 
 ## First steps
 
-1. **Settings** → alliance ID, probation, weights, limits and fairness rules
+1. **Settings** → alliance ID, probation, weights, value of one FAT per fleet type (name exactly as in aFAT), report types with points (intel / wormhole reports), limits and fairness rules
    **Corps** → check join dates (*Update join dates from ESI*) and set exceptions if needed
 2. **Moons** → *Add moons / rarity from scans*: paste your moon sheets (all rows incl. header – several sheets one after another are fine), keep *Create missing moons* ticked; an owner sheet (`System | Planet | Moon | Type | Corp`) sets the current owners. The import runs in the background, you get a notification with the result.
    **SIGs** → add the AA groups that are SIGs; their **group leaders** (AA Group Management) can then claim moons for each round

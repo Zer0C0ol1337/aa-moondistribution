@@ -108,6 +108,7 @@
             {% translate "Weights" %}: PvP {{ snapshot.weights.pvp }} · Fleets {{ snapshot.weights.fleet }} ·
             {% translate "Active members" %} {{ snapshot.weights.members }}
             {% if snapshot.weights.activity is not None %} · {% translate "Activity rate" %} {{ snapshot.weights.activity }}{% endif %}
+            {% if snapshot.weights.intel %} · {% translate "Intel / reports" %} {{ snapshot.weights.intel }}{% endif %}
             {% if snapshot.per_member %} · {% translate "values per active member" %}{% endif %}
             · {% translate "max. moons per corp" %}: {{ snapshot.max_moons_per_corp }}
             {% if snapshot.rarity_limits.R32 is not None %} · {% translate "max. R32" %}: {{ snapshot.rarity_limits.R32 }}{% endif %}
@@ -130,7 +131,8 @@
                         <th class="text-end">{% translate "Kills" %}</th>
                         <th class="text-end" title="{% translate 'Active players / players registered in the Auth' %}">{% translate "Active / members" %}</th>
                         <th class="text-end" title="{% translate 'Active characters / EVE member count' %}">{% translate "Activity rate" %}</th>
-                        <th class="text-end">{% translate "Fleets" %}</th>
+                        <th class="text-end" title="{% translate 'FATs weighted by fleet type' %}">{% translate "Fleets" %}</th>
+                        {% if snapshot.weights.intel %}<th class="text-end">{% translate "Intel / reports" %}</th>{% endif %}
                         <th class="text-end">{% translate "Activity" %}</th>
                         <th class="text-end">{% translate "Bonus" %}</th>
                         <th class="text-end">{% translate "Score" %}</th>
@@ -150,7 +152,8 @@
                                 {% if s.no_auth_data %}<span class="text-muted">–</span>{% elif s.members_ingame %}<span title="{{ s.chars_active }} / {{ s.members_ingame }}">{{ s.activity_rate|floatformat:0 }}%</span>{% else %}–{% endif %}
                                 {% if not s.no_auth_data %}<span class="text-muted small">({{ s.score_activity|floatformat:0 }})</span>{% endif %}
                             </td>
-                            <td class="text-end">{{ s.fleet_participations|intcomma }} <span class="text-muted small">({{ s.score_fleet|floatformat:0 }})</span></td>
+                            <td class="text-end">{{ s.fleet_participations|floatformat:"-1" }} <span class="text-muted small">({{ s.score_fleet|floatformat:0 }})</span></td>
+                            {% if snapshot.weights.intel %}<td class="text-end">{{ s.intel_points|floatformat:"-1" }} <span class="text-muted small">({{ s.score_intel|floatformat:0 }})</span></td>{% endif %}
                             <td class="text-end">{{ s.base_score|floatformat:1 }}</td>
                             <td class="text-end small">
                                 {% if s.bonus_auto %}<span class="badge text-bg-info" title="{% translate 'Compensation for the previous round' %}">+{{ s.bonus_auto|floatformat:0 }}</span>{% endif %}
@@ -160,7 +163,7 @@
                             <td class="text-end fw-bold">{{ s.total_score|floatformat:1 }}</td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="9" class="text-muted">{% translate "No applications." %}</td></tr>
+                        <tr><td colspan="10" class="text-muted">{% translate "No applications." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -202,6 +205,56 @@
                 <div class="col-md-4"><input type="text" name="reason" maxlength="255" class="form-control form-control-sm" placeholder="{% translate 'Reason (visible to everyone)' %}" required></div>
                 <div class="col-md-2"><button class="btn btn-sm btn-primary w-100">{% translate "Save bonus" %}</button></div>
             </form>
+        {% endif %}
+    {% endif %}
+
+    {% if activity_entries or is_officer and round.status != "done" and intel_active %}
+        {# intel / wormhole reports: entered by the officers, counted as the "Intel / reports" criterion #}
+        <h4 class="mb-3">{% translate "Intel and wormhole reports" %}</h4>
+        <p class="small text-muted">
+            {% translate "Points for reports that the Mining Officers entered for this round. One entry = number of reports x points of the report type." %}
+            {% if not intel_active %}{% translate "The criterion is switched off in the settings (weight 0) – these entries are not counted." %}{% endif %}
+        </p>
+        <div class="table-responsive mb-2">
+            <table class="table table-sm align-middle">
+                <tbody>
+                    {% for e in activity_entries %}
+                        <tr>
+                            <td>{{ e.corporation.corporation_name }}</td>
+                            <td>{{ e.activity_type.name }}</td>
+                            <td class="text-end">{{ e.count }} x {{ e.activity_type.points|floatformat:"-2" }} = <strong>{{ e.points|floatformat:"-2" }}</strong></td>
+                            <td class="small">{{ e.note }}</td>
+                            {% if is_officer and round.status != "done" %}
+                                <td class="text-end">
+                                    <form method="post" action="{% url 'moondistribution:activity_delete' round.pk e.pk %}">{% csrf_token %}
+                                        <button class="btn btn-sm btn-outline-danger" title="{% translate 'Remove' %}"><i class="fas fa-trash"></i></button>
+                                    </form>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% empty %}
+                        <tr><td class="text-muted small">{% translate "No entries yet." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if is_officer and round.status != "done" %}
+            {% if activity_types %}
+                <form method="post" action="{% url 'moondistribution:activity_save' round.pk %}" class="row g-2 mb-4">
+                    {% csrf_token %}
+                    <div class="col-md-3">{{ activity_form.corporation }}</div>
+                    <div class="col-md-3">{{ activity_form.activity_type }}</div>
+                    <div class="col-md-1">{{ activity_form.count }}</div>
+                    <div class="col-md-3">{{ activity_form.note }}</div>
+                    <div class="col-md-2"><button class="btn btn-sm btn-primary w-100">{% translate "Save entry" %}</button></div>
+                    <div class="col-12 form-text">{% translate "An entry for the same corp and report type replaces the existing one." %}</div>
+                </form>
+            {% else %}
+                <p class="small text-muted mb-4">
+                    {% translate "Create report types (e.g. wormhole report, intel) with their points first:" %}
+                    <a href="{% url 'moondistribution:settings' %}">{% translate "Settings" %}</a>
+                </p>
+            {% endif %}
         {% endif %}
     {% endif %}
 

@@ -46,10 +46,25 @@ class DistributionSettings(SingletonModel):
         ),
     )
 
+    weight_intel = models.PositiveSmallIntegerField(
+        default=0, validators=[MaxValueValidator(100)],
+        help_text=_(
+            "Intel and wormhole reports: points entered by the Mining Officers per corp and round "
+            "(value per report type is set below). 0 = off."
+        ),
+    )
+
+    default_fleet_factor = models.FloatField(
+        default=1.0, validators=[MinValueValidator(0), MaxValueValidator(10)],
+        help_text=_(
+            "Value of one FAT for every fleet type that has no factor of its own (1 = full value, 0.5 = half)."
+        ),
+    )
+
     per_member = models.BooleanField(
         default=False,
         help_text=_(
-            "Divide PvP and fleet values by the active members, "
+            "Divide PvP, fleet and intel values by the active members, "
             "so small but very active corps are not outranked by size alone."
         ),
     )
@@ -128,6 +143,7 @@ class DistributionSettings(SingletonModel):
             "members": self.weight_members,
             "fleet": self.weight_fleet,
             "activity": self.weight_activity,
+            "intel": self.weight_intel,
         }
 
 
@@ -354,6 +370,69 @@ class RoundBonus(models.Model):
         return f"{self.corporation}: {self.points:+d}"
 
 
+class FleetTypeFactor(models.Model):
+    """Value of one FAT for a fleet type (name as set in aFAT), e.g. Mining = 0.5."""
+
+    name = models.CharField(max_length=254, unique=True, help_text=_("Fleet type exactly as in aFAT (case is ignored)."))
+    factor = models.FloatField(
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        help_text=_("Value of one FAT of this type: 1 = full, 0.5 = half, 2 = double, 0 = does not count."),
+    )
+
+    class Meta:
+        default_permissions = ()
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name}: x{self.factor:g}"
+
+
+class ActivityType(models.Model):
+    """A kind of activity the officers enter by hand (e.g. wormhole report, intel) with its point value."""
+
+    name = models.CharField(max_length=100, unique=True)
+    points = models.FloatField(
+        validators=[MinValueValidator(0), MaxValueValidator(1000)],
+        help_text=_("Points for one entry of this type."),
+    )
+
+    class Meta:
+        default_permissions = ()
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name}: {self.points:g}"
+
+
+class ActivityEntry(models.Model):
+    """How many entries of one activity type a corp has in a round (officer input, counts as 'intel' criterion)."""
+
+    round = models.ForeignKey(Round, on_delete=models.CASCADE, related_name="activity_entries")
+    corporation = models.ForeignKey(EveCorporationInfo, on_delete=models.CASCADE, related_name="+")
+    activity_type = models.ForeignKey(ActivityType, on_delete=models.CASCADE, related_name="entries")
+    count = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(100000)])
+    note = models.CharField(max_length=255, blank=True, default="")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["round", "corporation", "activity_type"], name="moondist_one_entry_per_type",
+            ),
+        ]
+        ordering = ["corporation__corporation_name", "activity_type__name"]
+
+    @property
+    def points(self) -> float:
+        """Points of this entry (count x points of the type)."""
+        return self.count * self.activity_type.points
+
+    def __str__(self):
+        return f"{self.corporation}: {self.count} x {self.activity_type.name}"
+
+
 class CorporationScore(models.Model):
     """Collected activity and calculated score of an applying corp in a round."""
 
@@ -369,13 +448,17 @@ class CorporationScore(models.Model):
         default=0, help_text=_("Characters in the corp that logged in within the active days."),
     )
     activity_rate = models.FloatField(default=0, help_text=_("Active characters / EVE member count in %."))
-    fleet_participations = models.PositiveIntegerField(default=0)
+    fleet_participations = models.FloatField(
+        default=0, help_text=_("Fleet participations, each FAT weighted with the factor of its fleet type."),
+    )
+    intel_points = models.FloatField(default=0, help_text=_("Intel / wormhole report points entered for the round."))
 
     # Normalised sub-scores 0–100
     score_pvp = models.FloatField(default=0)
     score_members = models.FloatField(default=0)
     score_fleet = models.FloatField(default=0)
     score_activity = models.FloatField(default=0)
+    score_intel = models.FloatField(default=0)
 
     base_score = models.FloatField(default=0, help_text=_("Weighted activity score before bonuses."))
     bonus_auto = models.FloatField(default=0, help_text=_("Compensation for a bad result in the previous round."))
