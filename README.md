@@ -45,7 +45,7 @@ Activity is always attributed via the **main character** of the AA user, so alts
 ## Requirements
 
 - Alliance Auth 5.2 or newer (5.x)
-- [allianceauth-corptools](https://github.com/pvyParts/allianceauth-corp-tools) ≥ 3.4 (roles, logins, structures, EVE map data)
+- *recommended:* [allianceauth-corptools](https://github.com/pvyParts/allianceauth-corp-tools) ≥ 3.4, installed with `pip install "aa-moondistribution[corptools]"` (roles, logins, refineries, EVE map data). Without it the app still runs; the moon import, director roles and login-based activity need it.
 - a fleet tracker: [aFAT](https://github.com/ppfeufer/allianceauth-afat) or `allianceauth.fleetactivitytracking` – without one the fleet criterion is 0 for everybody (system check `moondistribution.W002` warns)
 - optional: [aa-moonmining](https://gitlab.com/ErikKalkoken/aa-moonmining) for automatic moon rarity
 
@@ -146,6 +146,31 @@ Migrations are additive – `migrate` only applies the missing ones.
 | `MOONDIST_REFINERY_TYPE_IDS` | `[35835, 35836]` | Athanor, Tatara |
 
 ## Notes
+
+### Setup notes (Corptools and its dependencies)
+
+Installing Corptools 3.5.x on Alliance Auth 5.5 or newer needed these pins, found during a dev installation:
+- `httpx>=0.27`: Corptools uses it but does not declare it.
+- `django-eveonline-sde==0.2.0`: newer releases do not match the fields Corptools expects (`name_en`).
+- `django-eveuniverse==2.2.0`: version 2.0.0 and 2.1.0 require `django-esi<10`, which conflicts with Alliance Auth 5.5 and newer. Version 2.2.0 accepts `django-esi` 8 to 10.
+- `modeltranslation` must come **before** all other apps in `INSTALLED_APPS` (`INSTALLED_APPS = ["modeltranslation"] + INSTALLED_APPS`), otherwise `eve_sde` fails on `name_en`.
+- After installing, run `auth esde_load_sde` and `auth ct_setup` once.
+
+### Trust and permissions
+
+- Superusers pass every permission check (Django's `has_perm` behaviour), so they can see and change everything.
+- Mining Officers decide moon assignments and bonuses. The permission `mining_officer` is therefore a trust role; give it only to people you trust with alliance rewards.
+- Corporation CEOs and directors can only apply for their own corporation; the app enforces this in code.
+
+### External dependency: zKillboard
+
+The PvP criterion comes from zKillboard. If zKillboard is unreachable for a corporation, that corporation gets PvP 0 and is marked with a zKillboard error flag in the ranking. The distribution message states how many corporations were affected. The timeout is set by `MOONDIST_ZKILL_TIMEOUT` (default 20 seconds).
+
+### Data protection
+
+The app stores character names, corporation names and tickers, applications with the names of the submitting user, round results, and the optional intel/report entries with the name of the officer who entered them. Data about people without an account is limited to corporation data. Nothing is sent to third parties except the requests to zKillboard (kill numbers by corporation) and the public ESI alliance history (join date of corporations). Retention: the last finished round stays in the database until the next distribution is finished. Then all older finished rounds are deleted automatically, together with their applications, allocations and scores. Open and unfinished rounds are not touched; they can be deleted by an officer on the round page.
+
+
 
 - **Outgoing traffic:** during a distribution the plugin calls the public zKillboard stats API once per applying corp (only corporation IDs are sent).
 - **ESI:** only the public endpoint `GET /corporations/{corporation_id}/alliancehistory/` (no token, no scopes) for the probation – for all alliance corps when a round is opened or an officer clicks *Update join dates from ESI*, and for the applicants right before the distribution. The automatic calls are skipped when the probation is 0. If ESI is down the stored date is kept; a corp without any known date is never blocked.

@@ -1230,3 +1230,53 @@ class FleetFactorAndIntelTest(IntegrationBase):
         r = self._distribute(r)
         self.assertEqual(r.scores.get().fleet_participations, 5.0)
         self.assertEqual(r.settings_snapshot["default_fleet_factor"], 0.5)
+
+
+class RetentionTest(IntegrationBase):
+    """The last finished round is kept until the next distribution is finished, then older ones are deleted."""
+
+    def _distribute(self, r):
+        """Run the automatic distribution for a round synchronously."""
+        with mock.patch.object(distribute_round, "delay", side_effect=distribute_round), \
+                mock.patch("moondistribution.distribution.notify"):
+            process_rounds()
+        r.refresh_from_db()
+        return r
+
+    def _apply(self, r, corp, user, moons):
+        """Application with the given moons, all wanted equally."""
+        app = Application.objects.create(round=r, corporation=corp, submitted_by=user)
+        for moon in moons:
+            ApplicationWish.objects.create(application=app, moon=moon, priority=1)
+
+    def test_previous_round_kept_until_next_is_finished(self):
+        """Round 1 stays after it finished, is deleted only when round 2 finishes; round 2 stays."""
+        first = self._round(ended=True)
+        self._apply(first, self.corp_a, self.ceo_a, [self.moon1])
+        first = self._distribute(first)
+        self.assertEqual(first.status, Round.Status.DONE, first.last_error)
+
+        second = self._round(ended=True)
+        self._apply(second, self.corp_a, self.ceo_a, [self.moon1])
+        second = self._distribute(second)
+        self.assertEqual(second.status, Round.Status.DONE, second.last_error)
+
+        self.assertFalse(Round.objects.filter(pk=first.pk).exists())
+        self.assertTrue(Round.objects.filter(pk=second.pk, status=Round.Status.DONE).exists())
+
+    def test_previous_round_kept_when_next_distribution_fails(self):
+        """A failing distribution does not delete the finished round it would have replaced."""
+        first = self._round(ended=True)
+        self._apply(first, self.corp_a, self.ceo_a, [self.moon1])
+        first = self._distribute(first)
+        self.assertEqual(first.status, Round.Status.DONE, first.last_error)
+
+        second = self._round(ended=True)
+        self._apply(second, self.corp_a, self.ceo_a, [self.moon1])
+        with mock.patch("moondistribution.tasks.run_distribution", side_effect=RuntimeError("boom")), \
+                mock.patch.object(distribute_round, "delay", side_effect=distribute_round), \
+                mock.patch("moondistribution.distribution.notify"):
+            process_rounds()
+        second.refresh_from_db()
+        self.assertNotEqual(second.status, Round.Status.DONE)
+        self.assertTrue(Round.objects.filter(pk=first.pk, status=Round.Status.DONE).exists())

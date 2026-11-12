@@ -140,6 +140,16 @@ def allocate_moons(ranking: list, wishes: dict, max_per_corp: int,
             return picks
 
 
+def prune_finished_rounds(keep: Round) -> int:
+    """Delete all finished rounds except `keep` (the one that was just distributed). Returns the count deleted."""
+    old = Round.objects.filter(status=Round.Status.DONE).exclude(pk=keep.pk)
+    count = old.count()
+    old.delete()
+    if count:
+        logger.info("Deleted %s older distributed round(s) after round %s finished", count, keep.pk)
+    return count
+
+
 def previous_round_results(round_obj: Round) -> dict | None:
     """Result of the last distributed round before this one: {corp_id: [rarities received]} per applicant."""
     previous = (
@@ -300,6 +310,9 @@ def run_distribution(round_obj: Round) -> None:
             "sig_reserved": len(reserved),
         }
         round_obj.save()
+        # Keep the last finished round until the next distribution is finished (it is the base of the
+        # bonus for corps with poor results); only then the older finished rounds are deleted.
+        prune_finished_rounds(keep=round_obj)
 
     _notify_applicants(round_obj, applications, picks)
     _notify_excluded(round_obj, excluded, settings.probation_months)

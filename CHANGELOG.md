@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.16] - 2026-11-12
+
+### Added
+
+- Retention: the last finished round is kept until the next distribution is finished; then all older finished rounds are deleted (with their applications, allocations and scores)
+
+### Changed
+
+- Corptools is an optional extra (`pip install "aa-moondistribution[corptools]"`), no longer a hard dependency
+- README: setup notes for the Corptools dependency chain (httpx, django-eveonline-sde 0.2.0, django-eveuniverse 2.2.0, modeltranslation order), trust and permission notes, zKillboard outage behaviour, data protection and retention
+
 ## [0.1.15] - 2026-11-12
 
 ### Added

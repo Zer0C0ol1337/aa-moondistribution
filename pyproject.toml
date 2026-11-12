@@ -32,8 +32,13 @@ dependencies = [
     "allianceauth>=5.2,<6",
     "django-esi>=9.4",
     "openpyxl>=3.1",
-    "allianceauth-corptools>=3.4",
     "requests",
+]
+
+[project.optional-dependencies]
+# Recommended: Corptools provides roles, logins, refineries and the EVE map data (eve_sde)
+corptools = [
+    "allianceauth-corptools>=3.4",
 ]
 
 [project.urls]
